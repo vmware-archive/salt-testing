@@ -1,5 +1,5 @@
-Salt-Testing
-============
+SaltTesting
+===========
 
-This project includes some if not all the required testing tools needed in the several
-Salt Stack projects.
+This project includes some if not all of the commonly required testing tools 
+used in the several Salt Stack projects.
