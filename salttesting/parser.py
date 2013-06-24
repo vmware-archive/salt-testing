@@ -137,33 +137,60 @@ class SaltTestingParser(optparse.OptionParser):
                     self.html_output_dir
                 )
             )
-
         self.output_options_group.add_option(
-            '--no-clean',
+            '--no-report',
             default=False,
             action='store_true',
-            help='Do not clean the XML output files before running.'
+            help='Do NOT show the overall tests result'
         )
         self.add_option_group(self.output_options_group)
+
+        self.fs_cleanup_options_group = optparse.OptionGroup(
+            self, 'File system cleanup Options'
+        )
+        self.fs_cleanup_options_group.add_option(
+            '--clean',
+            dest='clean',
+            default=True,
+            action='store_true',
+            help=('Clean up test environment before and after running the '
+                  'tests suite (default behaviour)')
+        )
+        self.fs_cleanup_options_group.add_option(
+            '--no-clean',
+            dest='clean',
+            action='store_false',
+            help=('Don\'t clean up test environment before and after the '
+                  'tests suite execution (speed up test process)')
+        )
+        self.add_option_group(self.fs_cleanup_options_group)
         self.setup_additional_options()
 
     def parse_args(self, args=None, values=None):
-        options, args = optparse.OptionParser.parse_args(self, args, values)
+        self.options, self.args = optparse.OptionParser.parse_args(
+            self, args, values
+        )
+        self.pre_execution_cleanup()
+        self.__validate_options()
+        self.__setup_logging()
+        return (self.options, self.args)
 
-        if options.no_clean is False:
-            for path in (self.xml_output_dir, self.html_output_dir):
-                if path is None:
-                    continue
-                if os.path.isdir(path):
-                    shutil.rmtree(path)
+    def setup_additional_options(self):
+        '''
+        Subclasses should add additional options in this overridden method
+        '''
 
-        if self.xml_output_dir is not None and options.xml_out and \
+    def __validate_options(self):
+        '''
+        Validate the default available options
+        '''
+        if self.xml_output_dir is not None and self.options.xml_out and \
                 xmlrunner is None:
             self.error(
                 '\'--xml\' is not available. The xmlrunner library is not '
                 'installed.'
             )
-        elif self.xml_output_dir is not None and options.xml_out:
+        elif self.xml_output_dir is not None and self.options.xml_out:
             if not os.path.isdir(self.xml_output_dir):
                 os.makedirs(self.xml_output_dir)
             print(
@@ -172,7 +199,7 @@ class SaltTestingParser(optparse.OptionParser):
                 )
             )
 
-        if self.html_output_dir is not None and options.html_out:
+        if self.html_output_dir is not None and self.options.html_out:
             if not os.path.isdir(self.html_output_dir):
                 os.makedirs(self.html_output_dir)
             print(
@@ -180,7 +207,24 @@ class SaltTestingParser(optparse.OptionParser):
                     self.html_output_dir
                 )
             )
+        self.validate_options()
+        print('Current Directory: {0}'.format(os.getcwd()))
+        print_header(
+            'Test suite is running under PID {0}'.format(os.getpid()),
+            bottom=False
+        )
 
+
+    def validate_options(self):
+        '''
+        Validate the provided options. Override this method to run your own
+        validation procedures.
+        '''
+
+    def __setup_logging(self):
+        '''
+        Setup python's logging system to work with/for the tests suite
+        '''
         # Setup tests logging
         formatter = logging.Formatter(
             '%(asctime)s,%(msecs)03.0f [%(name)-5s:%(lineno)-4d]'
@@ -202,7 +246,7 @@ class SaltTestingParser(optparse.OptionParser):
             )
 
         # With greater verbosity we can also log to the console
-        if options.verbosity > 2:
+        if self.options.verbosity > 2:
             consolehandler = logging.StreamHandler(sys.stderr)
             consolehandler.setLevel(logging.INFO)       # -vv
             consolehandler.setFormatter(formatter)
@@ -217,23 +261,27 @@ class SaltTestingParser(optparse.OptionParser):
                 4: logging.TRACE,   # -vvvv
                 5: logging.GARBAGE  # -vvvvv
             }
-            if options.verbosity > 3:
+            if self.options.verbosity > 3:
                 consolehandler.setLevel(
                     handled_levels.get(
-                        options.verbosity,
-                        options.verbosity > 5 and 5 or 3
+                        self.options.verbosity,
+                        self.options.verbosity > 5 and 5 or 3
                     )
                 )
             logging.root.addHandler(consolehandler)
 
-        self.args = args
-        self.options = options
-        return (options, args)
-
-    def setup_additional_options(self):
+    def pre_execution_cleanup(self):
         '''
-        Subclasses should add additional options in this overridden method
+        Run any initial clean up operations. If sub-classed, don't forget to
+        call SaltTestingParser.pre_execution_cleanup(self) from the overridden
+        method.
         '''
+        if self.options.clean is True:
+            for path in (self.xml_output_dir, self.html_output_dir):
+                if path is None:
+                    continue
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
 
     def run_suite(self, path, display_name, suffix='[!_]*.py'):
         '''
@@ -357,3 +405,25 @@ class SaltTestingParser(optparse.OptionParser):
         print_header(
             '  Overall Tests Report  ', sep='=', centered=True, inline=True
         )
+
+    def post_execution_cleanup(self):
+        '''
+        Run any final clean-up operations.  If sub-classed, don't forget to
+        call SaltTestingParser.post_execution_cleanup(self) from the overridden
+        method.
+        '''
+        if self.options.clean is True:
+            for path in (self.xml_output_dir, self.html_output_dir):
+                if path is None:
+                    continue
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+
+    def finalize(self, exit_code=0):
+        '''
+        Run the finalization procedures. Show report, clean-up file-system, etc
+        '''
+        if self.options.no_report is False:
+            self.print_overall_testsuite_report()
+        self.post_execution_cleanup()
+        self.exit(exit_code)
