@@ -171,8 +171,8 @@ class SaltTestingParser(optparse.OptionParser):
             self, args, values
         )
         self.pre_execution_cleanup()
-        self.__validate_options()
-        self.__setup_logging()
+        self._validate_options()
+        self._setup_logging()
         return (self.options, self.args)
 
     def setup_additional_options(self):
@@ -180,7 +180,7 @@ class SaltTestingParser(optparse.OptionParser):
         Subclasses should add additional options in this overridden method
         '''
 
-    def __validate_options(self):
+    def _validate_options(self):
         '''
         Validate the default available options
         '''
@@ -220,7 +220,7 @@ class SaltTestingParser(optparse.OptionParser):
         validation procedures.
         '''
 
-    def __setup_logging(self):
+    def _setup_logging(self):
         '''
         Setup python's logging system to work with/for the tests suite
         '''
@@ -391,19 +391,19 @@ class SaltTestingParser(optparse.OptionParser):
                 sep=u'*', inline=True
             )
 
-        print_header(u'*** Test Results Counters ', sep=u'*', inline=True)
-
+        print_header(u'', sep=u'=', inline=True)
         total = sum([passed, skipped, errors, failures])
-        length = len(str(total))
-        print ' Passed: {0:>{2}}/{1:<{2}}'.format(passed, total, length)
-        print 'Skipped: {0:>{2}}/{1:<{2}}'.format(skipped, total, length)
-        print 'Errored: {0:>{2}}/{1:<{2}}'.format(errors, total, length)
-        print ' Failed: {0:>{2}}/{1:<{2}}'.format(failures, total, length)
-        print_header(u'', sep=u'*', inline=True)
-
+        print(
+            '{0} (total={1}, skipped={2}, passed={3}, failures={4}, '
+            'errors={5}) '.format(
+                (errors or failures) and 'FAILED' or 'OK',
+                total, skipped, passed, failures, errors
+            )
+        )
         print_header(
             '  Overall Tests Report  ', sep='=', centered=True, inline=True
         )
+        return
 
     def post_execution_cleanup(self):
         '''
