@@ -21,7 +21,8 @@ from salttesting.parser import SaltTestingParser
 # Import coverage libs
 try:
     import coverage
-    # Setup coverage
+    # Cover any processes if the environ variables are present
+    coverage.process_startup()
     coverage_available = True
 except ImportError:
     coverage_available = False
@@ -98,7 +99,6 @@ class SaltCoverageTestingParser(SaltTestingParser):
             # Update environ so that any subprocess started on tests are also
             # included in the report
             os.environ['COVERAGE_PROCESS_START'] = '1'
-            coverage.process_startup()
 
         # Setup coverage
         self.code_coverage = coverage.coverage(**coverage_options)
