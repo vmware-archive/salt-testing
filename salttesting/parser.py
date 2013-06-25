@@ -214,7 +214,6 @@ class SaltTestingParser(optparse.OptionParser):
             bottom=False
         )
 
-
     def validate_options(self):
         '''
         Validate the provided options. Override this method to run your own
@@ -427,3 +426,53 @@ class SaltTestingParser(optparse.OptionParser):
             self.print_overall_testsuite_report()
         self.post_execution_cleanup()
         self.exit(exit_code)
+
+
+class SaltTestcaseParser(SaltTestingParser):
+    '''
+    Option parser to run one or more ``unittest.case.TestCase``, ie, no
+    discovery involved.
+    '''
+    def __init__(self, *args, **kwargs):
+        SaltTestingParser.__init__(self, None, *args, **kwargs)
+        self.usage = '%prog [options]'
+        self.option_groups.remove(self.test_selection_group)
+        if self.has_option('--xml-out'):
+            self.remove_option('--xml-out')
+        if self.has_option('--html-out'):
+            self.remove_option('--html-out')
+
+    def get_prog_name(self):
+        return '{0} {1}'.format(sys.executable.split(os.sep)[-1], sys.argv[0])
+
+    def run_testcase(self, testcase):
+        '''
+        Run one or more ``unittest.case.TestCase``
+        '''
+        loader = TestLoader()
+        if isinstance(testcase, list):
+            for case in testcase:
+                tests = loader.loadTestsFromTestCase(case)
+        else:
+            tests = loader.loadTestsFromTestCase(testcase)
+
+        if not isinstance(testcase, list):
+            header = '{0} Tests'.format(testcase.__name__)
+            print_header('Starting {0}'.format(header))
+
+        runner = TextTestRunner(
+            verbosity=self.options.verbosity).run(tests)
+        self.testsuite_results.append((header, runner))
+        return runner.wasSuccessful()
+
+
+def run_testcase(testcase):
+    '''
+    Helper function which can be used in `__main__` block to execute that
+    specific ``unittest.case.TestCase`` tests.
+    '''
+    parser = SaltTestcaseParser()
+    parser.parse_args()
+    if parser.run_testcase(testcase) is False:
+        parser.finalize(1)
+    parser.finalize(0)
