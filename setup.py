@@ -58,7 +58,8 @@ setup(
     ],
     packages=[
         'salttesting',
-        'salttesting/ext'
+        'salttesting/ext',
+        'salttesting/parser'
     ],
     **setup_kwargs
 )
