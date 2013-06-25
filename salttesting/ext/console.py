@@ -20,23 +20,24 @@ __all__ = ['getTerminalSize']
 
 
 def getTerminalSize():
-   current_os = platform.system()
-   tuple_xy=None
-   if current_os == 'Windows':
-       tuple_xy = _getTerminalSize_windows()
-       if tuple_xy is None:
-          tuple_xy = _getTerminalSize_tput()
-          # needed for window's python in cygwin's xterm!
-   if current_os == 'Linux' or current_os == 'Darwin' or current_os.startswith('CYGWIN'):
-       tuple_xy = _getTerminalSize_linux()
-   if tuple_xy is None:
-       print 'default'
-       tuple_xy = (80, 25)      # default value
-   return tuple_xy
+    current_os = platform.system()
+    tuple_xy = None
+    if current_os == 'Windows':
+        tuple_xy = _getTerminalSize_windows()
+        if tuple_xy is None:
+            tuple_xy = _getTerminalSize_tput()
+            # needed for window's python in cygwin's xterm!
+    if current_os == 'Linux' or current_os == 'Darwin' or \
+            current_os.startswith('CYGWIN'):
+        tuple_xy = _getTerminalSize_linux()
+    if tuple_xy is None:
+        print 'default'
+        tuple_xy = (80, 25)      # default value
+    return tuple_xy
 
 
 def _getTerminalSize_windows():
-    res=None
+    res = None
     try:
         # stdin handle is -10
         # stdout handle is -11
@@ -49,7 +50,8 @@ def _getTerminalSize_windows():
         return None
     if res:
         (bufx, bufy, curx, cury, wattr,
-         left, top, right, bottom, maxx, maxy) = struct.unpack('hhhhHhhhhhh', csbi.raw)
+         left, top, right, bottom, maxx, maxy) = struct.unpack(
+             'hhhhHhhhhhh', csbi.raw)
         sizex = right - left + 1
         sizey = bottom - top + 1
         return sizex, sizey
@@ -61,21 +63,27 @@ def _getTerminalSize_tput():
     # get terminal width
     # src: http://stackoverflow.com/questions/263890/how-do-i-find-the-width-height-of-a-terminal-window
     try:
-       proc=subprocess.Popen(['tput', 'cols'],stdin=subprocess.PIPE,stdout=subprocess.PIPE)
-       output=proc.communicate(input=None)
-       cols=int(output[0])
-       proc=subprocess.Popen(['tput', 'lines'],stdin=subprocess.PIPE,stdout=subprocess.PIPE)
-       output=proc.communicate(input=None)
-       rows=int(output[0])
-       return (cols,rows)
+        proc = subprocess.Popen(
+            ['tput', 'cols'], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        )
+        output = proc.communicate(input=None)
+        cols = int(output[0])
+        proc = subprocess.Popen(
+            ['tput', 'lines'], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        )
+        output = proc.communicate(input=None)
+        rows = int(output[0])
+        return (cols, rows)
     except Exception:
-       return None
+        return None
 
 
 def _getTerminalSize_linux():
     def ioctl_GWINSZ(fd):
         try:
-            cr = struct.unpack('hh', fcntl.ioctl(fd, termios.TIOCGWINSZ,'1234'))
+            cr = struct.unpack(
+                'hh', fcntl.ioctl(fd, termios.TIOCGWINSZ, '1234')
+            )
         except Exception:
             return None
         return cr
@@ -96,5 +104,5 @@ def _getTerminalSize_linux():
 
 
 if __name__ == '__main__':
-    sizex,sizey=getTerminalSize()
-    print  'width =',sizex,'height =',sizey
+    sizex, sizey = getTerminalSize()
+    print 'width =', sizex, 'height =', sizey
