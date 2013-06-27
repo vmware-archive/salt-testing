@@ -192,3 +192,42 @@ def relative_import(import_name, relative_from='../'):
             )
         )
     return __import__(import_name)
+
+
+def ensure_in_syspath(ensure_path):
+    '''
+    Make sure that `ensure_path` exists in sys.path
+    '''
+
+    if ensure_path in sys.path:
+        # If it's an absolute path and it's in sys.path, nothing to do
+        return
+
+    # We reached here? It's either a relative path or not on sys.path
+    if os.path.isabs(ensure_path):
+        # It's an absolute path? Then include it in sys.path
+        sys.path.insert(0, ensure_path)
+        return
+
+    # If we reached here, it means it's a relative path. Let compute the
+    # relation into a real path
+    previous_frame = inspect.getframeinfo(inspect.currentframe().f_back)
+    realpath = os.path.realpath(
+        os.path.join(
+            os.path.abspath(
+                os.path.dirname(previous_frame.filename)
+            ),
+            ensure_path
+        )
+    )
+
+    if not os.path.exists(realpath):
+        # The path does not exist? Don't even inject it into sys.path
+        return
+
+    if realpath in sys.path:
+        # The path is already present in sys.path? Nothing else to do.
+        return
+
+    # Inject the computed path into sys.path
+    sys.path.insert(0, realpath)
