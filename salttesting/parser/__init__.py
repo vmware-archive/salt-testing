@@ -449,6 +449,7 @@ class SaltTestcaseParser(SaltTestingParser):
         '''
         Run one or more ``unittest.case.TestCase``
         '''
+        header = ''
         loader = TestLoader()
         if isinstance(testcase, list):
             for case in testcase:
