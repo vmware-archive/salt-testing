@@ -200,16 +200,16 @@ def ensure_in_syspath(ensure_path):
     '''
 
     if ensure_path in sys.path:
-        # If it's an absolute path and it's in sys.path, nothing to do
+        # If it's already in sys.path, nothing to do
         return
 
-    # We reached here? It's either a relative path or not on sys.path
+    # We reached here? Then ensure_path is not present in sys.path
     if os.path.isabs(ensure_path):
         # It's an absolute path? Then include it in sys.path
         sys.path.insert(0, ensure_path)
         return
 
-    # If we reached here, it means it's a relative path. Let compute the
+    # If we reached here, it means it's a relative path. Lets compute the
     # relation into a real path
     previous_frame = inspect.getframeinfo(inspect.currentframe().f_back)
     realpath = os.path.realpath(
