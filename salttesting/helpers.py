@@ -194,40 +194,47 @@ def relative_import(import_name, relative_from='../'):
     return __import__(import_name)
 
 
-def ensure_in_syspath(ensure_path):
+def ensure_in_syspath(*ensure_paths):
     '''
-    Make sure that `ensure_path` exists in sys.path
+    Make sure that any path passed in `ensure_paths` exists in sys.path
     '''
 
-    if ensure_path in sys.path:
-        # If it's already in sys.path, nothing to do
-        return
+    previous_frame = None
 
-    # We reached here? Then ensure_path is not present in sys.path
-    if os.path.isabs(ensure_path):
-        # It's an absolute path? Then include it in sys.path
-        sys.path.insert(0, ensure_path)
-        return
+    for ensure_path in ensure_paths:
+        if ensure_path in sys.path:
+            # If it's already in sys.path, nothing to do
+            continue
 
-    # If we reached here, it means it's a relative path. Lets compute the
-    # relation into a real path
-    previous_frame = inspect.getframeinfo(inspect.currentframe().f_back)
-    realpath = os.path.realpath(
-        os.path.join(
-            os.path.abspath(
-                os.path.dirname(previous_frame.filename)
-            ),
-            ensure_path
+        # We reached here? Then ensure_path is not present in sys.path
+        if os.path.isabs(ensure_path):
+            # It's an absolute path? Then include it in sys.path
+            sys.path.insert(0, ensure_path)
+            continue
+
+        # If we reached here, it means it's a relative path. Lets compute the
+        # relation into a real path
+        if previous_frame is None:
+            previous_frame = inspect.getframeinfo(
+                inspect.currentframe().f_back
+            )
+
+        realpath = os.path.realpath(
+            os.path.join(
+                os.path.abspath(
+                    os.path.dirname(previous_frame.filename)
+                ),
+                ensure_path
+            )
         )
-    )
 
-    if not os.path.exists(realpath):
-        # The path does not exist? Don't even inject it into sys.path
-        return
+        if not os.path.exists(realpath):
+            # The path does not exist? Don't even inject it into sys.path
+            continue
 
-    if realpath in sys.path:
-        # The path is already present in sys.path? Nothing else to do.
-        return
+        if realpath in sys.path:
+            # The path is already present in sys.path? Nothing else to do.
+            continue
 
-    # Inject the computed path into sys.path
-    sys.path.insert(0, realpath)
+        # Inject the computed path into sys.path
+        sys.path.insert(0, realpath)
