@@ -12,6 +12,7 @@
 
 import os
 import sys
+import types
 import inspect
 import logging
 import __builtin__
@@ -325,3 +326,45 @@ class ForceImportErrorOn(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.restore_import_funtion()
+
+
+class MockWraps(object):
+    '''
+    Helper class to be used with the mock library.
+    To be used in the ``wraps`` keyword of ``Mock`` or ``MagicMock`` where you
+    want to trigger a side effect for X times, and afterwards, call the
+    original and un-mocked method.
+
+    As an example:
+
+    >>> def original():
+    ...     print 'original'
+    ...
+    >>> def side_effect():
+    ...     print 'side effect'
+    ...
+    >>> mw = MockWraps(original, 2, side_effect)
+    >>> mw()
+    side effect
+    >>> mw()
+    side effect
+    >>> mw()
+    original
+    >>>
+
+    '''
+    def __init__(self, original, expected_failures, side_effect):
+        self.__original = original
+        self.__expected_failures = expected_failures
+        self.__side_effect = side_effect
+        self.__call_counter = 0
+
+    def __call__(self, *args, **kwargs):
+        try:
+            if self.__call_counter < self.__expected_failures:
+                if isinstance(self.__side_effect, types.FunctionType):
+                    return self.__side_effect()
+                raise self.__side_effect
+            return self.__original(*args, **kwargs)
+        finally:
+            self.__call_counter += 1
