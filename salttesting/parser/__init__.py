@@ -56,6 +56,8 @@ def print_header(header, sep='~', top=True, bottom=True, inline=False,
 
 
 class SaltTestingParser(optparse.OptionParser):
+    support_destructive_tests_selection = False
+
     def __init__(self, testsuite_directory, *args, **kwargs):
         # Get XML output settings
         xml_output_dir_env_var = kwargs.pop(
@@ -95,6 +97,15 @@ class SaltTestingParser(optparse.OptionParser):
             'Tests Selection Options',
             'Select which tests are to be executed'
         )
+        if self.support_destructive_tests_selection is True:
+            self.test_selection_group.add_option(
+                '--run-destructive',
+                action='store_true',
+                default=False,
+                help=('Run destructive tests. These tests can include adding '
+                      'or removing users from your system for example. '
+                      'Default: %default')
+            )
         self.test_selection_group.add_option(
             '-n',
             '--name',
@@ -207,7 +218,14 @@ class SaltTestingParser(optparse.OptionParser):
                     self.html_output_dir
                 )
             )
+
         self.validate_options()
+
+        if self.support_destructive_tests_selection:
+            # Set the required environment variable in order to know if
+            # destructive tests should be executed or not.
+            os.environ['DESTRUCTIVE_TESTS'] = str(self.options.run_destructive)
+
         print('Current Directory: {0}'.format(os.getcwd()))
         print_header(
             'Test suite is running under PID {0}'.format(os.getpid()),
