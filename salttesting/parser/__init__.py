@@ -300,12 +300,13 @@ class SaltTestingParser(optparse.OptionParser):
                 if os.path.isdir(path):
                     shutil.rmtree(path)
 
-    def run_suite(self, path, display_name, suffix='[!_]*.py'):
+    def run_suite(self, path, display_name, suffix='[!_]*.py',
+                  load_from_name=False):
         '''
         Execute a unit test suite
         '''
         loader = TestLoader()
-        if self.options.name:
+        if load_from_name:
             tests = loader.loadTestsFromName(display_name)
         else:
             tests = loader.discover(path, suffix, self.testsuite_directory)
