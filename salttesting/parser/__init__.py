@@ -333,6 +333,7 @@ class SaltTestingParser(optparse.OptionParser):
             self.testsuite_results.append((header, runner))
         else:
             runner = TextTestRunner(
+                stream=sys.stdout,
                 verbosity=self.options.verbosity).run(tests)
             self.testsuite_results.append((header, runner))
         return runner.wasSuccessful()
