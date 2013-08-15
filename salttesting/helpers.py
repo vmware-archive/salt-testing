@@ -13,6 +13,7 @@
 import os
 import sys
 import types
+import socket
 import inspect
 import logging
 import __builtin__
@@ -368,3 +369,32 @@ class MockWraps(object):
             return self.__original(*args, **kwargs)
         finally:
             self.__call_counter += 1
+
+
+def requires_network(func):
+    '''
+    Simple decorator which is supposed to skip a test case in case there's no
+    network connection to the internet.
+    '''
+    @wraps(func)
+    def wrap(cls):
+        # We are using the google.com DNS records as numerical to avoid DNS
+        # lookups which could greatly slow down this check
+        for addr in ('173.194.41.198', '173.194.41.199', '173.194.41.200',
+                     '173.194.41.201', '173.194.41.206', '173.194.41.192',
+                     '173.194.41.193', '173.194.41.194', '173.194.41.195',
+                     '173.194.41.196', '173.194.41.197'):
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(0.25)
+                sock.connect(addr, 80)
+                sock.close()
+                # We return false so that the test is not skipped
+                return False
+            except socket.error:
+                # Let's check the next IP
+                continue
+            else:
+                cls.skipTest('No network connection was detected')
+        return func(cls)
+    return wrap
