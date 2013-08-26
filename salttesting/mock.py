@@ -12,6 +12,8 @@
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
+from __future__ import absolute_import
+
 try:
     from mock import (
         Mock,
@@ -41,6 +43,9 @@ except ImportError:
             pass
 
         def dict(self, *args, **kwargs):
+            return self
+
+        def multiple(self, *args, **kwargs):
             return self
 
         def __call__(self, *args, **kwargs):
