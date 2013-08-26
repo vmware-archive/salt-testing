@@ -13,7 +13,20 @@
 '''
 
 try:
-    from mock import *
+    from mock import (
+        Mock,
+        MagicMock,
+        patch,
+        sentinel,
+        DEFAULT,
+        # ANY and call will be imported further down
+        create_autospec,
+        FILTER_DIR,
+        NonCallableMock,
+        NonCallableMagicMock,
+        mock_open,
+        PropertyMock
+    )
     NO_MOCK = False
     NO_MOCK_REASON = ''
 except ImportError:
@@ -35,6 +48,9 @@ except ImportError:
 
     Mock = MagicMock
     patch = MagicMock()
+    call = tuple
+    ANY = object()
+
 
 if NO_MOCK is False:
     try:
