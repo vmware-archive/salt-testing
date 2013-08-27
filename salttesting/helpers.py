@@ -19,6 +19,8 @@ import logging
 import __builtin__
 from functools import wraps
 
+log = logging.getLogger(__name__)
+
 
 def destructiveTest(func):
     @wraps(func)
@@ -438,5 +440,108 @@ def requires_network(only_local_network=False):
                 else:
                     cls.skipTest('No internet network connection was detected')
             return func(cls)
+        return wrap
+    return decorator
+
+
+def with_system_account(username, on_existing='delete', delete=True):
+    '''
+    Create and optionally destroy a system account to be used within a test
+    case. The system account is crated using the ``user`` salt module.
+
+    The decorated testcase function must accept 'username' as an argument.
+
+    :param username: The desired username for the system account.
+    :param on_existing: What to do when the desired username is taken. The
+    available options are:
+
+        * nothing: Do nothing, act as if the account was created.
+        * delete: delete and re-create the existing account
+        * skip: skip the test case
+    '''
+    if on_existing not in ('nothing', 'delete', 'skip'):
+        raise RuntimeError(
+            'The value of \'on_existing\' can only be one of, '
+            '\'nothing\', \'delete\' and \'skip\''
+        )
+
+    if not isinstance(delete, bool):
+        raise RuntimeError(
+            'The value of \'delete\' can only be \'True\' or \'False\''
+        )
+
+    def decorator(func):
+
+        @wraps(func)
+        def wrap(cls):
+
+            # Let's add the account to the system.
+            log.debug('Creating system account for {0!r}'.format(username))
+            create_account = cls.run_function('user.add', [username])
+            if not create_account:
+                log.debug('Failed to create system account')
+                # The account was not created
+                if on_existing == 'skip':
+                    cls.skipTest(
+                        'Failed to create system account for {0!r}'.format(
+                            username
+                        )
+                    )
+
+                if on_existing == 'delete':
+                    log.debug(
+                        'Deleting the system account for {0!r}'.format(
+                            username
+                        )
+                    )
+                    delete_account = cls.run_function(
+                        'user.delete', [username, True, True]
+                    )
+                    if not delete_account:
+                        cls.skipTest(
+                            'An account by the username {0!r} already '
+                            'existed on the system and re-creating it was '
+                            'not possible'.format(username)
+                        )
+                    log.debug(
+                        'Second time creating system account for {0!r}'.format(
+                            username
+                        )
+                    )
+                    create_account = cls.run_function('user.add', [username])
+                    if not create_account:
+                        cls.skipTest(
+                            'An account by the username {0!r} already '
+                            'existed, was deleted as requested, but '
+                            're-creating it was not possible'.format(username)
+                        )
+
+
+            failure = None
+            try:
+                try:
+                    return func(cls, username)
+                except Exception as exc:
+                    log.exception(exc)
+                    failure = exc
+            finally:
+                if delete:
+                    delete_account = cls.run_function(
+                        'user.delete', [username, True, True]
+                    )
+                    if not delete_account:
+                        if failure is None:
+                            raise AssertionError(
+                                'Although the actual test-case did not fail '
+                                'deleting the created system account for '
+                                '{0!r} afterwards did.'.format(username)
+                            )
+                        log.warning(
+                            'The test-case failed and also did the removal of '
+                            'the system account for {0!r}'.format(username)
+                        )
+                if failure is not None:
+                    # If an exception was thrown, raise it
+                    raise failure
         return wrap
     return decorator
