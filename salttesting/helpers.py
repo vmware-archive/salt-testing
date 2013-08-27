@@ -531,15 +531,18 @@ def with_system_account(username, on_existing='delete', delete=True):
                     )
                     if not delete_account:
                         if failure is None:
-                            raise AssertionError(
+                            log.warning(
                                 'Although the actual test-case did not fail '
                                 'deleting the created system account for '
                                 '{0!r} afterwards did.'.format(username)
                             )
-                        log.warning(
-                            'The test-case failed and also did the removal of '
-                            'the system account for {0!r}'.format(username)
-                        )
+                        else:
+                            log.warning(
+                                'The test-case failed and also did the removal'
+                                ' of the system account for {0!r}'.format(
+                                    username
+                                )
+                            )
                 if failure is not None:
                     # If an exception was thrown, raise it
                     raise failure
