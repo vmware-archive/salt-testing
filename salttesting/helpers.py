@@ -548,3 +548,20 @@ def with_system_account(username, on_existing='delete', delete=True):
                     raise failure
         return wrap
     return decorator
+
+
+def requires_system_grains(func):
+    '''
+    Function decorator which loads and passes the system's grains to the test
+    case.
+    '''
+    if not hasattr(cls, 'run_function'):
+        raise RuntimeError(
+            '{0} does not have the \'run_function\' method which is necessary '
+            'to collect the system grains'.format(cls.__class__.__name__)
+        )
+
+    @wraps(func)
+    def decorator(cls):
+        return func(cls, grains=cls.run_function('grains.items'))
+    return decorator
