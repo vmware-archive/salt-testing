@@ -555,13 +555,14 @@ def requires_system_grains(func):
     Function decorator which loads and passes the system's grains to the test
     case.
     '''
-    if not hasattr(cls, 'run_function'):
-        raise RuntimeError(
-            '{0} does not have the \'run_function\' method which is necessary '
-            'to collect the system grains'.format(cls.__class__.__name__)
-        )
-
     @wraps(func)
     def decorator(cls):
+        if not hasattr(cls, 'run_function'):
+            raise RuntimeError(
+                '{0} does not have the \'run_function\' method which is '
+                'necessary to collect the system grains'.format(
+                    cls.__class__.__name__
+                )
+            )
         return func(cls, grains=cls.run_function('grains.items'))
     return decorator
