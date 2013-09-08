@@ -23,9 +23,9 @@ try:
     import coverage
     # Cover any processes if the environ variables are present
     coverage.process_startup()
-    coverage_available = True
+    COVERAGE_AVAILABLE = True
 except ImportError:
-    coverage_available = False
+    COVERAGE_AVAILABLE = False
 
 
 class SaltCoverageTestingParser(SaltTestingParser):
@@ -50,28 +50,22 @@ class SaltCoverageTestingParser(SaltTestingParser):
                  'coverage will be written to'
         )
         self.output_options_group.add_option(
-            '--coverage-report',
+            '--coverage-html',
             default=None,
             help=('The directory where the generated HTML coverage report '
                   'will be saved to. The directory, if existing, will be '
-                  'deleted before the report is generated. '
-                  'Default: ./coverage-report')
-        )
-        self.output_options_group.add_option(
-            '--no-coverage-report',
-            default=False,
-            action='store_true',
-            help='Don\'t build the coverage HTML report'
+                  'deleted before the report is generated.')
         )
 
     def _validate_options(self):
-        if (self.options.coverage or self.options.coverage_xml) and \
-                coverage_available is False:
+        if (self.options.coverage or self.options.coverage_xml or
+                self.options.coverage_html) and COVERAGE_AVAILABLE is False:
             self.error(
                 'Cannot run tests with coverage report. '
                 'Please install coverage>=3.5.3'
             )
-        elif self.options.coverage or self.options.coverage_xml:
+        elif self.options.coverage or self.options.coverage_xml or \
+                self.options.coverage_html:
             coverage_version = tuple([
                 int(part) for part in re.search(
                     r'([0-9.]+)', coverage.__version__).group(0).split('.')
@@ -83,10 +77,6 @@ class SaltCoverageTestingParser(SaltTestingParser):
                     'know to produce incorrect results. Please consider '
                     'upgrading...'
                 )
-        if self.options.coverage_report is None:
-            self.options.coverage_report = os.path.join(
-                os.getcwd(), 'coverage-report'
-            )
         SaltTestingParser._validate_options(self)
 
     def start_coverage(self, track_processes=True, **coverage_options):
@@ -97,7 +87,8 @@ class SaltCoverageTestingParser(SaltTestingParser):
         available options please see:
             http://nedbatchelder.com/code/coverage/api.html
         '''
-        if not self.options.coverage and not self.options.coverage_xml:
+        if not self.options.coverage and not self.options.coverage_xml \
+                and not self.options.coverage_html:
             return
 
         print(' * Starting Coverage')
@@ -115,7 +106,8 @@ class SaltCoverageTestingParser(SaltTestingParser):
         '''
         Stop code coverage.
         '''
-        if not self.options.coverage and not self.options.coverage_xml:
+        if not self.options.coverage and not self.options.coverage_xml \
+                and not self.options.coverage_html:
             return
 
         print(' * Stopping coverage')
@@ -125,34 +117,35 @@ class SaltCoverageTestingParser(SaltTestingParser):
             self.code_coverage.save()
 
         if self.options.coverage_xml is not None:
+            print(
+                ' * Generating Coverage XML Report At {0!r} ... '.format(
+                    self.options.coverage_xml
+                )
+            ),
+            sys.stdout.flush()
             self.code_coverage.xml_report(
                 outfile=self.options.coverage_xml
             )
+            print('Done.\n')
 
-        if self.options.no_coverage_report is False:
+        if self.options.coverage_html is not None:
             print(
                 ' * Generating Coverage HTML Report Under {0!r} ... '.format(
-                    self.options.coverage_report
+                    self.options.coverage_html
                 )
             ),
             sys.stdout.flush()
 
-            if os.path.isdir(self.options.coverage_report):
+            if os.path.isdir(self.options.coverage_html):
                 import shutil
-                shutil.rmtree(self.options.coverage_report)
+                shutil.rmtree(self.options.coverage_html)
             self.code_coverage.html_report(
-                directory=self.options.coverage_report
+                directory=self.options.coverage_html
             )
             print('Done.\n')
 
-    def print_overall_testsuite_report(self, save_coverage=True):
-        SaltTestingParser.print_overall_testsuite_report(self)
-        if self.options.coverage is False:
-            return
-        self.stop_coverage(save_coverage)
-
     def finalize(self, exit_code, save_coverage=True):
-        if self.options.no_report:
-            if self.options.coverage:
-                self.stop_coverage(save_coverage)
+        if self.options.coverage or self.options.coverage_xml \
+                or self.options.coverage_html:
+            self.stop_coverage(save_coverage)
         SaltTestingParser.finalize(self, exit_code)
