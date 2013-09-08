@@ -316,6 +316,7 @@ class SaltTestingParser(optparse.OptionParser):
 
         if self.options.xml_out:
             runner = xmlrunner.XMLTestRunner(
+                stream=sys.stdout,
                 output=self.xml_output_dir,
                 verbosity=self.options.verbosity
             ).run(tests)
