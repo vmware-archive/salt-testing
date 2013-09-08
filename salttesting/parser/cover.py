@@ -44,6 +44,12 @@ class SaltCoverageTestingParser(SaltTestingParser):
             help='Run tests and report code coverage'
         )
         self.output_options_group.add_option(
+            '--coverage-xml',
+            default=None,
+            help='If provided, the path to where a XML report of the code '
+                 'coverage will be written to'
+        )
+        self.output_options_group.add_option(
             '--coverage-report',
             default=None,
             help=('The directory where the generated HTML coverage report '
@@ -59,12 +65,13 @@ class SaltCoverageTestingParser(SaltTestingParser):
         )
 
     def _validate_options(self):
-        if self.options.coverage and coverage_available is False:
+        if (self.options.coverage or self.options.coverage_xml) and \
+                coverage_available is False:
             self.error(
                 'Cannot run tests with coverage report. '
                 'Please install coverage>=3.5.3'
             )
-        elif self.options.coverage:
+        elif self.options.coverage or self.options.coverage_xml:
             coverage_version = tuple([
                 int(part) for part in re.search(
                     r'([0-9.]+)', coverage.__version__).group(0).split('.')
@@ -90,7 +97,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
         available options please see:
             http://nedbatchelder.com/code/coverage/api.html
         '''
-        if self.options.coverage is False:
+        if not self.options.coverage and not self.options.coverage_xml:
             return
 
         print(' * Starting Coverage')
@@ -108,7 +115,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
         '''
         Stop code coverage.
         '''
-        if self.options.coverage is False:
+        if not self.options.coverage and not self.options.coverage_xml:
             return
 
         print(' * Stopping coverage')
@@ -116,6 +123,11 @@ class SaltCoverageTestingParser(SaltTestingParser):
         if save_coverage:
             print(' * Saving coverage info')
             self.code_coverage.save()
+
+        if self.options.coverage_xml is not None:
+            self.code_coverage.xml_report(
+                outfile=self.options.coverage_xml
+            )
 
         if self.options.no_coverage_report is False:
             print(
