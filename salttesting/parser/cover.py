@@ -14,6 +14,7 @@
 import os
 import re
 import sys
+import shutil
 
 # Import salt testing libs
 from salttesting.parser import SaltTestingParser
@@ -58,14 +59,17 @@ class SaltCoverageTestingParser(SaltTestingParser):
         )
 
     def _validate_options(self):
-        if (self.options.coverage or self.options.coverage_xml or
-                self.options.coverage_html) and COVERAGE_AVAILABLE is False:
+        if (self.options.coverage_xml or self.options.coverage_html) and \
+                not self.options.coverage:
+            self.options.coverage = True
+
+        if self.options.coverage is True and COVERAGE_AVAILABLE is False:
             self.error(
                 'Cannot run tests with coverage report. '
                 'Please install coverage>=3.5.3'
             )
-        elif self.options.coverage or self.options.coverage_xml or \
-                self.options.coverage_html:
+
+        if self.options.coverage is True:
             coverage_version = tuple([
                 int(part) for part in re.search(
                     r'([0-9.]+)', coverage.__version__).group(0).split('.')
@@ -79,6 +83,15 @@ class SaltCoverageTestingParser(SaltTestingParser):
                 )
         SaltTestingParser._validate_options(self)
 
+    def pre_execution_cleanup(self):
+        if self.options.coverage_html is not None:
+            if os.path.isdir(self.options.coverage_html):
+                shutil.rmtree(self.options.coverage_html)
+        if self.options.coverage_xml is not None:
+            if os.path.isfile(self.options.coverage_xml):
+                os.unlink(self.options.coverage_xml)
+        SaltTestingParser.pre_execution_cleanup(self)
+
     def start_coverage(self, track_processes=True, **coverage_options):
         '''
         Start code coverage.
@@ -87,8 +100,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
         available options please see:
             http://nedbatchelder.com/code/coverage/api.html
         '''
-        if not self.options.coverage and not self.options.coverage_xml \
-                and not self.options.coverage_html:
+        if self.options.coverage is False:
             return
 
         print(' * Starting Coverage')
@@ -106,8 +118,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
         '''
         Stop code coverage.
         '''
-        if not self.options.coverage and not self.options.coverage_xml \
-                and not self.options.coverage_html:
+        if self.options.coverage is False:
             return
 
         print(' * Stopping coverage')
@@ -135,17 +146,12 @@ class SaltCoverageTestingParser(SaltTestingParser):
                 )
             ),
             sys.stdout.flush()
-
-            if os.path.isdir(self.options.coverage_html):
-                import shutil
-                shutil.rmtree(self.options.coverage_html)
             self.code_coverage.html_report(
                 directory=self.options.coverage_html
             )
             print('Done.\n')
 
-    def finalize(self, exit_code, save_coverage=True):
-        if self.options.coverage or self.options.coverage_xml \
-                or self.options.coverage_html:
-            self.stop_coverage(save_coverage)
+    def finalize(self, exit_code=0):
+        if self.options.coverage is True:
+            self.stop_coverage(save_coverage=True)
         SaltTestingParser.finalize(self, exit_code)
