@@ -132,9 +132,9 @@ class SaltTestingParser(optparse.OptionParser):
             self.output_options_group.add_option(
                 '-x',
                 '--xml',
+                '--xml-out',
                 dest='xml_out',
                 default=False,
-                action='store_true',
                 help='XML test runner output(Output directory: {0})'.format(
                     self.xml_output_dir
                 )
@@ -205,18 +205,16 @@ class SaltTestingParser(optparse.OptionParser):
             if not os.path.isdir(self.xml_output_dir):
                 os.makedirs(self.xml_output_dir)
             print(
-                'Generated XML reports will be stored on {0!r}'.format(
-                    self.xml_output_dir
-                )
+                'Generated unit test XML reports will be stored '
+                'at {0!r}'.format(self.xml_output_dir)
             )
 
         if self.html_output_dir is not None and self.options.html_out:
             if not os.path.isdir(self.html_output_dir):
                 os.makedirs(self.html_output_dir)
             print(
-                'Generated HTML reports will be stored on {0!r}'.format(
-                    self.html_output_dir
-                )
+                'Generated unit test HTML reports will be stored '
+                'at {0!r}'.format(self.html_output_dir)
             )
 
         self.validate_options()
