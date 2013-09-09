@@ -291,12 +291,6 @@ class SaltTestingParser(optparse.OptionParser):
         call SaltTestingParser.pre_execution_cleanup(self) from the overridden
         method.
         '''
-        if self.options.clean is True:
-            for path in (self.xml_output_dir, self.html_output_dir):
-                if path is None:
-                    continue
-                if os.path.isdir(path):
-                    shutil.rmtree(path)
 
     def run_suite(self, path, display_name, suffix='[!_]*.py',
                   load_from_name=False):
