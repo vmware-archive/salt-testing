@@ -149,6 +149,13 @@ class SaltCoverageTestingParser(SaltTestingParser):
         if self.options.coverage is False:
             return
 
+        if coverage_options.pop('track_processes', None) is not None:
+            raise RuntimeWarning(
+                'Please stop passing \'track_processes\' to '
+                '\'start_coverage()\'. It\'s now the default and '
+                '\'--no-processes-coverage\' was added to the parse to '
+                'disable.'
+            )
         print(' * Starting Coverage')
 
         if self.options.no_processes_coverage is False:
