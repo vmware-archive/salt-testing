@@ -153,8 +153,8 @@ class SaltCoverageTestingParser(SaltTestingParser):
             raise RuntimeWarning(
                 'Please stop passing \'track_processes\' to '
                 '\'start_coverage()\'. It\'s now the default and '
-                '\'--no-processes-coverage\' was added to the parse to '
-                'disable.'
+                '\'--no-processes-coverage\' was added to the parser to '
+                'disable it.'
             )
         print(' * Starting Coverage')
 
