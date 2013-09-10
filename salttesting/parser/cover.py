@@ -14,6 +14,7 @@
 import os
 import re
 import sys
+import json
 import shutil
 
 # Import salt testing libs
@@ -22,11 +23,50 @@ from salttesting.parser import SaltTestingParser
 # Import coverage libs
 try:
     import coverage
-    # Cover any processes if the environ variables are present
-    coverage.process_startup()
     COVERAGE_AVAILABLE = True
 except ImportError:
     COVERAGE_AVAILABLE = False
+
+try:
+    import multiprocessing.util
+    # Force forked multiprocessing processes to be measured as well
+
+    def multiprocessing_stop(coverage_object):
+        '''
+        Save the multiprocessing process coverage object
+        '''
+        coverage_object.stop()
+        coverage_object.save()
+
+    def multiprocessing_start(obj):
+        coverage_options = json.loads(os.environ.get('COVERAGE_OPTIONS', '{}'))
+        if not coverage_options:
+            return
+
+        if coverage_options.get('data_suffix', False) is False:
+            return
+
+        coverage_object = coverage.coverage(**coverage_options)
+        coverage_object.start()
+
+        multiprocessing.util.Finalize(
+            None,
+            multiprocessing_stop,
+            args=(coverage_object,),
+            exitpriority=1000
+        )
+
+    if COVERAGE_AVAILABLE:
+        multiprocessing.util.register_after_fork(
+            multiprocessing_start,
+            multiprocessing_start
+        )
+except ImportError:
+    pass
+
+if COVERAGE_AVAILABLE:
+    # Cover any processes if the environ variables are present
+    coverage.process_startup()
 
 
 class SaltCoverageTestingParser(SaltTestingParser):
@@ -43,6 +83,12 @@ class SaltCoverageTestingParser(SaltTestingParser):
             default=False,
             action='store_true',
             help='Run tests and report code coverage'
+        )
+        self.output_options_group.add_option(
+            '--no-processes-coverage',
+            default=False,
+            action='store_true',
+            help='Do not track subprocess and/or multiprocessing processes'
         )
         self.output_options_group.add_option(
             '--coverage-xml',
@@ -92,7 +138,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
                 os.unlink(self.options.coverage_xml)
         SaltTestingParser.pre_execution_cleanup(self)
 
-    def start_coverage(self, track_processes=True, **coverage_options):
+    def start_coverage(self, **coverage_options):
         '''
         Start code coverage.
 
@@ -105,10 +151,12 @@ class SaltCoverageTestingParser(SaltTestingParser):
 
         print(' * Starting Coverage')
 
-        if track_processes is True:
+        if self.options.no_processes_coverage is False:
             # Update environ so that any subprocess started on tests are also
             # included in the report
+            coverage_options['data_suffix'] = True
             os.environ['COVERAGE_PROCESS_START'] = '1'
+            os.environ['COVERAGE_OPTIONS'] = json.dumps(coverage_options)
 
         # Setup coverage
         self.code_coverage = coverage.coverage(**coverage_options)
@@ -121,11 +169,21 @@ class SaltCoverageTestingParser(SaltTestingParser):
         if self.options.coverage is False:
             return
 
+        # Clean up environment
+        os.environ.pop('COVERAGE_OPTIONS', None)
+        os.environ.pop('COVERAGE_PROCESS_START', None)
+
         print(' * Stopping coverage')
         self.code_coverage.stop()
         if save_coverage:
             print(' * Saving coverage info')
             self.code_coverage.save()
+
+        if self.options.no_processes_coverage is False:
+            # Combine any multiprocessing coverage data files
+            print(' * Combining multiple coverage info files ... '),
+            self.code_coverage.combine()
+            print('Done.')
 
         if self.options.coverage_xml is not None:
             print(
@@ -137,7 +195,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
             self.code_coverage.xml_report(
                 outfile=self.options.coverage_xml
             )
-            print('Done.\n')
+            print('Done.')
 
         if self.options.coverage_html is not None:
             print(
@@ -149,7 +207,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
             self.code_coverage.html_report(
                 directory=self.options.coverage_html
             )
-            print('Done.\n')
+            print('Done.')
 
     def finalize(self, exit_code=0):
         if self.options.coverage is True:
