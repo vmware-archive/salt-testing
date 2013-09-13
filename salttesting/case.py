@@ -30,7 +30,13 @@ class ShellTestCase(TestCase):
     _script_dir_ = None
     _python_executable_ = None
 
-    def run_script(self, script, arg_str, catch_stderr=False, timeout=None):
+    def run_script(
+            self,
+            script,
+            arg_str,
+            catch_stderr=False,
+            with_retcode=False,
+            timeout=None):
         '''
         Execute a script with the given argument string
         '''
@@ -94,10 +100,15 @@ class ShellTestCase(TestCase):
                         'Process Killed!'.format(timeout)
                     ]
                     if catch_stderr:
-                        return out, [
-                            'Process killed, unable to catch stderr output'
-                        ]
-                    return out
+                        err = ['Process killed, unable to catch stderr output']
+                        if with_retcode:
+                            return out, err, process.returncode
+                        else:
+                            return out, err
+                    if with_retcode:
+                        return out, process.returncode
+                    else:
+                        return out
 
                 if process.returncode is not None:
                     break
@@ -125,7 +136,10 @@ class ShellTestCase(TestCase):
             process.stdout.close()
             process.stderr.close()
             try:
-                return out.splitlines(), err.splitlines()
+                if with_retcode:
+                    return out.splitlines(), err.splitlines(), process.returncode
+                else:
+                    return out.splitlines(), err.splitlines()
             finally:
                 try:
                     process.terminate()
@@ -137,7 +151,10 @@ class ShellTestCase(TestCase):
         process.stdout.close()
 
         try:
-            return data[0].splitlines()
+            if with_retcode:
+                return data[0].splitlines(), process.returncode
+            else:
+                return data[0].splitlines()
         finally:
             try:
                 process.terminate()
