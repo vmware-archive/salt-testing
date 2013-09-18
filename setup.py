@@ -59,7 +59,8 @@ setup(
     packages=[
         'salttesting',
         'salttesting/ext',
-        'salttesting/parser'
+        'salttesting/parser',
+        'salttesting/pylintplugins'
     ],
     **setup_kwargs
 )
