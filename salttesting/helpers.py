@@ -380,7 +380,7 @@ def requires_network(only_local_network=False):
     '''
     def decorator(func):
         @wraps(func)
-        def wrap(cls):
+        def wrapper(cls):
             has_local_network = False
             # First lets try if we have a local network. Inspired in
             # verify_socket
@@ -397,8 +397,8 @@ def requires_network(only_local_network=False):
             except socket.error:
                 # I wonder if we just have IPV6 support?
                 try:
-                    pubsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    retsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    pubsock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                    retsock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                     pubsock.setsockopt(
                         socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
                     )
@@ -440,7 +440,7 @@ def requires_network(only_local_network=False):
                 else:
                     cls.skipTest('No internet network connection was detected')
             return func(cls)
-        return wrap
+        return wrapper
     return decorator
 
 
