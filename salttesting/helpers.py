@@ -566,3 +566,60 @@ def requires_system_grains(func):
             )
         return func(cls, grains=cls.run_function('grains.items'))
     return decorator
+
+
+def requires_salt_modules(*names):
+    '''
+    Makes sure the passed salt module is available. Skips the test if not
+
+    .. versionadded:: 0.5.2
+    '''
+    def decorator(caller):
+
+        if inspect.isclass(caller):
+
+            # We're decorating a class
+            old_init = caller.__init__
+
+            def new_init(self, *args, **kwargs):
+                old_init(self, *args, **kwargs)
+
+                if not hasattr(self, 'run_function'):
+                    raise RuntimeError(
+                        '{0} does not have the \'run_function\' method which '
+                        'is necessary to collect the loaded modules'.format(
+                            self.__class__.__name__
+                        )
+                    )
+
+                for name in names:
+                    if name not in self.run_function('sys.doc'):
+                        reason = '{0!r} is not available'.format(name)
+                        for fname in dir(self):
+                            if not fname.startswith('test_'):
+                                continue
+                            setattr(self, fname, lambda: self.skipTest(reason))
+                        break
+            caller.__init__ = new_init
+            return caller
+
+        # We're simply decorating functions
+        @wraps(caller)
+        def wrapper(cls):
+
+            if not hasattr(cls, 'run_function'):
+                raise RuntimeError(
+                    '{0} does not have the \'run_function\' method which is '
+                    'necessary to collect the loaded modules'.format(
+                        cls.__class__.__name__
+                    )
+                )
+
+            for name in names:
+                if name not in cls.run_function('sys.doc'):
+                    cls.skipTest('{0!r} is not available'.format(name))
+                    break
+
+            return caller(cls)
+        return wrapper
+    return decorator
