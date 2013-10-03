@@ -284,6 +284,7 @@ class SaltTestingParser(optparse.OptionParser):
                     )
                 )
             logging.root.addHandler(consolehandler)
+            logging.getLogger(__name__).info('Runtests logging has been setup')
 
     def pre_execution_cleanup(self):
         '''
@@ -441,6 +442,11 @@ class SaltTestingParser(optparse.OptionParser):
         if self.options.no_report is False:
             self.print_overall_testsuite_report()
         self.post_execution_cleanup()
+        logging.getLogger(__name__).info(
+            'Test suite execution finalized with exit code: {0}'.format(
+                exit_code
+            )
+        )
         self.exit(exit_code)
 
 
