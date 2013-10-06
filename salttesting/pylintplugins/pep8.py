@@ -33,7 +33,10 @@ class PyLintPEP8Reporter(BaseReport):
         code = super(PyLintPEP8Reporter, self).error(
             line_number, offset, text, check
         )
-        self.locations.append((code, line_number))
+        if code:
+            # E123, at least, is not reporting it's code in the above call,
+            # don't want to bother about that now
+            self.locations.append((code, line_number))
 
 
 class _PEP8BaseChecker(BaseChecker):
@@ -44,6 +47,8 @@ class _PEP8BaseChecker(BaseChecker):
 
     priority = -1
     options = ()
+
+    msgs_map = {}
 
     def process_module(self, node):
         '''
@@ -61,9 +66,14 @@ class _PEP8BaseChecker(BaseChecker):
 
         for code, lineno in _PROCESSED_NODES[node.path].locations:
             pylintcode = '{0}8{1}'.format(code[0], code[1:])
+            if pylintcode in self.msgs_map:
+                # This will be handled by PyLint itself, skip it
+                continue
+
             if pylintcode not in self.msgs:
                 # Log warning??
                 continue
+
             self.add_message(pylintcode, line=lineno, args=code)
 
 
@@ -182,6 +192,10 @@ class PEP8LineLength(_PEP8BaseChecker):
                   'line-too-long-(82->-79-characters)'),
         'E8502': ('PEP8 %s: the backslash is redundant between brackets',
                   'the-backslash-is-redundant-between-brackets')
+    }
+
+    msgs_map = {
+        'E8501': 'C0301'
     }
 
 
