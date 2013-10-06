@@ -48,7 +48,21 @@ class _PEP8BaseChecker(BaseChecker):
     priority = -1
     options = ()
 
+    msgs = None
+    _msgs = {}
     msgs_map = {}
+
+    def __init__(self, linter=None):
+        # To avoid PyLints deprecation about a missing symbolic name and
+        # because I don't want to add descriptions, let's make the descriptions
+        # equal to the messages.
+        if self.msgs is None:
+            self.msgs = {}
+
+        for code, (message, symbolic) in self._msgs.iteritems():
+            self.msgs[code] = (message, symbolic, message)
+
+        BaseChecker.__init__(self, linter=linter)
 
     def process_module(self, node):
         '''
@@ -82,7 +96,7 @@ class PEP8Indentation(_PEP8BaseChecker):
     Process PEP8 E1 codes
     '''
 
-    msgs = {
+    _msgs = {
         'E8101': ('PEP8 %s: indentation contains mixed spaces and tabs',
                   'indentation-contains-mixed-spaces-and-tabs'),
         'E8111': ('PEP8 %s: indentation is not a multiple of four',
@@ -117,7 +131,7 @@ class PEP8Whitespace(_PEP8BaseChecker):
     Process PEP8 E2 codes
     '''
 
-    msgs = {
+    _msgs = {
         'E8201': ("PEP8 %s: whitespace after '('", "whitespace-after-'('"),
         'E8202': ("PEP8 %s: whitespace before ')'", "whitespace-before-')'"),
         'E8203': ("PEP8 %s: whitespace before ':'", "whitespace-before-':'"),
@@ -160,12 +174,13 @@ class PEP8BlankLine(_PEP8BaseChecker):
     Process PEP8 E3 codes
     '''
 
-    msgs = {
+    _msgs = {
         'E8301': ('PEP8 %s: expected 1 blank line, found 0',
                   'expected-1-blank-line,-found-0'),
         'E8302': ('PEP8 %s: expected 2 blank lines, found 0',
                   'expected-2-blank-lines,-found-0'),
-        'E8303': ('PEP8 %s: too many blank lines (3)', 'too-many-blank-lines-(3)'),
+        'E8303': ('PEP8 %s: too many blank lines (3)',
+                  'too-many-blank-lines-(3)'),
         'E8304': ('PEP8 %s: blank lines found after function decorator',
                   'blank-lines-found-after-function-decorator'),
     }
@@ -176,7 +191,7 @@ class PEP8Import(_PEP8BaseChecker):
     Process PEP8 E4 codes
     '''
 
-    msgs = {
+    _msgs = {
         'E8401': ('PEP8 %s: multiple imports on one line',
                   'multiple-imports-on-one-line'),
     }
@@ -187,7 +202,7 @@ class PEP8LineLength(_PEP8BaseChecker):
     Process PEP8 E5 codes
     '''
 
-    msgs = {
+    _msgs = {
         'E8501': ('PEP8 %s: line too long (82 > 79 characters)',
                   'line-too-long-(82->-79-characters)'),
         'E8502': ('PEP8 %s: the backslash is redundant between brackets',
@@ -204,7 +219,7 @@ class PEP8Statement(_PEP8BaseChecker):
     Process PEP8 E7 codes
     '''
 
-    msgs = {
+    _msgs = {
         'E8701': ('PEP8 %s: multiple statements on one line (colon)',
                   'multiple-statements-on-one-line-(colon)'),
         'E8702': ('PEP8 %s: multiple statements on one line (semicolon)',
@@ -225,7 +240,7 @@ class PEP8Runtime(_PEP8BaseChecker):
     Process PEP8 E9 codes
     '''
 
-    msgs = {
+    _msgs = {
         'E8901': ('PEP8 %s: SyntaxError or IndentationError',
                   'SyntaxError-or-IndentationError'),
         'E8902': ('PEP8 %s: IOError', 'IOError'),
@@ -237,8 +252,9 @@ class PEP8IndentationWarning(_PEP8BaseChecker):
     Process PEP8 W1 codes
     '''
 
-    msgs = {
-        'W8191': ('PEP8 %s: indentation contains tabs', 'indentation-contains-tabs'),
+    _msgs = {
+        'W8191': ('PEP8 %s: indentation contains tabs',
+                  'indentation-contains-tabs'),
     }
 
 
@@ -247,7 +263,7 @@ class PEP8WhitespaceWarning(_PEP8BaseChecker):
     Process PEP8 W2 codes
     '''
 
-    msgs = {
+    _msgs = {
         'W8291': ('PEP8 %s: trailing whitespace', 'trailing-whitespace'),
         'W8292': ('PEP8 %s: no newline at end of file', 'no-newline-at-end-of-file'),
         'W8293': ('PEP8 %s: blank line contains whitespace',
@@ -260,8 +276,9 @@ class PEP8BlankLineWarning(_PEP8BaseChecker):
     Process PEP8 W3 codes
     '''
 
-    msgs = {
-        'W8391': ('PEP8 %s: blank line at end of file', 'blank-line-at-end-of-file'),
+    _msgs = {
+        'W8391': ('PEP8 %s: blank line at end of file',
+                  'blank-line-at-end-of-file'),
     }
 
 
@@ -270,7 +287,7 @@ class PEP8DeprecationWarning(_PEP8BaseChecker):
     Process PEP8 W6 codes
     '''
 
-    msgs = {
+    _msgs = {
         'W8601': ("PEP8 %s: .has_key() is deprecated, use 'in'",
                   ".has_key()-is-deprecated,-use-'in'"),
         'W8602': ('PEP8 %s: deprecated form of raising exception',
