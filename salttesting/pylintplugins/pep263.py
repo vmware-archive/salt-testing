@@ -1,4 +1,15 @@
 # -*- coding: utf-8 -*-
+'''
+    :codeauthor: :email:`Henrik Holmboe (henrik@holmboe.se)`
+    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
+    :license: Apache 2.0, see LICENSE for more details.
+
+
+    salttesting.pylintplugins.pep263
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    PEP-263 PyLint Checker
+'''
 
 import re
 import itertools
@@ -28,6 +39,9 @@ class FileEncodingChecker(BaseChecker):
             'W9904': ('PEP263: Use UTF-8 file encoding',
                       'wrongly-encoded-file',
                       ('Change file encoding and PEP263 header in file.')),
+            'W9905': ('PEP263: Use UTF-8 file encoding',
+                      'no-encoding-in-empty-file',
+                      ('There is no PEP263 compliant file encoding in file.')),
             }
     priority = -1
     options = ()
@@ -45,6 +59,8 @@ class FileEncodingChecker(BaseChecker):
 
         twolines = list(itertools.islice(node.file_stream, 2))
         pep263_encoding = [m.group(1).lower() for l in twolines for m in [pep263.search(l)] if m]
+        multiple_encodings = len(pep263_encoding) > 1
+        file_empty = len(twolines) == 0
 
         # - If the file has an UTF-8 BOM and yet uses any other
         #   encoding, it will be caught by F0002
@@ -54,14 +70,17 @@ class FileEncodingChecker(BaseChecker):
         #   BOM, it will be caught by W0512
         # - If there are ambiguous PEP263 encodings it will be caught
         #   by E0001, we still test for this
-        if len(pep263_encoding) > 1:
+        if multiple_encodings:
             self.add_message('W9901', line=1)
         if node.file_encoding:
             pylint_encoding = node.file_encoding.lower()
             if pep263_encoding and pylint_encoding not in pep263_encoding:
                 self.add_message('W9902', line=1)
         if not pep263_encoding:
-            self.add_message('W9903', line=1)
+            if file_empty:
+                self.add_message('W9905', line=1)
+            else:
+                self.add_message('W9903', line=1)
         elif self.REQ_ENCOD not in pep263_encoding:
             self.add_message('W9904', line=1)
 
