@@ -74,7 +74,7 @@ class FileEncodingChecker(BaseChecker):
             self.add_message('W9901', line=1)
         if node.file_encoding:
             pylint_encoding = node.file_encoding.lower()
-            if pylint_encoding not in pep263_encoding:
+            if pep263_encoding and pylint_encoding not in pep263_encoding:
                 self.add_message('W9902', line=1)
         if not pep263_encoding:
             if file_empty:
