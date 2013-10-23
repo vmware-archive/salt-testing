@@ -23,7 +23,7 @@ try:
     from salttesting.ext import console
     width, height = console.getTerminalSize()
     PNUM = width
-except:
+except Exception:
     PNUM = 70
 
 try:

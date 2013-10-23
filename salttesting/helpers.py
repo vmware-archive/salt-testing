@@ -87,11 +87,11 @@ class RedirectStdStreams(object):
         if self.__redirected:
             try:
                 self.__stdout.flush()
-            except:
+            except Exception:
                 pass
             try:
                 self.__stderr.flush()
-            except:
+            except Exception:
                 pass
 
 
@@ -515,7 +515,6 @@ def with_system_account(username, on_existing='delete', delete=True):
                             'existed, was deleted as requested, but '
                             're-creating it was not possible'.format(username)
                         )
-
 
             failure = None
             try:
