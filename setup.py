@@ -7,7 +7,7 @@ import os
 import sys
 from distutils.core import setup
 
-setup_kwargs = {}
+SETUP_KWARGS = {}
 USE_SETUPTOOLS = False
 
 if 'USE_SETUPTOOLS' in os.environ:
@@ -16,8 +16,8 @@ if 'USE_SETUPTOOLS' in os.environ:
         USE_SETUPTOOLS = True
 
         if sys.version_info < (2, 7):
-            setup_kwargs['install_requires'] = ['unittest2']
-    except:
+            SETUP_KWARGS['install_requires'] = ['unittest2']
+    except ImportError:
         USE_SETUPTOOLS = False
 
 
@@ -60,7 +60,7 @@ setup(
         'salttesting',
         'salttesting/ext',
         'salttesting/parser',
-        'salttesting/pylintplugins'
+        'salttesting/pylintplugins',
     ],
-    **setup_kwargs
+    **SETUP_KWARGS
 )
