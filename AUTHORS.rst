@@ -7,6 +7,7 @@ order.
 ==========================  =====================  ============================
 Name                        Nick                   Email
 ==========================  =====================  ============================
+Erik Johnson                terminalmage           erik@saltstack.com
 Henrik Holmboe              holmboe
 Niels Abspoel               aboe76
 Pedro Algarvio              s0undt3ch              pedro@algarvio.me
