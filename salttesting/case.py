@@ -18,7 +18,7 @@ import subprocess
 from datetime import datetime, timedelta
 
 # Import salt testing libs
-from salttesting import TestCase
+from salttesting.unit import TestCase
 
 
 class ShellTestCase(TestCase):

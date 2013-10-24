@@ -11,32 +11,21 @@
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
-import sys
+# Import python libs
+import warnings
 
-# support python < 2.7 via unittest2
-if sys.version_info < (2, 7):
-    try:
-        from unittest2 import (
-            TestLoader,
-            TextTestRunner,
-            TestCase,
-            expectedFailure,
-            TestSuite,
-            skipIf,
-            TestResult,
-        )
-    except ImportError:
-        raise SystemExit('You need to install unittest2 to run the salt tests')
-else:
-    from unittest import (
-        TestLoader,
-        TextTestRunner,
-        TestCase,
-        expectedFailure,
-        TestSuite,
-        skipIf,
-        TestResult,
-    )
+# Import salt-testing libs
+from salttesting.version import __version__, __version_info__
+from salttesting.unit import (
+    TestLoader,
+    TextTestRunner,
+    TestCase,
+    expectedFailure,
+    TestSuite,
+    skipIf,
+    TestResult,
+)
+
 
 __all__ = [
     'TestLoader',
@@ -45,5 +34,14 @@ __all__ = [
     'expectedFailure',
     'TestSuite',
     'skipIf',
-    'TestResult'
+    'TestResult',
 ]
+
+
+# All salt-testing related deprecation warnings should be shown once each!
+warnings.filterwarnings(
+    'once',                               # Show once
+    '',                                   # No deprecation message match
+    DeprecationWarning,                   # This filter is for DeprecationWarnings
+    r'^(salttesting|salttesting\.(.*))$'  # Match module(s) 'salttesting' and 'salttesting.<whatever>'
+)
