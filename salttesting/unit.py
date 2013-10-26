@@ -70,10 +70,13 @@ class TestCase(_TestCase):
         return _TestCase.failUnless(self, *args, **kwargs)
 
     def assert_(self, *args, **kwargs):
-        raise DeprecationWarning(
-            'The {0}() function is deprecated. Please start using {1}() '
-            'instead.'.format('assert_', 'assertTrue')
-        )
+        if sys.version_info >= (2, 7):
+            # The unittest2 library uses this deprecated method, we can't raise
+            # the exception.
+            raise DeprecationWarning(
+                'The {0}() function is deprecated. Please start using {1}() '
+                'instead.'.format('assert_', 'assertTrue')
+            )
         return _TestCase.assert_(self, *args, **kwargs)
 
     def failIf(self, *args, **kwargs):
