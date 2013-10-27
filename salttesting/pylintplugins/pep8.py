@@ -19,24 +19,34 @@ from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
 
 # Import PEP8 libs
-from pep8 import StyleGuide, BaseReport
+try:
+    from pep8 import StyleGuide, BaseReport
+    HAS_PEP8 = True
+except ImportError:
+    HAS_PEP8 = False
+    import logging
+    logging.getLogger(__name__).warning(
+        'No pep8 library could be imported. No PEP8 check\'s will be done'
+    )
+
 
 _PROCESSED_NODES = {}
 
 
-class PyLintPEP8Reporter(BaseReport):
-    def __init__(self, options):
-        super(PyLintPEP8Reporter, self).__init__(options)
-        self.locations = []
+if HAS_PEP8 is True:
+    class PyLintPEP8Reporter(BaseReport):
+        def __init__(self, options):
+            super(PyLintPEP8Reporter, self).__init__(options)
+            self.locations = []
 
-    def error(self, line_number, offset, text, check):
-        code = super(PyLintPEP8Reporter, self).error(
-            line_number, offset, text, check
-        )
-        if code:
-            # E123, at least, is not reporting it's code in the above call,
-            # don't want to bother about that now
-            self.locations.append((code, line_number))
+        def error(self, line_number, offset, text, check):
+            code = super(PyLintPEP8Reporter, self).error(
+                line_number, offset, text, check
+            )
+            if code:
+                # E123, at least, is not reporting it's code in the above call,
+                # don't want to bother about that now
+                self.locations.append((code, line_number))
 
 
 class _PEP8BaseChecker(BaseChecker):
@@ -303,6 +313,9 @@ def register(linter):
     '''
     required method to auto register this checker
     '''
+    if HAS_PEP8 is False:
+        return
+
     linter.register_checker(PEP8Indentation(linter))
     linter.register_checker(PEP8Whitespace(linter))
     linter.register_checker(PEP8BlankLine(linter))
