@@ -1,0 +1,29 @@
+-------------------------------------------------------------------
+Thu Oct 24 15:57:58 UTC 2013 - aboe76@gmail.com
+
+- Updated to version 0.5.2
+  - no-encoding-in-empty-file (W9905) test added
+  - only apply PEP8 messages which generate code
+  - Log start and stop executions
+  - Logic added to avoid PyLints deprecation messages
+  - AUTHORS.rst and LICENSE added  
+
+-------------------------------------------------------------------
+Thu Oct 24 11:13:35 UTC 2013 - speilicke@suse.com
+
+- Require python-setuptools instead of distribute (upstreams merged)
+
+-------------------------------------------------------------------
+Fri Sep 27 16:57:44 UTC 2013 - aboe76@gmail.com
+
+- Updated to version 0.5.1
+  - ipv6 check support
+  - salt pylint checker
+  - salt coverage support
+  - local network check
+
+-------------------------------------------------------------------
+Thu Sep 19 05:43:07 UTC 2013 - aboe76@gmail.com
+
+- Python-salt-testing version 0.5.0
+

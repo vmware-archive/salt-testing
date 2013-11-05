@@ -1,7 +1,5 @@
-%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
-%{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 #
-# spec file for package salt-testing
+# spec file for package python-salt-testing
 #
 # Copyright (c) 2013 SUSE LINUX Products GmbH, Nuernberg, Germany.
 #
@@ -16,27 +14,34 @@
 
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
-Name:           salt-testing
-Version:        0.5.0
-Release:        1%{?dist}
-License:        Apache-2.0
-Summary:        Testing tools needed in the several Salt Stack projects
-Url:            http://saltstack.org/
-Group:          Development/Libraries/Python
-Source0:        http://pypi.python.org/packages/source/s/SaltTesting/SaltTesting-%{version}.tar.gz
-BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
-%if %{?suse_version: %{suse_version} > 1110} %{!?suse_version:1}
-BuildArchitectures: noarch
-%endif
+
+Name:           python-salt-testing
+Version:        0.5.2
+Release:        0
+Summary:        Testing tools needed in the several Salt Stack projects
+License:        Apache-2.0
+Group:          Development/Libraries/Python
+Url:            http://saltstack.org/
+Source0:        https://pypi.python.org/packages/source/S/SaltTesting/SaltTesting-%{version}.tar.gz
+BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 BuildRequires:  fdupes
 BuildRequires:  python-devel
+BuildRequires:  python-mock
+BuildRequires:  python-setuptools
 BuildRequires:  python-unittest2
-Requires:		python-unittest2
+Requires:       python-mock
+Requires:       python-unittest2
+Recommends:     python-coverage
+%if 0%{?suse_version} && 0%{?suse_version} <= 1110
+%{!?python_sitelib: %global python_sitelib %(python -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+%else
+BuildArch:      noarch
+%endif
 
 %description
-Required testing tools needed in the several Salt Stack projects.
+Salt-Testing provides the required testing tools needed in the several Salt Stack projects.
 
 %prep
 %setup -q -n SaltTesting-%{version}
@@ -50,7 +55,7 @@ python setup.py install --prefix=%{_prefix} --root=%{buildroot}
 
 %files
 %defattr(-,root,root)
+%doc LICENSE AUTHORS.rst
 %{python_sitelib}/*
-
 
 %changelog
