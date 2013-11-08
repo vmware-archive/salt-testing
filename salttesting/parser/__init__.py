@@ -16,6 +16,7 @@ import shutil
 import logging
 import optparse
 import tempfile
+import subprocess
 
 from salttesting import TestLoader, TextTestRunner
 from salttesting.ext.HTMLTestRunner import HTMLTestRunner
@@ -56,7 +57,9 @@ def print_header(header, sep='~', top=True, bottom=True, inline=False,
 
 
 class SaltTestingParser(optparse.OptionParser):
+    support_docker_execution = False
     support_destructive_tests_selection = False
+    source_code_basedir = None
 
     def __init__(self, testsuite_directory, *args, **kwargs):
         # Get XML output settings
@@ -106,12 +109,20 @@ class SaltTestingParser(optparse.OptionParser):
                       'or removing users from your system for example. '
                       'Default: %default')
             )
+
+        if self.support_docker_execution is True:
+            self.test_selection_group.add_option(
+                '--docked',
+                default=None,
+                help='Run the tests suite in the chosen Docker container'
+            )
+
         self.test_selection_group.add_option(
             '-n',
             '--name',
             dest='name',
             action='append',
-            default=[],
+            default=None,
             help=('Specific test name to run. A named test is the module path '
                   'relative to the tests directory')
         )
@@ -183,6 +194,23 @@ class SaltTestingParser(optparse.OptionParser):
         )
         self.pre_execution_cleanup()
         self._validate_options()
+
+        if self.support_docker_execution and self.options.docked is not None:
+            if self.source_code_basedir is None:
+                raise RuntimeError(
+                    'You need to define the \'source_code_basedir\' attribute '
+                    'in {0!r}.'.format(self.__class__.__name__)
+                )
+            # No more processing should be done. We'll exit with the return
+            # code we get from the docker container execution
+            self.exit(self.run_suite_in_docker())
+
+        print('Current Directory: {0}'.format(os.getcwd()))
+        print_header(
+            'Test suite is running under PID {0}'.format(os.getpid()),
+            bottom=False
+        )
+
         self._setup_logging()
         return (self.options, self.args)
 
@@ -223,12 +251,6 @@ class SaltTestingParser(optparse.OptionParser):
             # Set the required environment variable in order to know if
             # destructive tests should be executed or not.
             os.environ['DESTRUCTIVE_TESTS'] = str(self.options.run_destructive)
-
-        print('Current Directory: {0}'.format(os.getcwd()))
-        print_header(
-            'Test suite is running under PID {0}'.format(os.getpid()),
-            bottom=False
-        )
 
     def validate_options(self):
         '''
@@ -448,6 +470,78 @@ class SaltTestingParser(optparse.OptionParser):
             )
         )
         self.exit(exit_code)
+
+    def run_suite_in_docker(self):
+        # Let's start the Docker container and run the tests suite there
+        if '/' not in self.options.docked:
+            container = 'salttest/{0}'.format(self.options.docked)
+        else:
+            container = self.options.docked
+
+        calling_args = ['/salt-source/tests/runtests.py']
+        for option in self._get_all_options():
+            if option.dest is None:
+                # For example --version
+                continue
+
+            if option.dest in ('docked', 'verbosity'):
+                # We don't need to pass the --docked argument inside the docker
+                # container, and verbose will be handled bellow
+                continue
+
+            default = self.defaults.get(option.dest)
+            value = getattr(self.options, option.dest, default)
+
+            if default == value:
+                # This is the default value, no need to pass the option to the
+                # parser
+                continue
+
+            if option.action.startswith('store_'):
+                calling_args.append(option.get_opt_string())
+
+            elif option.action == 'append':
+                for val in (value is not None and value or default):
+                    calling_args.extend(
+                       [option.get_opt_string(), str(val)]
+                )
+            elif option.action == 'count':
+                calling_args.extend(
+                    [option.get_opt_string()] * value
+                )
+            else:
+                calling_args.extend(
+                    [option.get_opt_string(),
+                    str(value is not None and value or default)]
+                )
+
+        if not self.options.run_destructive:
+            calling_args.append('--run-destructive')
+
+        if self.options.verbosity > 1:
+            calling_args.append(
+                '-{0}'.format('v' * (self.options.verbosity - 1))
+            )
+
+        print_header(
+            'Running the tests suite under the {0!r} docker container'.format(
+                container
+            )
+        )
+        call = subprocess.Popen(
+            ['docker',
+             'run',
+             '-t',
+             '-v',
+             '{0}:/salt-source'.format(self.source_code_basedir),
+             '-w',
+             '/salt-source',
+             '-t',
+             container,
+             ] + calling_args,
+            env=os.environ.copy())
+        call.communicate()
+        self.exit(call.returncode)
 
 
 class SaltTestcaseParser(SaltTestingParser):
