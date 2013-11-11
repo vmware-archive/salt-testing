@@ -51,6 +51,16 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
         func = utils.safe_infer(node.func)
         if isinstance(func, astng.BoundMethod) and func.name == 'format':
 
+            if isinstance(node.func.expr, astng.Name):
+                for inferred in node.func.expr.infer():
+                    if '{}' in inferred.value:
+                        if self.config.un_indexed_curly_braces_always_error or \
+                                sys.version_info[:2] < (2, 7):
+                            self.add_message('E1320', node=inferred)
+                        else:
+                            self.add_message('W1320', node=inferred)
+                return
+
             if '{}' in node.func.expr.value:
                 if self.config.un_indexed_curly_braces_always_error or \
                         sys.version_info[:2] < (2, 7):
