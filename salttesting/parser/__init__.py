@@ -12,6 +12,8 @@
 
 import os
 import sys
+import time
+import signal
 import shutil
 import logging
 import optparse
@@ -531,16 +533,42 @@ class SaltTestingParser(optparse.OptionParser):
         call = subprocess.Popen(
             ['docker',
              'run',
-             '-t',
              '-v',
              '{0}:/salt-source'.format(self.source_code_basedir),
              '-w',
              '/salt-source',
-             '-t',
              container,
              ] + calling_args,
-            env=os.environ.copy())
-        call.communicate()
+            env=os.environ.copy(),
+            close_fds=True,
+        )
+
+        signalled = terminating = exiting = False
+
+        while True:
+            try:
+                time.sleep(0.15)
+                if exiting:
+                    break
+                elif terminating and not exiting:
+                    exiting = True
+                    call.kill()
+                    break
+                elif signalled and not terminating:
+                    terminating = True
+                    call.terminate()
+                else:
+                    call.poll()
+                    if call.returncode is not None:
+                        # Finshed
+                        break
+            except KeyboardInterrupt:
+                print('Caught CTRL-C, exiting...')
+                signalled = True
+                call.send_signal(signal.SIGINT)
+
+        call.wait()
+
         self.exit(call.returncode)
 
 
