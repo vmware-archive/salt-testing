@@ -19,9 +19,9 @@ import logging
 import optparse
 import tempfile
 import subprocess
+import warnings
 
 from salttesting import TestLoader, TextTestRunner
-from salttesting.ext.HTMLTestRunner import HTMLTestRunner
 try:
     from salttesting.ext import console
     width, height = console.getTerminalSize()
@@ -64,6 +64,16 @@ class SaltTestingParser(optparse.OptionParser):
     source_code_basedir = None
 
     def __init__(self, testsuite_directory, *args, **kwargs):
+        if kwargs.pop('html_output_from_env', None) is not None or \
+                kwargs.pop('html_output_dir', None) is not None:
+            warnings.warn(
+                'The unit tests HTML support was removed from {0}. Please '
+                'stop passing \'html_output_dir\' or \'html_output_from_env\' '
+                'as arguments to {0}'.format(self.__class__.__name__),
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+
         # Get XML output settings
         xml_output_dir_env_var = kwargs.pop(
             'xml_output_from_env',
@@ -74,19 +84,6 @@ class SaltTestingParser(optparse.OptionParser):
             xml_output_dir_env_var,
             xml_output_dir or os.path.join(
                 tempfile.gettempdir(), 'xml-tests-output'
-            )
-        )
-
-        # Get HTML output settings
-        html_output_dir_env_var = kwargs.pop(
-            'html_output_from_env',
-            'HTML_TESTS_OUTPUT_DIR'
-        )
-        html_output_dir = kwargs.pop('html_output_dir', None)
-        self.html_output_dir = os.environ.get(
-            html_output_dir_env_var,
-            html_output_dir or os.path.join(
-                tempfile.gettempdir(), 'html-tests-output'
             )
         )
 
@@ -150,15 +147,6 @@ class SaltTestingParser(optparse.OptionParser):
                 default=False,
                 help='XML test runner output(Output directory: {0})'.format(
                     self.xml_output_dir
-                )
-            )
-        if self.html_output_dir:
-            self.output_options_group.add_option(
-                '--html-out',
-                default=False,
-                action='store_true',
-                help='HTML test runner output(Output directory: {0})'.format(
-                    self.html_output_dir
                 )
             )
         self.output_options_group.add_option(
@@ -239,14 +227,6 @@ class SaltTestingParser(optparse.OptionParser):
                 'at {0!r}'.format(self.xml_output_dir)
             )
 
-        if self.html_output_dir is not None and self.options.html_out:
-            if not os.path.isdir(self.html_output_dir):
-                os.makedirs(self.html_output_dir)
-            print(
-                'Generated unit test HTML reports will be stored '
-                'at {0!r}'.format(self.html_output_dir)
-            )
-
         self.validate_options()
 
         if self.support_destructive_tests_selection:
@@ -317,7 +297,7 @@ class SaltTestingParser(optparse.OptionParser):
         method.
         '''
         if self.options.clean is True:
-            for path in (self.xml_output_dir, self.html_output_dir):
+            for path in (self.xml_output_dir,):
                 if path is None:
                     continue
                 if os.path.isdir(path):
@@ -342,20 +322,6 @@ class SaltTestingParser(optparse.OptionParser):
                 stream=sys.stdout,
                 output=self.xml_output_dir,
                 verbosity=self.options.verbosity
-            ).run(tests)
-            self.testsuite_results.append((header, runner))
-        elif self.options.html_out:
-            runner = HTMLTestRunner(
-                stream=open(
-                    os.path.join(
-                        self.html_output_dir, 'report_{0}.html'.format(
-                            header.replace(' ', '_')
-                        )
-                    ),
-                    'w'
-                ),
-                verbosity=self.options.verbosity,
-                title=header,
             ).run(tests)
             self.testsuite_results.append((header, runner))
         else:
@@ -474,6 +440,9 @@ class SaltTestingParser(optparse.OptionParser):
         self.exit(exit_code)
 
     def run_suite_in_docker(self):
+        '''
+        Run the tests suite in a Docker container
+        '''
         # Let's start the Docker container and run the tests suite there
         if '/' not in self.options.docked:
             container = 'salttest/{0}'.format(self.options.docked)
@@ -583,8 +552,6 @@ class SaltTestcaseParser(SaltTestingParser):
         self.option_groups.remove(self.test_selection_group)
         if self.has_option('--xml-out'):
             self.remove_option('--xml-out')
-        if self.has_option('--html-out'):
-            self.remove_option('--html-out')
 
     def get_prog_name(self):
         return '{0} {1}'.format(sys.executable.split(os.sep)[-1], sys.argv[0])

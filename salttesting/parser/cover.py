@@ -16,6 +16,7 @@ import re
 import sys
 import json
 import shutil
+import warnings
 
 # Import salt testing libs
 from salttesting.parser import SaltTestingParser
@@ -74,6 +75,16 @@ class SaltCoverageTestingParser(SaltTestingParser):
     Code coverage aware testing option parser
     '''
     def __init__(self, *args, **kwargs):
+        if kwargs.pop('html_output_from_env', None) is not None or \
+                kwargs.pop('html_output_dir', None) is not None:
+            warnings.warn(
+                'The unit tests HTML support was removed from {0}. Please '
+                'stop passing \'html_output_dir\' or \'html_output_from_env\' '
+                'as arguments to {0}'.format(self.__class__.__name__),
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+
         SaltTestingParser.__init__(self, *args, **kwargs)
         self.code_coverage = None
 
