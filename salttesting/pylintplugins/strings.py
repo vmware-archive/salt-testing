@@ -16,7 +16,7 @@ from logilab import astng
 from pylint.checkers import utils
 from pylint.checkers import BaseChecker
 from pylint.checkers.utils import check_messages
-from pylint.interfaces import IASTNGChecker
+from pylint.interfaces import IAstroidChecker
 
 
 MSGS = {
@@ -33,7 +33,7 @@ MSGS = {
 
 class StringCurlyBracesFormatIndexChecker(BaseChecker):
 
-    __implements__ = (IASTNGChecker,)
+    __implements__ = (IAstroidChecker,)
 
     name = 'string'
     msgs = MSGS
