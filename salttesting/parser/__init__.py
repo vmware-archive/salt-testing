@@ -506,6 +506,8 @@ class SaltTestingParser(optparse.OptionParser):
              '{0}:/salt-source'.format(self.source_code_basedir),
              '-w',
              '/salt-source',
+             '-e',
+             'SHELL=/bin/sh',
              container,
              ] + calling_args,
             env=os.environ.copy(),
