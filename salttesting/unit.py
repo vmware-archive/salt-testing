@@ -38,7 +38,7 @@ if sys.version_info < (2, 7):
         class TestLoader(_TestLoader, NewStyleClassMixin):
             pass
 
-        class TestTextRunner(_TextTestRunner, NewStyleClassMixin):
+        class TextTestRunner(_TextTestRunner, NewStyleClassMixin):
             pass
 
         class _TestCase(__TestCase, NewStyleClassMixin):
