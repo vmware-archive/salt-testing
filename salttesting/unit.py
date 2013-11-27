@@ -17,14 +17,39 @@ import sys
 if sys.version_info < (2, 7):
     try:
         from unittest2 import (
-            TestLoader,
-            TextTestRunner,
-            TestCase as _TestCase,
+            TestLoader as _TestLoader,
+            TextTestRunner as _TextTestRunner,
+            TestCase as __TestCase,
             expectedFailure,
-            TestSuite,
+            TestSuite as _TestSuite,
             skipIf,
-            TestResult,
+            TestResult as _TestResult,
         )
+
+        class NewStyleClassMixin(object):
+            '''
+            Simple new style class to make pylint shut up!
+
+            And also to avoid errors like:
+
+                'Cannot create a consistent method resolution order (MRO) for bases'
+            '''
+
+        class TestLoader(_TestLoader, NewStyleClassMixin):
+            pass
+
+        class TestTextRunner(_TextTestRunner, NewStyleClassMixin):
+            pass
+
+        class _TestCase(__TestCase, NewStyleClassMixin):
+            pass
+
+        class TestSuite(_TestSuite, NewStyleClassMixin):
+            pass
+
+        class TestResult(_TestResult, NewStyleClassMixin):
+            pass
+
     except ImportError:
         raise SystemExit('You need to install unittest2 to run the salt tests')
 else:
