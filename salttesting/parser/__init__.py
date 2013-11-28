@@ -499,6 +499,8 @@ class SaltTestingParser(optparse.OptionParser):
                 container
             )
         )
+
+        cidfile = tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         call = subprocess.Popen(
             ['docker',
              'run',
@@ -508,6 +510,7 @@ class SaltTestingParser(optparse.OptionParser):
              '/salt-source',
              '-e',
              'SHELL=/bin/sh',
+             '-cidfile={0}'.format(cidfile),
              container,
              ] + calling_args,
             env=os.environ.copy(),
@@ -539,6 +542,20 @@ class SaltTestingParser(optparse.OptionParser):
                 call.send_signal(signal.SIGINT)
 
         call.wait()
+
+        print_header('', inline=True)
+        print('  Cleaning Up Temporary Docker Container:'),
+        sys.stdout.flush()
+        cleanup_call = subprocess.Popen(
+            ['docker', 'rm', open(cidfile).read().strip()],
+            env=os.environ.copy(),
+            close_fds=True,
+            stdout=subprocess.PIPE
+        )
+        os.unlink(cidfile)
+        cleanup_call.wait()
+        print(cleanup_call.stdout.read().strip())
+        print_header('', inline=True)
 
         self.exit(call.returncode)
 
