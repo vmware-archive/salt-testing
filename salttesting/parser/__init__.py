@@ -24,8 +24,8 @@ import warnings
 from salttesting import TestLoader, TextTestRunner
 try:
     from salttesting.ext import console
-    width, height = console.getTerminalSize()
-    PNUM = width
+    WIDTH, HEIGHT = console.getTerminalSize()
+    PNUM = WIDTH
 except Exception:
     PNUM = 70
 
@@ -510,6 +510,10 @@ class SaltTestingParser(optparse.OptionParser):
              '/salt-source',
              '-e',
              'SHELL=/bin/sh',
+             '-e',
+             'COLUMNS={0}'.format(WIDTH),
+             '-e',
+             'LINES={0}'.format(HEIGHT),
              '-cidfile={0}'.format(cidfile),
              container,
              ] + calling_args,
