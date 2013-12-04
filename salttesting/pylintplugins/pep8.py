@@ -17,6 +17,7 @@ from __future__ import absolute_import
 # Import PyLint libs
 from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
+from pylint.__pkginfo__ import numversion as pylint_version_info
 
 # Import PEP8 libs
 try:
@@ -274,7 +275,9 @@ class PEP8WhitespaceWarning(_PEP8BaseChecker):
     '''
 
     _msgs = {
-        'W8291': ('PEP8 %s: trailing whitespace', 'trailing-whitespace'),
+        'W8291': ('PEP8 %s: trailing whitespace',
+                  'trailing-whitespace' if pylint_version_info < (1, 0) else
+                  'pep8-trailing-whitespace'),
         'W8292': ('PEP8 %s: no newline at end of file', 'no-newline-at-end-of-file'),
         'W8293': ('PEP8 %s: blank line contains whitespace',
                   'blank-line-contains-whitespace'),
