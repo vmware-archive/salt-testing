@@ -182,6 +182,7 @@ class SaltTestingParser(optparse.OptionParser):
         self.options, self.args = optparse.OptionParser.parse_args(
             self, args, values
         )
+        print_header(u'', inline=True)
         self.pre_execution_cleanup()
         self._validate_options()
 
@@ -195,14 +196,14 @@ class SaltTestingParser(optparse.OptionParser):
             # code we get from the docker container execution
             self.exit(self.run_suite_in_docker())
 
-        print('Current Directory: {0}'.format(os.getcwd()))
-        print_header(
-            'Test suite is running under PID {0}'.format(os.getpid()),
-            bottom=False
-        )
+        print(' * Current Directory: {0}'.format(os.getcwd()))
+        print(' * Test suite is running under PID {0}'.format(os.getpid()))
 
         self._setup_logging()
-        return (self.options, self.args)
+        try:
+            return (self.options, self.args)
+        finally:
+            print_header(u'', inline=True)
 
     def setup_additional_options(self):
         '''
@@ -260,9 +261,7 @@ class SaltTestingParser(optparse.OptionParser):
             logging.root.addHandler(filehandler)
             logging.root.setLevel(logging.DEBUG)
 
-            print_header(
-                'Logging tests on {0}'.format(self.tests_logfile), bottom=False
-            )
+            print(' * Logging tests on {0}'.format(self.tests_logfile))
 
         # With greater verbosity we can also log to the console
         if self.options.verbosity > 2:
