@@ -545,6 +545,7 @@ class SaltTestingParser(optparse.OptionParser):
                 call.send_signal(signal.SIGINT)
 
         call.wait()
+        time.sleep(2)
 
         print_header('', inline=True)
         print('  Cleaning Up Temporary Docker Container:'),
