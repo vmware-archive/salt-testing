@@ -24,8 +24,8 @@ import warnings
 from salttesting import TestLoader, TextTestRunner
 try:
     from salttesting.ext import console
-    width, height = console.getTerminalSize()
-    PNUM = width
+    WIDTH, HEIGHT = console.getTerminalSize()
+    PNUM = WIDTH
 except Exception:
     PNUM = 70
 
@@ -182,6 +182,7 @@ class SaltTestingParser(optparse.OptionParser):
         self.options, self.args = optparse.OptionParser.parse_args(
             self, args, values
         )
+        print_header(u'', inline=True)
         self.pre_execution_cleanup()
         self._validate_options()
 
@@ -195,14 +196,14 @@ class SaltTestingParser(optparse.OptionParser):
             # code we get from the docker container execution
             self.exit(self.run_suite_in_docker())
 
-        print('Current Directory: {0}'.format(os.getcwd()))
-        print_header(
-            'Test suite is running under PID {0}'.format(os.getpid()),
-            bottom=False
-        )
+        print(' * Current Directory: {0}'.format(os.getcwd()))
+        print(' * Test suite is running under PID {0}'.format(os.getpid()))
 
         self._setup_logging()
-        return (self.options, self.args)
+        try:
+            return (self.options, self.args)
+        finally:
+            print_header(u'', inline=True)
 
     def setup_additional_options(self):
         '''
@@ -260,9 +261,7 @@ class SaltTestingParser(optparse.OptionParser):
             logging.root.addHandler(filehandler)
             logging.root.setLevel(logging.DEBUG)
 
-            print_header(
-                'Logging tests on {0}'.format(self.tests_logfile), bottom=False
-            )
+            print(' * Logging tests on {0}'.format(self.tests_logfile))
 
         # With greater verbosity we can also log to the console
         if self.options.verbosity > 2:
@@ -499,6 +498,8 @@ class SaltTestingParser(optparse.OptionParser):
                 container
             )
         )
+
+        cidfile = tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         call = subprocess.Popen(
             ['docker',
              'run',
@@ -506,6 +507,13 @@ class SaltTestingParser(optparse.OptionParser):
              '{0}:/salt-source'.format(self.source_code_basedir),
              '-w',
              '/salt-source',
+             '-e',
+             'SHELL=/bin/sh',
+             '-e',
+             'COLUMNS={0}'.format(WIDTH),
+             '-e',
+             'LINES={0}'.format(HEIGHT),
+             '-cidfile={0}'.format(cidfile),
              container,
              ] + calling_args,
             env=os.environ.copy(),
@@ -537,6 +545,21 @@ class SaltTestingParser(optparse.OptionParser):
                 call.send_signal(signal.SIGINT)
 
         call.wait()
+        time.sleep(2)
+
+        print_header('', inline=True)
+        print('  Cleaning Up Temporary Docker Container:'),
+        sys.stdout.flush()
+        cleanup_call = subprocess.Popen(
+            ['docker', 'rm', open(cidfile).read().strip()],
+            env=os.environ.copy(),
+            close_fds=True,
+            stdout=subprocess.PIPE
+        )
+        os.unlink(cidfile)
+        cleanup_call.wait()
+        print(cleanup_call.stdout.read().strip())
+        print_header('', inline=True)
 
         self.exit(call.returncode)
 

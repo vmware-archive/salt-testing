@@ -593,7 +593,9 @@ def requires_salt_modules(*names):
 
                 for name in names:
                     if name not in self.run_function('sys.doc'):
-                        reason = '{0!r} is not available'.format(name)
+                        reason = 'Salt module {0!r} is not available'.format(
+                            name
+                        )
                         for fname in dir(self):
                             if not fname.startswith('test_'):
                                 continue
@@ -616,7 +618,9 @@ def requires_salt_modules(*names):
 
             for name in names:
                 if name not in cls.run_function('sys.doc'):
-                    cls.skipTest('{0!r} is not available'.format(name))
+                    cls.skipTest(
+                        'Salt module {0!r} is not available'.format(name)
+                    )
                     break
 
             return caller(cls)

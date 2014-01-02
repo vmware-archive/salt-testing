@@ -35,6 +35,9 @@ except ImportError:
     NO_MOCK = True
     NO_MOCK_REASON = 'mock python module is unavailable'
 
+
+    # Let's not fail on imports by providing fake objects and classes
+
     class MagicMock(object):
 
         __name__ = '{0}.fakemock'.format(__name__)
@@ -53,6 +56,12 @@ except ImportError:
 
     Mock = MagicMock
     patch = MagicMock()
+    sentinel = object()
+    DEFAULT = object()
+    create_autospec = MagicMock()
+    FILTER_DIR = True
+    NonCallableMock = MagicMock()
+    NonCallableMagicMock = MagicMock()
     call = tuple
     ANY = object()
 
