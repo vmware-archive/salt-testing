@@ -638,10 +638,9 @@ def skip_if_binaries_missing(binaries, check_all=False):
         for binary in binaries:
             if salt.utils.which(binary) is None:
                 return skip(
-                    'The {0!r} binary was not found'
+                    'The {0!r} binary was not found'.format(binary)
                 )
-
-    if salt.utils.which_bin(binaries) is None:
+    elif salt.utils.which_bin(binaries) is None:
         return skip(
             'None of the following binaries was found: {0}'.format(
                 ', '.join(binaries)
