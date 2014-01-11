@@ -22,7 +22,6 @@ if sys.version_info < (2, 7):
             TestCase as __TestCase,
             expectedFailure,
             TestSuite as _TestSuite,
-            _id,
             skip,
             skipIf,
             TestResult as _TestResult,
