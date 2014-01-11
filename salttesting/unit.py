@@ -27,6 +27,7 @@ if sys.version_info < (2, 7):
             skipIf,
             TestResult as _TestResult,
         )
+        from unittest2.case import _id
 
         class NewStyleClassMixin(object):
             '''
@@ -61,11 +62,11 @@ else:
         TestCase as _TestCase,
         expectedFailure,
         TestSuite,
-        _id,
         skip,
         skipIf,
         TestResult,
     )
+    from unittest.case import _id
 
 
 class TestCase(_TestCase):
