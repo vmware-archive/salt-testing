@@ -10,6 +10,7 @@
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
+# Import Python libs
 import os
 import sys
 import types
@@ -18,6 +19,9 @@ import inspect
 import logging
 import __builtin__
 from functools import wraps
+
+# Import Salt Testing libs
+from salttesting.unit import skip, _id
 
 log = logging.getLogger(__name__)
 
@@ -626,3 +630,21 @@ def requires_salt_modules(*names):
             return caller(cls)
         return wrapper
     return decorator
+
+
+def skip_if_binaries_missing(binaries, check_all=False):
+    import salt.utils
+    if check_all:
+        for binary in binaries:
+            if salt.utils.which(binary) is None:
+                return skip(
+                    'The {0!r} binary was not found'
+                )
+
+    if salt.utils.which_bin(binaries) is None:
+        return skip(
+            'None of the following binaries was found: {0}'.format(
+                ', '.join(binaries)
+            )
+        )
+    return _id
