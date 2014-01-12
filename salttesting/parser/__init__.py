@@ -155,6 +155,11 @@ class SaltTestingParser(optparse.OptionParser):
             action='count',
             help='Verbose test runner output'
         )
+        self.output_options_group.add_option(
+            '--tests-logfile',
+            default=self.tests_logfile,
+            help='The path to the tests suite logging logfile'
+        )
         if self.xml_output_dir is not None:
             self.output_options_group.add_option(
                 '-x',
@@ -276,17 +281,17 @@ class SaltTestingParser(optparse.OptionParser):
             '[%(levelname)-8s] %(message)s',
             datefmt='%H:%M:%S'
         )
-        if self.tests_logfile:
+        if self.options.tests_logfile:
             filehandler = logging.FileHandler(
                 mode='w',           # Not preserved between re-runs
-                filename=self.tests_logfile
+                filename=self.options.tests_logfile
             )
             filehandler.setLevel(logging.DEBUG)
             filehandler.setFormatter(formatter)
             logging.root.addHandler(filehandler)
             logging.root.setLevel(logging.DEBUG)
 
-            print(' * Logging tests on {0}'.format(self.tests_logfile))
+            print(' * Logging tests on {0}'.format(self.options.tests_logfile))
 
         # With greater verbosity we can also log to the console
         if self.options.verbosity > 2:
