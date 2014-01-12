@@ -80,12 +80,14 @@ class SaltTestingParser(optparse.OptionParser):
             'XML_TESTS_OUTPUT_DIR'
         )
         xml_output_dir = kwargs.pop('xml_output_dir', None)
-        self.xml_output_dir = os.environ.get(
-            xml_output_dir_env_var,
-            xml_output_dir or os.path.join(
+
+        if xml_output_dir_env_var in os.environ:
+            xml_output_dir = os.environ.get(xml_output_dir_env_var)
+        if not xml_output_dir:
+            xml_output_dir = os.path.join(
                 tempfile.gettempdir(), 'xml-tests-output'
             )
-        )
+        self.xml_output_dir = xml_output_dir
 
         # Get the desired logfile to use while running tests
         self.tests_logfile = kwargs.pop('tests_logfile', None)
@@ -223,11 +225,16 @@ class SaltTestingParser(optparse.OptionParser):
                 '\'--xml\' is not available. The xmlrunner library is not '
                 'installed.'
             )
-        elif self.xml_output_dir is not None and self.options.xml_out:
+
+        if self.options.xml_out:
+            # Override any environment setting with the passed value
+            self.xml_output_dir = self.options.xml_out
+
+        if self.xml_output_dir is not None and self.options.xml_out:
             if not os.path.isdir(self.xml_output_dir):
                 os.makedirs(self.xml_output_dir)
             print(
-                'Generated unit test XML reports will be stored '
+                ' * Generated unit test XML reports will be stored '
                 'at {0!r}'.format(self.xml_output_dir)
             )
 
