@@ -545,10 +545,25 @@ class SaltTestingParser(optparse.OptionParser):
                 call.send_signal(signal.SIGINT)
 
         call.wait()
-        time.sleep(2)
+        time.sleep(1)
 
         print_header('', inline=True)
-        print('  Cleaning Up Temporary Docker Container:'),
+
+        if signalled:
+            print(' * Making sure the container is stopped:'),
+            sys.stdout.flush()
+            stop_call = subprocess.Popen(
+                ['docker', 'stop', open(cidfile).read().strip()],
+                env=os.environ.copy(),
+                close_fds=True,
+                stdout=subprocess.PIPE
+            )
+            stop_call.wait()
+            print(stop_call.stdout.read().strip())
+            sys.stdout.flush()
+            time.sleep(1)
+
+        print(' * Cleaning Up Temporary Docker Container:'),
         sys.stdout.flush()
         cleanup_call = subprocess.Popen(
             ['docker', 'rm', open(cidfile).read().strip()],
