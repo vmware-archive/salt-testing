@@ -13,9 +13,10 @@
 
 import sys
 try:
-    from logilab import astng as astroid
-except ImportError:
+    # >= pylint 1.0
     import astroid
+except ImportError:  # pylint < 1.0
+    from logilab import astng as astroid
 from pylint.checkers import utils
 from pylint.checkers import BaseChecker
 from pylint.checkers.utils import check_messages
