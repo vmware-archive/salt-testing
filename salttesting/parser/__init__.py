@@ -184,7 +184,6 @@ class SaltTestingParser(optparse.OptionParser):
         )
         print_header(u'', inline=True)
         self.pre_execution_cleanup()
-        self._validate_options()
 
         if self.support_docker_execution and self.options.docked is not None:
             if self.source_code_basedir is None:
@@ -195,6 +194,10 @@ class SaltTestingParser(optparse.OptionParser):
             # No more processing should be done. We'll exit with the return
             # code we get from the docker container execution
             self.exit(self.run_suite_in_docker())
+
+        # Validate options after checking that we're not goint to execute the
+        # tests suite under a docker container
+        self._validate_options()
 
         print(' * Current Directory: {0}'.format(os.getcwd()))
         print(' * Test suite is running under PID {0}'.format(os.getpid()))
