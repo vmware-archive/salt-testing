@@ -187,8 +187,6 @@ class SaltTestingParser(optparse.OptionParser):
         print_header(u'', inline=True)
         self.pre_execution_cleanup()
 
-        print 999
-
         if self.support_docker_execution and self.options.docked is not None:
             if self.source_code_basedir is None:
                 raise RuntimeError(
