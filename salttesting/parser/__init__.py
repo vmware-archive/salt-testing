@@ -493,8 +493,8 @@ class SaltTestingParser(optparse.OptionParser):
                 '-{0}'.format('v' * (self.options.verbosity - 1))
             )
 
-        print_header(
-            'Running the tests suite under the {0!r} docker container'.format(
+        print(
+            ' * Running the tests suite under the {0!r} docker container'.format(
                 container
             )
         )
