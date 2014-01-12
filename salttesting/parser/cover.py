@@ -85,7 +85,9 @@ class SaltCoverageTestingParser(SaltTestingParser):
                 stacklevel=2
             )
 
+        print 123
         SaltTestingParser.__init__(self, *args, **kwargs)
+        print 456
         self.code_coverage = None
 
         # Add the coverage related options
@@ -116,6 +118,7 @@ class SaltCoverageTestingParser(SaltTestingParser):
         )
 
     def _validate_options(self):
+        print 789
         if (self.options.coverage_xml or self.options.coverage_html) and \
                 not self.options.coverage:
             self.options.coverage = True

@@ -12,7 +12,10 @@
 '''
 
 import sys
-from logilab import astng
+try:
+    from logilab import astng as astroid
+except ImportError:
+    import astroid
 from pylint.checkers import utils
 from pylint.checkers import BaseChecker
 from pylint.checkers.utils import check_messages
@@ -54,10 +57,10 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
     @check_messages(*(MSGS.keys()))
     def visit_callfunc(self, node):
         func = utils.safe_infer(node.func)
-        if isinstance(func, astng.BoundMethod) and func.name == 'format':
+        if isinstance(func, astroid.BoundMethod) and func.name == 'format':
             # If there's a .format() call, run the code below
 
-            if isinstance(node.func.expr, astng.Name):
+            if isinstance(node.func.expr, astroid.Name):
                 # This is for:
                 #   foo = 'Foo {} bar'
                 #   print(foo.format(blah)
@@ -80,7 +83,7 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
                 # If it does not have an value attribute, it's not worth
                 # checking
                 return
-            elif isinstance(node.func.expr.value, astng.Name):
+            elif isinstance(node.func.expr.value, astroid.Name):
                 # No need to check these either
                 return
             elif '{}' in node.func.expr.value:
