@@ -111,13 +111,6 @@ class SaltTestingParser(optparse.OptionParser):
                       'Default: %default')
             )
 
-        if self.support_docker_execution is True:
-            self.test_selection_group.add_option(
-                '--docked',
-                default=None,
-                help='Run the tests suite in the chosen Docker container'
-            )
-
         self.test_selection_group.add_option(
             '-n',
             '--name',
@@ -128,6 +121,28 @@ class SaltTestingParser(optparse.OptionParser):
                   'relative to the tests directory')
         )
         self.add_option_group(self.test_selection_group)
+
+        if self.support_docker_execution is True:
+            self.docked_selection_group = optparse.OptionGroup(
+                self,
+                'Docked Tests Execution',
+                'Run the tests suite under a Docker container. This allows, '
+                'for example, to run destructive tests on your machine '
+                'without actually breaking it in any way.'
+            )
+            self.test_selection_group.add_option(
+                '--docked',
+                default=None,
+                help='Run the tests suite in the chosen Docker container'
+            )
+            self.test_selection_group.add_option(
+                '--docked-interpreter',
+                default='python',
+                help='The python binary name to use when calling the tests '
+                     'suite. Default: python'
+            )
+            self.add_option_group(self.docked_selection_group)
+
 
         self.output_options_group = optparse.OptionGroup(
             self, 'Output Options'
@@ -458,13 +473,14 @@ class SaltTestingParser(optparse.OptionParser):
         else:
             container = self.options.docked
 
-        calling_args = ['/salt-source/tests/runtests.py']
+        calling_args = [self.options.docked_interpreter,
+                        '/salt-source/tests/runtests.py']
         for option in self._get_all_options():
             if option.dest is None:
                 # For example --version
                 continue
 
-            if option.dest in ('docked', 'verbosity'):
+            if option.dest in ('docked', 'docked_interpreter', 'verbosity'):
                 # We don't need to pass the --docked argument inside the docker
                 # container, and verbose will be handled bellow
                 continue
@@ -503,11 +519,8 @@ class SaltTestingParser(optparse.OptionParser):
                 '-{0}'.format('v' * (self.options.verbosity - 1))
             )
 
-        print(
-            ' * Running the tests suite under the {0!r} docker container'.format(
-                container
-            )
-        )
+        print(' * Running the tests suite under the {0!r} docker '
+              'container'.format(container))
 
         cidfile = tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         call = subprocess.Popen(
@@ -556,6 +569,8 @@ class SaltTestingParser(optparse.OptionParser):
 
         call.wait()
         time.sleep(1)
+        returncode = call.returncode
+        print(' * Container exit code: {0}'.format(returncode))
 
         print_header('', inline=True)
 
@@ -586,7 +601,7 @@ class SaltTestingParser(optparse.OptionParser):
         print(cleanup_call.stdout.read().strip())
         print_header('', inline=True)
 
-        self.exit(call.returncode)
+        sys.exit(returncode)
 
 
 class SaltTestcaseParser(SaltTestingParser):
