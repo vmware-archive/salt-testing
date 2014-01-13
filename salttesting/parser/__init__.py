@@ -635,9 +635,9 @@ class SaltTestingParser(optparse.OptionParser):
         print(parsed_rcode)
         sys.stdout.flush()
 
-        if self.options.docked_skip_delete is False or \
-                self.options.docked_skip_delete_on_errors is False or \
-                self.options.docked_skip_delete_on_error and returncode == 0:
+        if self.options.docked_skip_delete is False and \
+                (self.options.docked_skip_delete_on_errors is False or
+                 (self.options.docked_skip_delete_on_error and returncode == 0)):
             print(' * Cleaning Up Temporary Docker Container. CID:'),
             sys.stdout.flush()
             cleanup_call = subprocess.Popen(
