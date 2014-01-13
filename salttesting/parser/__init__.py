@@ -498,8 +498,9 @@ class SaltTestingParser(optparse.OptionParser):
                 # For example --version
                 continue
 
-            if option.dest in ('docked', 'docked_interpreter', 'verbosity'):
-                # We don't need to pass the --docked argument inside the docker
+            if option.dest and (option.dest in ('verbosity',) or
+                                option.dest.startswith('docked')):
+                # We don't need to pass any docker related arguments inside the
                 # container, and verbose will be handled bellow
                 continue
 
