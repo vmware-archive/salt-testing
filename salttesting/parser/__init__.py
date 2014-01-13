@@ -131,24 +131,26 @@ class SaltTestingParser(optparse.OptionParser):
                 'for example, to run destructive tests on your machine '
                 'without actually breaking it in any way.'
             )
-            self.test_selection_group.add_option(
+            self.docked_selection_group.add_option(
                 '--docked',
                 default=None,
+                metavar='CONTAINER',
                 help='Run the tests suite in the chosen Docker container'
             )
-            self.test_selection_group.add_option(
+            self.docked_selection_group.add_option(
                 '--docked-interpreter',
                 default='python',
+                metavar='PYTHON_INTERPRETER',
                 help='The python binary name to use when calling the tests '
                      'suite. Default: python'
             )
-            self.test_selection_group.add_option(
+            self.docked_selection_group.add_option(
                 '--docked-skip-delete',
                 default=False,
                 action='store_true',
                 help='Skip docker container deletion on exit. Default: False'
             )
-            self.test_selection_group.add_option(
+            self.docked_selection_group.add_option(
                 '--docked-skip-delete-on-errors',
                 default=False,
                 action='store_true',
