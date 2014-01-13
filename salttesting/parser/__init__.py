@@ -64,6 +64,12 @@ class SaltTestingParser(optparse.OptionParser):
     support_destructive_tests_selection = False
     source_code_basedir = None
 
+    _known_interpreters = {
+        'salttest/arch': 'python2',
+        'salttest/centos-5': 'python2.6',
+        'salttest/centos-6': 'python2.7'
+    }
+
     def __init__(self, testsuite_directory, *args, **kwargs):
         if kwargs.pop('html_output_from_env', None) is not None or \
                 kwargs.pop('html_output_dir', None) is not None:
@@ -139,10 +145,10 @@ class SaltTestingParser(optparse.OptionParser):
             )
             self.docked_selection_group.add_option(
                 '--docked-interpreter',
-                default='python',
+                default=None,
                 metavar='PYTHON_INTERPRETER',
                 help='The python binary name to use when calling the tests '
-                     'suite. Default: python'
+                     'suite.'
             )
             self.docked_selection_group.add_option(
                 '--docked-skip-delete',
@@ -228,6 +234,17 @@ class SaltTestingParser(optparse.OptionParser):
                     'You need to define the \'source_code_basedir\' attribute '
                     'in {0!r}.'.format(self.__class__.__name__)
                 )
+
+            if '/' not in self.options.docked:
+                self.options.docked = 'salttest/{0}'.format(
+                    self.options.docked
+                )
+
+            if self.options.docked_interpreter is None:
+                self.options.docked_interpreter = self._known_interpreters.get(
+                    self.options.docked, 'python'
+                )
+
             # No more processing should be done. We'll exit with the return
             # code we get from the docker container execution
             self.exit(self.run_suite_in_docker())
