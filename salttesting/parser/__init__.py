@@ -572,8 +572,8 @@ class SaltTestingParser(optparse.OptionParser):
                 time.sleep(0.15)
 
                 if cid_printed is False:
-                    with closing(open(cid)) as cid_fd:
-                        cid = cid_fd.read()
+                    with closing(open(cidfile)) as cidfile_fd:
+                        cid = cidfile_fd.read()
                         if cid:
                             print(cid)
                             sys.stdout.flush()
