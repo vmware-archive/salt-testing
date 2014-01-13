@@ -20,6 +20,7 @@ import optparse
 import tempfile
 import subprocess
 import warnings
+from contextlib import closing
 
 from salttesting import TestLoader, TextTestRunner
 try:
@@ -141,8 +142,20 @@ class SaltTestingParser(optparse.OptionParser):
                 help='The python binary name to use when calling the tests '
                      'suite. Default: python'
             )
+            self.test_selection_group.add_option(
+                '--docked-skip-delete',
+                default=False,
+                action='store_true',
+                help='Skip docker container deletion on exit. Default: False'
+            )
+            self.test_selection_group.add_option(
+                '--docked-skip-delete-on-errors',
+                default=False,
+                action='store_true',
+                help='Skip docker container deletion on exit if errors '
+                     'occurred. Default: False'
+            )
             self.add_option_group(self.docked_selection_group)
-
 
         self.output_options_group = optparse.OptionGroup(
             self, 'Output Options'
@@ -525,7 +538,8 @@ class SaltTestingParser(optparse.OptionParser):
             )
 
         print(' * Running the tests suite under the {0!r} docker '
-              'container'.format(container))
+              'container. CID:'.format(container)),
+        sys.stdout.flush()
 
         cidfile = tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         call = subprocess.Popen(
@@ -548,11 +562,19 @@ class SaltTestingParser(optparse.OptionParser):
             close_fds=True,
         )
 
-        signalled = terminating = exiting = False
+        cid_printed = signalled = terminating = exiting = False
 
         while True:
             try:
                 time.sleep(0.15)
+
+                if cid_printed is False:
+                    with closing(open(cid)) as cid_fd:
+                        cid = cid_fd.read()
+                        if cid:
+                            print(cid)
+                            sys.stdout.flush()
+                            cid_printed = True
                 if exiting:
                     break
                 elif terminating and not exiting:
@@ -575,12 +597,12 @@ class SaltTestingParser(optparse.OptionParser):
         call.wait()
         time.sleep(1)
         returncode = call.returncode
-        print(' * Container exit code: {0}'.format(returncode))
 
         print_header('', inline=True)
+        print(' * Container exit code: {0}'.format(returncode))
 
         if signalled:
-            print(' * Making sure the container is stopped:'),
+            print(' * Making sure the container is stopped. CID:'),
             sys.stdout.flush()
             stop_call = subprocess.Popen(
                 ['docker', 'stop', open(cidfile).read().strip()],
@@ -593,19 +615,22 @@ class SaltTestingParser(optparse.OptionParser):
             sys.stdout.flush()
             time.sleep(1)
 
-        print(' * Cleaning Up Temporary Docker Container:'),
-        sys.stdout.flush()
-        cleanup_call = subprocess.Popen(
-            ['docker', 'rm', open(cidfile).read().strip()],
-            env=os.environ.copy(),
-            close_fds=True,
-            stdout=subprocess.PIPE
-        )
-        os.unlink(cidfile)
-        cleanup_call.wait()
-        print(cleanup_call.stdout.read().strip())
-        print_header('', inline=True)
+        if self.options.docked_skip_delete is False or \
+                self.options.docked_skip_delete_on_errors is False or \
+                self.options.docked_skip_delete_on_error and returncode == 0:
+            print(' * Cleaning Up Temporary Docker Container. CID:'),
+            sys.stdout.flush()
+            cleanup_call = subprocess.Popen(
+                ['docker', 'rm', open(cidfile).read().strip()],
+                env=os.environ.copy(),
+                close_fds=True,
+                stdout=subprocess.PIPE
+            )
+            cleanup_call.wait()
+            print(cleanup_call.stdout.read().strip())
 
+        os.unlink(cidfile)
+        print_header('', inline=True)
         sys.exit(returncode)
 
 
