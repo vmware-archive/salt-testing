@@ -37,13 +37,13 @@ except ImportError:
 
 
 def print_header(header, sep='~', top=True, bottom=True, inline=False,
-                 centered=False):
+                 centered=False, width=PNUM):
     '''
     Allows some pretty printing of headers on the console, either with a
     "ruler" on bottom and/or top, inline, centered, etc.
     '''
     if top and not inline:
-        print(sep * PNUM)
+        print(sep * width)
 
     if centered and not inline:
         fmt = u'{0:^{width}}'
@@ -53,10 +53,10 @@ def print_header(header, sep='~', top=True, bottom=True, inline=False,
         fmt = u'{0:{sep}^{width}}'
     else:
         fmt = u'{0}'
-    print(fmt.format(header, sep=sep, width=PNUM))
+    print(fmt.format(header, sep=sep, width=width))
 
     if bottom and not inline:
-        print(sep * PNUM)
+        print(sep * width)
 
 
 class SaltTestingParser(optparse.OptionParser):
@@ -67,7 +67,7 @@ class SaltTestingParser(optparse.OptionParser):
     _known_interpreters = {
         'salttest/arch': 'python2',
         'salttest/centos-5': 'python2.6',
-        'salttest/centos-6': 'python2.7'
+        'salttest/centos-6': 'python2.6'
     }
 
     def __init__(self, testsuite_directory, *args, **kwargs):
@@ -177,6 +177,11 @@ class SaltTestingParser(optparse.OptionParser):
             help='Verbose test runner output'
         )
         self.output_options_group.add_option(
+            '--output-columns',
+            default=PNUM,
+            help='Number of maximum columns to use on the output'
+        )
+        self.output_options_group.add_option(
             '--tests-logfile',
             default=self.tests_logfile,
             help='The path to the tests suite logging logfile'
@@ -225,7 +230,7 @@ class SaltTestingParser(optparse.OptionParser):
         self.options, self.args = optparse.OptionParser.parse_args(
             self, args, values
         )
-        print_header(u'', inline=True)
+        print_header(u'', inline=True, width=self.options.output_columns)
         self.pre_execution_cleanup()
 
         if self.support_docker_execution and self.options.docked is not None:
@@ -260,7 +265,7 @@ class SaltTestingParser(optparse.OptionParser):
         try:
             return (self.options, self.args)
         finally:
-            print_header(u'', inline=True)
+            print_header(u'', inline=True, width=self.options.output_columns)
 
     def setup_additional_options(self):
         '''
@@ -376,7 +381,8 @@ class SaltTestingParser(optparse.OptionParser):
             tests = loader.discover(path, suffix, self.testsuite_directory)
 
         header = '{0} Tests'.format(display_name)
-        print_header('Starting {0}'.format(header))
+        print_header('Starting {0}'.format(header),
+                     width=self.options.output_columns)
 
         if self.options.xml_out:
             runner = xmlrunner.XMLTestRunner(
@@ -398,7 +404,8 @@ class SaltTestingParser(optparse.OptionParser):
         '''
         print
         print_header(
-            u'  Overall Tests Report  ', sep=u'=', centered=True, inline=True
+            u'  Overall Tests Report  ', sep=u'=', centered=True, inline=True,
+            width=self.options.output_columns
         )
 
         failures = errors = skipped = passed = 0
@@ -417,10 +424,14 @@ class SaltTestingParser(optparse.OptionParser):
 
             no_problems_found = False
 
-            print_header(u'*** {0}  '.format(name), sep=u'*', inline=True)
+            print_header(
+                u'*** {0}  '.format(name), sep=u'*', inline=True,
+                width=self.options.output_columns
+            )
             if results.skipped:
                 print_header(
-                    u' --------  Skipped Tests  ', sep='-', inline=True
+                    u' --------  Skipped Tests  ', sep='-', inline=True,
+                    width=self.options.output_columns
                 )
                 maxlen = len(
                     max([testcase.id() for (testcase, reason) in
@@ -429,43 +440,53 @@ class SaltTestingParser(optparse.OptionParser):
                 fmt = u'   -> {0: <{maxlen}}  ->  {1}'
                 for testcase, reason in results.skipped:
                     print(fmt.format(testcase.id(), reason, maxlen=maxlen))
-                print_header(u' ', sep='-', inline=True)
+                print_header(u' ', sep='-', inline=True,
+                            width=self.options.output_columns)
 
             if results.errors:
                 print_header(
-                    u' --------  Tests with Errors  ', sep='-', inline=True
+                    u' --------  Tests with Errors  ', sep='-', inline=True,
+                    width=self.options.output_columns
                 )
                 for testcase, reason in results.errors:
                     print_header(
                         u'   -> {0}  '.format(testcase.id()),
-                        sep=u'.', inline=True
+                        sep=u'.', inline=True,
+                        width=self.options.output_columns
                     )
                     for line in reason.rstrip().splitlines():
                         print('       {0}'.format(line.rstrip()))
-                    print_header(u'   ', sep=u'.', inline=True)
-                print_header(u' ', sep='-', inline=True)
+                    print_header(u'   ', sep=u'.', inline=True,
+                                width=self.options.output_columns)
+                print_header(u' ', sep='-', inline=True,
+                             width=self.options.output_columns)
 
             if results.failures:
                 print_header(
-                    u' --------  Failed Tests  ', sep='-', inline=True
+                    u' --------  Failed Tests  ', sep='-', inline=True,
+                    width=self.options.output_columns
                 )
                 for testcase, reason in results.failures:
                     print_header(
                         u'   -> {0}  '.format(testcase.id()),
-                        sep=u'.', inline=True
+                        sep=u'.', inline=True,
+                        width=self.options.output_columns
                     )
                     for line in reason.rstrip().splitlines():
                         print('       {0}'.format(line.rstrip()))
-                    print_header(u'   ', sep=u'.', inline=True)
-                print_header(u' ', sep='-', inline=True)
+                    print_header(u'   ', sep=u'.', inline=True,
+                                width=self.options.output_columns)
+                print_header(u' ', sep='-', inline=True,
+                             width=self.options.output_columns)
 
         if no_problems_found:
             print_header(
                 u'***  No Problems Found While Running Tests  ',
-                sep=u'*', inline=True
+                sep=u'*', inline=True, width=self.options.output_columns
             )
 
-        print_header(u'', sep=u'=', inline=True)
+        print_header(u'', sep=u'=', inline=True,
+                     width=self.options.output_columns)
         total = sum([passed, skipped, errors, failures])
         print(
             '{0} (total={1}, skipped={2}, passed={3}, failures={4}, '
@@ -475,7 +496,8 @@ class SaltTestingParser(optparse.OptionParser):
             )
         )
         print_header(
-            '  Overall Tests Report  ', sep='=', centered=True, inline=True
+            '  Overall Tests Report  ', sep='=', centered=True, inline=True,
+            width=self.options.output_columns
         )
         return
 
@@ -615,7 +637,7 @@ class SaltTestingParser(optparse.OptionParser):
 
         call.wait()
         time.sleep(0.25)
-        print_header('', inline=True)
+        print_header('', inline=True, width=self.options.output_columns)
 
         if signalled:
             print(' * Making sure the container is stopped. CID:'),
@@ -667,7 +689,7 @@ class SaltTestingParser(optparse.OptionParser):
             print(cleanup_call.stdout.read().strip())
 
         os.unlink(cidfile)
-        print_header('', inline=True)
+        print_header('', inline=True, width=self.options.output_columns)
         sys.exit(returncode)
 
 
@@ -700,7 +722,8 @@ class SaltTestcaseParser(SaltTestingParser):
 
         if not isinstance(testcase, list):
             header = '{0} Tests'.format(testcase.__name__)
-            print_header('Starting {0}'.format(header))
+            print_header('Starting {0}'.format(header),
+                         width=self.options.output_columns)
 
         runner = TextTestRunner(
             verbosity=self.options.verbosity).run(tests)
