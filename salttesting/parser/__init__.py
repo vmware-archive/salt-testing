@@ -179,6 +179,7 @@ class SaltTestingParser(optparse.OptionParser):
         self.output_options_group.add_option(
             '--output-columns',
             default=PNUM,
+            type=int,
             help='Number of maximum columns to use on the output'
         )
         self.output_options_group.add_option(
