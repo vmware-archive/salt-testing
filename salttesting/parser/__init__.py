@@ -20,6 +20,7 @@ import optparse
 import tempfile
 import subprocess
 import warnings
+from functools import partial
 from contextlib import closing
 
 from salttesting import TestLoader, TextTestRunner
@@ -527,6 +528,67 @@ class SaltTestingParser(optparse.OptionParser):
         '''
         Run the tests suite in a Docker container
         '''
+        def stop_running_docked_container(cid, signum=None, frame=None):
+
+            print_header('', inline=True, width=self.options.output_columns)
+
+            if signum != signal.SIGSTOP:
+                # This was not triggered by us when the docker container
+                # cleanly exits...
+                print(' * Making sure the container is stopped. CID:'),
+                sys.stdout.flush()
+
+                stop_call = subprocess.Popen(
+                    ['docker', 'stop', cid],
+                    env=os.environ.copy(),
+                    close_fds=True,
+                    stdout=subprocess.PIPE
+                )
+                stop_call.wait()
+                print(stop_call.stdout.read().strip())
+                sys.stdout.flush()
+                time.sleep(0.25)
+
+            # Let's get the container's exit code. We can't trust on Popen's
+            # returncode because it's not reporting the proper one? Still
+            # haven't narrowed it down why.
+            print(' * Container exit code:'),
+            sys.stdout.flush()
+            rcode_call = subprocess.Popen(
+                ['docker', 'inspect', '-format={{.State.ExitCode}}', cid],
+                env=os.environ.copy(),
+                close_fds=True,
+                stdout=subprocess.PIPE
+            )
+            rcode_call.wait()
+            parsed_rcode = rcode_call.stdout.read().strip()
+            try:
+                returncode = int(parsed_rcode)
+            except ValueError:
+                returncode = -1
+            print(parsed_rcode)
+            sys.stdout.flush()
+
+            if self.options.docked_skip_delete is False and \
+                    (self.options.docked_skip_delete_on_errors is False or
+                    (self.options.docked_skip_delete_on_error and
+                     returncode == 0)):
+                print(' * Cleaning Up Temporary Docker Container. CID:'),
+                sys.stdout.flush()
+                cleanup_call = subprocess.Popen(
+                    ['docker', 'rm', cid],
+                    env=os.environ.copy(),
+                    close_fds=True,
+                    stdout=subprocess.PIPE
+                )
+                cleanup_call.wait()
+                print(cleanup_call.stdout.read().strip())
+
+            os.unlink(cidfile)
+            print_header('', inline=True, width=self.options.output_columns)
+            # Finally, EXIT!
+            sys.exit(returncode)
+
         # Let's start the Docker container and run the tests suite there
         if '/' not in self.options.docked:
             container = 'salttest/{0}'.format(self.options.docked)
@@ -605,6 +667,7 @@ class SaltTestingParser(optparse.OptionParser):
             close_fds=True,
         )
 
+        cid = None
         cid_printed = signalled = terminating = exiting = False
 
         while True:
@@ -617,6 +680,15 @@ class SaltTestingParser(optparse.OptionParser):
                             print(cid)
                             sys.stdout.flush()
                             cid_printed = True
+                            # Install our signal handler to properly shutdown
+                            # the docker container
+                            for sig in (signal.SIGTERM, signal.SIGINT,
+                                        signal.SIGHUP, signal.SIGQUIT):
+                                signal.signal(
+                                    sig,
+                                    partial(stop_running_docked_container, cid)
+                                )
+
                 if exiting:
                     break
                 elif terminating and not exiting:
@@ -638,60 +710,9 @@ class SaltTestingParser(optparse.OptionParser):
 
         call.wait()
         time.sleep(0.25)
-        print_header('', inline=True, width=self.options.output_columns)
 
-        if signalled:
-            print(' * Making sure the container is stopped. CID:'),
-            sys.stdout.flush()
-
-            stop_call = subprocess.Popen(
-                ['docker', 'stop', cid],
-                env=os.environ.copy(),
-                close_fds=True,
-                stdout=subprocess.PIPE
-            )
-            stop_call.wait()
-            print(stop_call.stdout.read().strip())
-            sys.stdout.flush()
-            time.sleep(0.25)
-
-        # Let's get the container's exit code. We can't trust on Popen's
-        # returncode because it's not reporting the proper one? Still haven't
-        # narrowed it down why.
-        print(' * Container exit code:'),
-        sys.stdout.flush()
-        rcode_call = subprocess.Popen(
-            ['docker', 'inspect', '-format={{.State.ExitCode}}', cid],
-            env=os.environ.copy(),
-            close_fds=True,
-            stdout=subprocess.PIPE
-        )
-        rcode_call.wait()
-        parsed_rcode = rcode_call.stdout.read().strip()
-        try:
-            returncode = int(parsed_rcode)
-        except ValueError:
-            returncode = -1
-        print(parsed_rcode)
-        sys.stdout.flush()
-
-        if self.options.docked_skip_delete is False and \
-                (self.options.docked_skip_delete_on_errors is False or
-                 (self.options.docked_skip_delete_on_error and returncode == 0)):
-            print(' * Cleaning Up Temporary Docker Container. CID:'),
-            sys.stdout.flush()
-            cleanup_call = subprocess.Popen(
-                ['docker', 'rm', cid],
-                env=os.environ.copy(),
-                close_fds=True,
-                stdout=subprocess.PIPE
-            )
-            cleanup_call.wait()
-            print(cleanup_call.stdout.read().strip())
-
-        os.unlink(cidfile)
-        print_header('', inline=True, width=self.options.output_columns)
-        sys.exit(returncode)
+        # Finish up
+        os.kill(signal.SIGINT if signalled else signal.SIGSTOP, os.getpid())
 
 
 class SaltTestcaseParser(SaltTestingParser):
