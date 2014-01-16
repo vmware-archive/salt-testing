@@ -668,7 +668,10 @@ class SaltTestingParser(optparse.OptionParser):
         )
 
         cid = None
-        cid_printed = signalled = terminating = exiting = False
+        cid_printed = terminating = exiting = False
+        signal_handler_installed = signalled = False
+
+        time.sleep(0.125)
 
         while True:
             try:
@@ -688,6 +691,7 @@ class SaltTestingParser(optparse.OptionParser):
                                     sig,
                                     partial(stop_running_docked_container, cid)
                                 )
+                            signal_handler_installed = True
 
                 if exiting:
                     break
@@ -712,7 +716,13 @@ class SaltTestingParser(optparse.OptionParser):
         time.sleep(0.25)
 
         # Finish up
-        os.kill(signal.SIGINT if signalled else signal.SIGSTOP, os.getpid())
+        if signal_handler_installed:
+            os.kill(
+                signal.SIGINT if signalled else signal.SIGSTOP,
+                os.getpid()
+            )
+        else:
+            sys.exit(call.returncode)
 
 
 class SaltTestcaseParser(SaltTestingParser):
