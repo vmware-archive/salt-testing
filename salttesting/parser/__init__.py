@@ -717,9 +717,9 @@ class SaltTestingParser(optparse.OptionParser):
 
         # Finish up
         if signal_handler_installed:
-            os.kill(
-                os.getpid(),
-                signal.SIGINT if signalled else signal.SIGSTOP,
+            stop_running_docked_container(
+                cid,
+                signum=(signal.SIGINT if signalled else signal.SIGSTOP)
             )
         else:
             sys.exit(call.returncode)
