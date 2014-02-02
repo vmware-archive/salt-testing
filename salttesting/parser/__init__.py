@@ -642,6 +642,7 @@ class SaltTestingParser(optparse.OptionParser):
                 '-{0}'.format('v' * (self.options.verbosity - 1))
             )
 
+        print(' * Docker command: {0}'.format(' '.join(calling_args)))
         print(' * Running the tests suite under the {0!r} docker '
               'container. CID:'.format(container)),
         sys.stdout.flush()
@@ -662,7 +663,10 @@ class SaltTestingParser(optparse.OptionParser):
              'LINES={0}'.format(HEIGHT),
              '-cidfile={0}'.format(cidfile),
              container,
-             ] + calling_args,
+             # We need to pass the runtests.py arguments as a single string so
+             # that the start-me-up.sh script can handle them properly
+             ' '.join(calling_args),
+             ],
             env=os.environ.copy(),
             close_fds=True,
         )
