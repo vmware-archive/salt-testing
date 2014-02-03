@@ -68,7 +68,13 @@ class SaltTestingParser(optparse.OptionParser):
     _known_interpreters = {
         'salttest/arch': 'python2',
         'salttest/centos-5': 'python2.6',
-        'salttest/centos-6': 'python2.6'
+        'salttest/centos-6': 'python2.6',
+        'salttest/debian-7': 'python2.7',
+        'salttest/opensuse-12.3': 'python2.7',
+        'salttest/ubuntu-12.04': 'python2.7',
+        'salttest/ubuntu-12.10': 'python2.7',
+        'salttest/ubuntu-13.04': 'python2.7',
+        'salttest/ubuntu-13.10': 'python2.7'
     }
 
     def __init__(self, testsuite_directory, *args, **kwargs):
