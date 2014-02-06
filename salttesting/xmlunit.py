@@ -11,6 +11,9 @@
     XML Unit Tests
 '''
 
+# Import python libs
+import logging
+
 try:
     import xmlrunner
     HAS_XMLRUNNER = True
