@@ -524,9 +524,11 @@ def with_system_account(username, on_existing='delete', delete=True):
             try:
                 try:
                     return func(cls, username)
-                except Exception as exc:
+                except Exception as exc:  # pylint: disable=W0703
                     log.exception(exc)
-                    failure = exc
+                    # Store the original exception details which will be raised
+                    # a little further down the code
+                    failure = sys.exc_info()
             finally:
                 if delete:
                     delete_account = cls.run_function(
