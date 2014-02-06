@@ -6,7 +6,7 @@
     Salt-Testing CLI access classes
 
     :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
+    :copyright: © 2013-2014 by the SaltStack Team, see AUTHORS for more details
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
@@ -24,17 +24,13 @@ from functools import partial
 from contextlib import closing
 
 from salttesting import TestLoader, TextTestRunner
+from salttesting.xmlunit import HAS_XMLRUNNER, XMLTestRunner
 try:
     from salttesting.ext import console
     WIDTH, HEIGHT = console.getTerminalSize()
     PNUM = WIDTH
 except Exception:
     PNUM = 70
-
-try:
-    import xmlrunner
-except ImportError:
-    xmlrunner = None
 
 
 def print_header(header, sep='~', top=True, bottom=True, inline=False,
@@ -285,7 +281,7 @@ class SaltTestingParser(optparse.OptionParser):
         Validate the default available options
         '''
         if self.xml_output_dir is not None and self.options.xml_out and \
-                xmlrunner is None:
+                HAS_XMLRUNNER is False:
             self.error(
                 '\'--xml\' is not available. The xmlrunner library is not '
                 'installed.'
@@ -393,7 +389,7 @@ class SaltTestingParser(optparse.OptionParser):
                      width=self.options.output_columns)
 
         if self.options.xml_out:
-            runner = xmlrunner.XMLTestRunner(
+            runner = XMLTestRunner(
                 stream=sys.stdout,
                 output=self.xml_output_dir,
                 verbosity=self.options.verbosity
