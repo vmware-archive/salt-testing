@@ -11,20 +11,24 @@
     Unit test related functions
 '''
 
+# Import python libs
 import sys
+import logging
+
 
 # support python < 2.7 via unittest2
 if sys.version_info < (2, 7):
     try:
         from unittest2 import (
             TestLoader as _TestLoader,
-            TextTestRunner as _TextTestRunner,
+            TextTestRunner as __TextTestRunner,
             TestCase as __TestCase,
             expectedFailure,
             TestSuite as _TestSuite,
             skip,
             skipIf,
             TestResult as _TestResult,
+            TextTestResult as __TextTestResult
         )
         from unittest2.case import _id
 
@@ -40,7 +44,7 @@ if sys.version_info < (2, 7):
         class TestLoader(_TestLoader, NewStyleClassMixin):
             pass
 
-        class TextTestRunner(_TextTestRunner, NewStyleClassMixin):
+        class _TextTestRunner(__TextTestRunner, NewStyleClassMixin):
             pass
 
         class _TestCase(__TestCase, NewStyleClassMixin):
@@ -52,18 +56,23 @@ if sys.version_info < (2, 7):
         class TestResult(_TestResult, NewStyleClassMixin):
             pass
 
+        class _TextTestResult(__TextTestResult, NewStyleClassMixin):
+            pass
+
+
     except ImportError:
         raise SystemExit('You need to install unittest2 to run the salt tests')
 else:
     from unittest import (
         TestLoader,
-        TextTestRunner,
+        TextTestRunner as _TextTestRunner,
         TestCase as _TestCase,
         expectedFailure,
         TestSuite,
         skip,
         skipIf,
         TestResult,
+        TextTestResult as _TextTestResult
     )
     from unittest.case import _id
 
@@ -135,6 +144,31 @@ class TestCase(_TestCase):
             'instead.'.format('failIfAlmostEqual', 'assertNotAlmostEqual')
         )
         return _TestCase.failIfAlmostEqual(self, *args, **kwargs)
+
+
+class TextTestResult(_TextTestResult):
+    '''
+    Custom TestResult class whith logs the start and the end of a test
+    '''
+
+    def startTest(self, test):
+        logging.getLogger(__name__).debug(
+            '>>>>> START >>>>> {0}'.format(test.id())
+        )
+        return super(TextTestResult, self).startTest(test)
+
+    def stopTest(self, test):
+        logging.getLogger(__name__).debug(
+            '<<<<< END <<<<<<< {0}'.format(test.id())
+        )
+        return super(TextTestResult, self).stopTest(test)
+
+
+class TextTestRunner(_TextTestRunner):
+    '''
+    Custom Text tests runner to log the start and the end of a test case
+    '''
+    resultclass = TextTestResult
 
 
 __all__ = [
