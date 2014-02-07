@@ -26,12 +26,12 @@ try:
             # xmlrunner classes are NOT new-style classes
             return xmlrunner._XMLTestResult.startTest(self, test)
 
-    def stopTest(self, test):
-        logging.getLogger(__name__).debug(
-            '<<<<< END <<<<<<< {0}'.format(test.id())
-        )
-        # xmlrunner classes are NOT new-style classes
-        return xmlrunner._XMLTestResult.stopTest(self, test)
+        def stopTest(self, test):
+            logging.getLogger(__name__).debug(
+                '<<<<< END <<<<<<< {0}'.format(test.id())
+            )
+            # xmlrunner classes are NOT new-style classes
+            return xmlrunner._XMLTestResult.stopTest(self, test)
 
     class XMLTestRunner(xmlrunner.XMLTestRunner):
         def _make_result(self):
