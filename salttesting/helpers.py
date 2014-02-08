@@ -525,7 +525,12 @@ def with_system_account(username, on_existing='delete', delete=True):
                 try:
                     return func(cls, username)
                 except Exception as exc:  # pylint: disable=W0703
-                    log.exception(exc)
+                    log.error(
+                        'Running {0!r} raised an exception: {1}'.format(
+                            func, exc
+                        ),
+                        exc_info=True
+                    )
                     # Store the original exception details which will be raised
                     # a little further down the code
                     failure = sys.exc_info()
@@ -550,7 +555,7 @@ def with_system_account(username, on_existing='delete', delete=True):
                             )
                 if failure is not None:
                     # If an exception was thrown, raise it
-                    raise failure
+                    raise failure[0], failure[1], failure[2]
         return wrap
     return decorator
 
