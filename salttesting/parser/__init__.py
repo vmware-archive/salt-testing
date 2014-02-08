@@ -541,7 +541,7 @@ class SaltTestingParser(optparse.OptionParser):
                 sys.stdout.flush()
 
                 stop_call = subprocess.Popen(
-                    ['docker', 'stop', cid],
+                    ['docker', 'stop', '--time=15', cid],
                     env=os.environ.copy(),
                     close_fds=True,
                     stdout=subprocess.PIPE
@@ -549,7 +549,7 @@ class SaltTestingParser(optparse.OptionParser):
                 stop_call.wait()
                 print(stop_call.stdout.read().strip())
                 sys.stdout.flush()
-                time.sleep(0.25)
+                time.sleep(0.5)
 
             # Let's get the container's exit code. We can't trust on Popen's
             # returncode because it's not reporting the proper one? Still
@@ -578,7 +578,7 @@ class SaltTestingParser(optparse.OptionParser):
                 print(' * Cleaning Up Temporary Docker Container. CID:'),
                 sys.stdout.flush()
                 cleanup_call = subprocess.Popen(
-                    ['docker', 'rm', cid],
+                    ['docker', 'rm', '--volumes=true', cid],
                     env=os.environ.copy(),
                     close_fds=True,
                     stdout=subprocess.PIPE
@@ -649,10 +649,15 @@ class SaltTestingParser(optparse.OptionParser):
               'container. CID:'.format(container)),
         sys.stdout.flush()
 
-        cidfile = tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
+        cidfile = os.environ(
+            'DOCKER_CIDFILE',
+            tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
+        )
         call = subprocess.Popen(
             ['docker',
              'run',
+             '-i',
+             '-t',
              '-v',
              '{0}:/salt-source'.format(self.source_code_basedir),
              '-w',
@@ -677,7 +682,7 @@ class SaltTestingParser(optparse.OptionParser):
         cid_printed = terminating = exiting = False
         signal_handler_installed = signalled = False
 
-        time.sleep(0.125)
+        time.sleep(0.25)
 
         while True:
             try:
