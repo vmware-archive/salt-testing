@@ -649,7 +649,7 @@ class SaltTestingParser(optparse.OptionParser):
               'container. CID:'.format(container)),
         sys.stdout.flush()
 
-        cidfile = os.environ(
+        cidfile = os.environ.get(
             'DOCKER_CIDFILE',
             tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         )
