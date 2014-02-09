@@ -578,7 +578,7 @@ class SaltTestingParser(optparse.OptionParser):
                 print(' * Cleaning Up Temporary Docker Container. CID:'),
                 sys.stdout.flush()
                 cleanup_call = subprocess.Popen(
-                    ['docker', 'rm', '--volumes=true', cid],
+                    ['docker', 'rm', cid],
                     env=os.environ.copy(),
                     close_fds=True,
                     stdout=subprocess.PIPE
@@ -656,8 +656,9 @@ class SaltTestingParser(optparse.OptionParser):
         call = subprocess.Popen(
             ['docker',
              'run',
-             '-i',
-             '-t',
+             '--rm=true',
+             '--tty=true',
+             '--interactive=true',
              '-v',
              '{0}:/salt-source'.format(self.source_code_basedir),
              '-w',
