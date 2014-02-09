@@ -42,6 +42,11 @@ try:
                 self.elapsed_times
             )
 
+        def run(self, test):
+            result = xmlrunner.XMLTestRunner.run(self, test)
+            self.stream.writeln('Finished generating XML reports')
+            return result
+
 except ImportError:
     HAS_XMLRUNNER = False
 
