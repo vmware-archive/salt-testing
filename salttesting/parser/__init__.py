@@ -672,9 +672,9 @@ class SaltTestingParser(optparse.OptionParser):
         ]
 	if self.options.docked_salt_source:
             docker_call.append('-v')
-            docker_call.append('{0}:/usr/lib/python2.7/dist-packages/salt'.format(
-                self.options.docked_salt_source
-            ))
+            docker_call.append(
+                '{0}:/pysource/salt:ro'.format(self.options.docked_salt_source)
+            )
 
 	docker_call.extend(
             ['-e',
