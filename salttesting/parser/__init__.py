@@ -147,6 +147,12 @@ class SaltTestingParser(optparse.OptionParser):
                 help='Run the tests suite in the chosen Docker container'
             )
             self.docked_selection_group.add_option(
+                '--docked-salt-source',
+                default=None,
+                metavar='HOST_PATH',
+                help='Use this option if salt-source is not next to tests'
+            )
+            self.docked_selection_group.add_option(
                 '--docked-interpreter',
                 default=None,
                 metavar='PYTHON_INTERPRETER',
@@ -653,28 +659,38 @@ class SaltTestingParser(optparse.OptionParser):
             'DOCKER_CIDFILE',
             tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         )
+	docker_call = [
+            'docker',
+            'run',
+            '--rm=true',
+            '--tty=true',
+            '--interactive=true',
+            '-v',
+            '{0}:/salt-source'.format(self.source_code_basedir),
+            '-w',
+            '/salt-source',
+        ]
+	if self.options.docked_salt_source:
+            docker_call.append('-v')
+            docker_call.append('{0}:/usr/lib/python2.7/dist-packages/salt'.format(
+                self.options.docked_salt_source
+            ))
+
+	docker_call.extend(
+            ['-e',
+            'SHELL=/bin/sh',
+            '-e',
+            'COLUMNS={0}'.format(WIDTH),
+            '-e',
+            'LINES={0}'.format(HEIGHT),
+            '-cidfile={0}'.format(cidfile),
+            container,
+            # We need to pass the runtests.py arguments as a single string so
+            # that the start-me-up.sh script can handle them properly
+            ' '.join(calling_args),
+	])
         call = subprocess.Popen(
-            ['docker',
-             'run',
-             '--rm=true',
-             '--tty=true',
-             '--interactive=true',
-             '-v',
-             '{0}:/salt-source'.format(self.source_code_basedir),
-             '-w',
-             '/salt-source',
-             '-e',
-             'SHELL=/bin/sh',
-             '-e',
-             'COLUMNS={0}'.format(WIDTH),
-             '-e',
-             'LINES={0}'.format(HEIGHT),
-             '-cidfile={0}'.format(cidfile),
-             container,
-             # We need to pass the runtests.py arguments as a single string so
-             # that the start-me-up.sh script can handle them properly
-             ' '.join(calling_args),
-             ],
+	    docker_call,
             env=os.environ.copy(),
             close_fds=True,
         )
