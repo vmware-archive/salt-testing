@@ -586,7 +586,10 @@ class SaltTestingParser(optparse.OptionParser):
                 cleanup_call.wait()
                 print(cleanup_call.stdout.read().strip())
 
-            os.unlink(cidfile)
+            if 'DOCKER_CIDFILE' not in os.environ:
+                # The CID file was not created "from the outside", so delete it
+                os.unlink(cidfile)
+
             print_header('', inline=True, width=self.options.output_columns)
             # Finally, EXIT!
             sys.exit(returncode)
