@@ -531,12 +531,24 @@ class SaltTestingParser(optparse.OptionParser):
         Run the tests suite in a Docker container
         '''
         def stop_running_docked_container(cid, signum=None, frame=None):
+            # Allow some time for the container to stop if it's going to be
+            # stopped by docker or any signals docker might have received
+            time.sleep(0.5)
 
             print_header('', inline=True, width=self.options.output_columns)
 
-            if signum != signal.SIGSTOP:
-                # This was not triggered by us when the docker container
-                # cleanly exits...
+            # Let's check if, in fact, the container is stopped
+            scode_call = subprocess.Popen(
+                ['docker', 'inspect', '-format={{.State.Running}}', cid],
+                env=os.environ.copy(),
+                close_fds=True,
+                stdout=subprocess.PIPE
+            )
+            scode_call.wait()
+            parsed_scode = scode_call.stdout.read().strip()
+            if parsed_scode != 'false':
+                # If the container is still running, let's make sure it
+                # properly stops
                 print(' * Making sure the container is stopped. CID:'),
                 sys.stdout.flush()
 
@@ -659,8 +671,8 @@ class SaltTestingParser(optparse.OptionParser):
         call = subprocess.Popen(
             ['docker',
              'run',
-             #'--rm=true',  Do not remove the container automatically, we need
-             #              to get information back, even for stopped containers
+             #'--rm=true', Do not remove the container automatically, we need
+             #             to get information back, even for stopped containers
              '--tty=true',
              '--interactive=true',
              '-v',
