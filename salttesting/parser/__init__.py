@@ -32,6 +32,10 @@ try:
 except Exception:
     PNUM = 70
 
+# This is a completely random and meaningful number intended to identify our
+# own signal triggering.
+WEIRD_SIGNAL_NUM = -45654
+
 
 def print_header(header, sep='~', top=True, bottom=True, inline=False,
                  centered=False, width=PNUM):
@@ -747,7 +751,7 @@ class SaltTestingParser(optparse.OptionParser):
         if signal_handler_installed:
             stop_running_docked_container(
                 cid,
-                signum=(signal.SIGINT if signalled else signal.SIGSTOP)
+                signum=(signal.SIGINT if signalled else WEIRD_SIGNAL_NUM)
             )
         else:
             sys.exit(call.returncode)
