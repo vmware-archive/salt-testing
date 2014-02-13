@@ -659,7 +659,8 @@ class SaltTestingParser(optparse.OptionParser):
         call = subprocess.Popen(
             ['docker',
              'run',
-             '--rm=true',
+             #'--rm=true',  Do not remove the container automatically, we need
+             #              to get information back, even for stopped containers
              '--tty=true',
              '--interactive=true',
              '-v',
