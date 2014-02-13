@@ -733,7 +733,7 @@ class SaltTestingParser(optparse.OptionParser):
                 else:
                     call.poll()
                     if call.returncode is not None:
-                        # Finshed
+                        # Finished
                         break
             except KeyboardInterrupt:
                 print('Caught CTRL-C, exiting...')
