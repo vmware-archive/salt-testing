@@ -677,8 +677,8 @@ class SaltTestingParser(optparse.OptionParser):
              'run',
              #'--rm=true', Do not remove the container automatically, we need
              #             to get information back, even for stopped containers
-             '--tty=true',
-             '--interactive=true',
+             '-t',                  # --tty but older versions don't support longopts
+             '-i',                  # --interactive=true, same as above
              '-v',
              '{0}:/salt-source'.format(self.source_code_basedir),
              '-w',
