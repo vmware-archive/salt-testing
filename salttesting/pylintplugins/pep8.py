@@ -99,6 +99,11 @@ class _PEP8BaseChecker(BaseChecker):
                 # Log warning??
                 continue
 
+            if code == 'E113':
+                if _PROCESSED_NODES[node.path].lines[lineno-1].strip().startswith('#'):
+                    # If E113 is triggered in comments, which I consider a bug,
+                    # skip it. See https://github.com/jcrocholl/pep8/issues/274
+                    continue
             self.add_message(pylintcode, line=lineno, args=code)
 
 
