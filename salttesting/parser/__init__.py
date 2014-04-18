@@ -18,6 +18,7 @@ import shutil
 import logging
 import optparse
 import tempfile
+import traceback
 import subprocess
 import warnings
 from functools import partial
@@ -35,6 +36,34 @@ except Exception:
 # This is a completely random and meaningful number intended to identify our
 # own signal triggering.
 WEIRD_SIGNAL_NUM = -45654
+
+
+# Let's setup a global exception hook handler which will log all exceptions
+# Store a reference to the original handler
+__GLOBAL_EXCEPTION_HANDLER = sys.excepthook
+
+
+def __global_logging_exception_handler(exc_type, exc_value, exc_traceback):
+    '''
+    This function will log all python exceptions.
+    '''
+    # Log the exception
+    logging.getLogger(__name__).error(
+        'An un-handled exception was caught by salt-testing\'s global '
+        'exception handler:\n{0}: {1}\n{2}'.format(
+            exc_type.__name__,
+            exc_value,
+            ''.join(traceback.format_exception(
+                exc_type, exc_value, exc_traceback
+            )).strip()
+        )
+    )
+    # Call the original sys.excepthook
+    __GLOBAL_EXCEPTION_HANDLER(exc_type, exc_value, exc_traceback)
+
+
+# Set our own exception handler as the one to use
+sys.excepthook = __global_logging_exception_handler
 
 
 def print_header(header, sep='~', top=True, bottom=True, inline=False,
