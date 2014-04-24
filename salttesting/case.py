@@ -133,8 +133,10 @@ class ShellTestCase(TestCase):
             else:
                 out, err = process.communicate()
             # Force closing stderr/stdout to release file descriptors
-            process.stdout.close()
-            process.stderr.close()
+            if process.stdout is not None:
+                process.stdout.close()
+            if process.stderr is not None:
+                process.stderr.close()
             try:
                 if with_retcode:
                     return out.splitlines(), err.splitlines(), process.returncode
