@@ -139,9 +139,13 @@ class ShellTestCase(TestCase):
                 process.stderr.close()
             try:
                 if with_retcode:
-                    return out.splitlines(), err.splitlines(), process.returncode
+                    if out and err:
+                        return out.splitlines(), err.splitlines(), process.returncode
+                    return out.splitlines(), [], process.returncode
                 else:
-                    return out.splitlines(), err.splitlines()
+                    if out and err:
+                        return out.splitlines(), err.splitlines()
+                    return out.splitlines, []
             finally:
                 try:
                     process.terminate()
