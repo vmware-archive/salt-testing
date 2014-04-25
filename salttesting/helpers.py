@@ -21,6 +21,7 @@ import __builtin__
 from functools import wraps
 
 # Import Salt Testing libs
+from salttesting import __version_info__
 from salttesting.unit import skip, _id
 
 log = logging.getLogger(__name__)
@@ -446,6 +447,28 @@ def requires_network(only_local_network=False):
             return func(cls)
         return wrapper
     return decorator
+
+
+def with_system_account(account, on_existing='delete', delete=True):
+    '''
+    This method has been deprecated in favour of ``with_system_user``, please
+    use it instead.
+    '''
+    import warnings
+    caller = inspect.getframeinfo(sys._getframe(1))
+    message = (
+        '\'with_system_account()\' in use in {filename}, line number '
+        '{lineno} has been deprecated in favour of \'with_system_user()\' '
+        'for 8 months now. Please us it instead.'.format(
+            filename=caller.filename,
+            lineno=caller.lineno
+        )
+    )
+    if __version_info__ > (2014, 12):
+        # 8 months should be more than enough to deprecate this
+        raise RuntimeError(message)
+    warnings.warn(message, DeprecationWarning)
+    return with_system_user(account, on_existing=on_existing, delete=delete)
 
 
 def with_system_user(username, on_existing='delete', delete=True):
