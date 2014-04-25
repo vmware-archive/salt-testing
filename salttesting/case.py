@@ -139,11 +139,11 @@ class ShellTestCase(TestCase):
                 process.stderr.close()
             try:
                 if with_retcode:
-                    if out and err:
+                    if out is not None and err is not None:
                         return out.splitlines(), err.splitlines(), process.returncode
                     return out.splitlines(), [], process.returncode
                 else:
-                    if out and err:
+                    if out is not None and err is not None:
                         return out.splitlines(), err.splitlines()
                     return out.splitlines(), []
             finally:
