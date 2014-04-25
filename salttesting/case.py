@@ -145,7 +145,7 @@ class ShellTestCase(TestCase):
                 else:
                     if out and err:
                         return out.splitlines(), err.splitlines()
-                    return out.splitlines, []
+                    return out.splitlines(), []
             finally:
                 try:
                     process.terminate()
