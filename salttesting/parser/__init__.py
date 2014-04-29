@@ -200,10 +200,9 @@ class SaltTestingParser(optparse.OptionParser):
                      'occurred. Default: False'
             )
             self.docked_selection_group.add_option(
-                    '--docked-binary',
-                    help='The docker binary on the host system. Default: /usr/bin/docker',
-                    default='/usr/bin/docker',
-                    metavar='DOCKED_BINARY'
+                '--docker-binary',
+                help='The docker binary on the host system. Default: %default',
+                default='/usr/bin/docker',
             )
             self.add_option_group(self.docked_selection_group)
 
@@ -708,7 +707,7 @@ class SaltTestingParser(optparse.OptionParser):
             tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         )
         call = subprocess.Popen(
-            [self.options.docked_binary,
+            [self.options.docker_binary,
              'run',
              #'--rm=true', Do not remove the container automatically, we need
              #             to get information back, even for stopped containers
