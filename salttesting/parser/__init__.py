@@ -199,6 +199,12 @@ class SaltTestingParser(optparse.OptionParser):
                 help='Skip docker container deletion on exit if errors '
                      'occurred. Default: False'
             )
+            self.docked_selection_group.add_option(
+                    '--docked-binary',
+                    help='The docker binary on the host system. Default: /usr/bin/docker',
+                    default='/usr/bin/docker',
+                    metavar='DOCKED_BINARY'
+            )
             self.add_option_group(self.docked_selection_group)
 
         self.output_options_group = optparse.OptionGroup(
@@ -702,7 +708,7 @@ class SaltTestingParser(optparse.OptionParser):
             tempfile.mktemp(prefix='docked-testsuite-', suffix='.cid')
         )
         call = subprocess.Popen(
-            ['docker',
+            [self.options.docked_binary,
              'run',
              #'--rm=true', Do not remove the container automatically, we need
              #             to get information back, even for stopped containers
