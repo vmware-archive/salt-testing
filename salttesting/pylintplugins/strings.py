@@ -19,7 +19,7 @@ except ImportError:  # pylint < 1.0
     from logilab import astng as astroid
 from pylint.checkers import utils
 from pylint.checkers import BaseChecker
-from pylint.checkers.utils import check_messages
+from pylint.checkers.utils import check_messages, parse_format_string
 
 try:
     # >= pylint 1.0
@@ -36,7 +36,13 @@ MSGS = {
     'E1320': ('String format call with un-indexed curly braces: %r',
               'un-indexed-curly-braces-error',
               'Under python 2.6 the curly braces on a \'string.format()\' '
-              'call MUST be indexed.')
+              'call MUST be indexed.'),
+    'W1321': ('String substitution used instead of string formattting on: %r',
+              'string-substitution-usage-warning',
+              'String substitution used instead of string formattting'),
+    'E1321': ('String substitution used instead of string formattting on: %r',
+              'string-substitution-usage-error',
+              'String substitution used instead of string formattting'),
 }
 
 
@@ -53,7 +59,37 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
                  'help': 'Force un-indexed curly braces on a '
                          '\'string.format()\' call to always be an error.'}
                 ),
+                ('string-substitutions-usage-is-an-error',
+                 {'default': 1, 'type': 'yn', 'metavar': '<y_or_n>',
+                  'help': 'Force string substitution usage on strings '
+                          'to always be an error.'}
+                 ),
                )
+
+    @check_messages(*(MSGS.keys()))
+    def visit_binop(self, node):
+        if node.op != '%':
+            return
+
+        if not (isinstance(node.left, astroid.Const) and
+                isinstance(node.left.value, basestring)):
+            return
+
+        try:
+            required_keys, required_num_args = parse_format_string(node.left.value)
+        except (utils.UnsupportedFormatCharacter, utils.IncompleteFormatString):
+            # This is handled elsewere
+            return
+
+        if required_keys or required_num_args:
+            if self.config.string_substitutions_usage_is_an_error:
+                msgid = 'E1321'
+            else:
+                msgid = 'W1321'
+            self.add_message(
+                msgid, node=node.left, args=node.left.value
+            )
+
 
     @check_messages(*(MSGS.keys()))
     def visit_callfunc(self, node):
