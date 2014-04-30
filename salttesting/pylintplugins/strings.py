@@ -59,6 +59,10 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
                  'help': 'Force un-indexed curly braces on a '
                          '\'string.format()\' call to always be an error.'}
                 ),
+                ('enforce-string-formatting-over-substitution',
+                 {'default': 1, 'type': 'yn', 'metavar': '<y_or_n>',
+                  'help': 'Enforce string formatting over string substitution'}
+                 ),
                 ('string-substitutions-usage-is-an-error',
                  {'default': 1, 'type': 'yn', 'metavar': '<y_or_n>',
                   'help': 'Force string substitution usage on strings '
@@ -68,6 +72,9 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
 
     @check_messages(*(MSGS.keys()))
     def visit_binop(self, node):
+        if not self.config.enforce_string_formatting_over_substitution:
+            return
+
         if node.op != '%':
             return
 
