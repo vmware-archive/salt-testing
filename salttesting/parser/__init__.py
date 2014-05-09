@@ -163,6 +163,18 @@ class SaltTestingParser(optparse.OptionParser):
             help=('Specific test name to run. A named test is the module path '
                   'relative to the tests directory')
         )
+
+        self.test_selection_group.add_option(
+                '--ssh',
+                dest='ssh',
+                action='store_true',
+                default=False,
+                help=('Run salt-ssh tests. These tests will spin up a temporary '
+                      'SSH server on your machine. In certain environments, this '
+                      'may be insecure! '
+                      'Default: $default')
+                )
+
         self.add_option_group(self.test_selection_group)
 
         if self.support_docker_execution is True:
