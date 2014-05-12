@@ -36,7 +36,8 @@ class ShellTestCase(TestCase):
             arg_str,
             catch_stderr=False,
             with_retcode=False,
-            timeout=None):
+            timeout=None,
+            raw=False):
         '''
         Execute a script with the given argument string
         '''
@@ -140,12 +141,21 @@ class ShellTestCase(TestCase):
             try:
                 if with_retcode:
                     if out is not None and err is not None:
-                        return out.splitlines(), err.splitlines(), process.returncode
+                        if not raw:
+                            return out.splitlines(), err.splitlines(), process.returncode
+                        else:
+                            return out, err, process.returncode
                     return out.splitlines(), [], process.returncode
                 else:
                     if out is not None and err is not None:
-                        return out.splitlines(), err.splitlines()
-                    return out.splitlines(), []
+                        if not raw:
+                            return out.splitlines(), err.splitlines()
+                        else:
+                            return out, err
+                    if not raw:
+                        return out.splitlines(), []
+                    else:
+                        return out, []
             finally:
                 try:
                     process.terminate()
@@ -158,9 +168,15 @@ class ShellTestCase(TestCase):
 
         try:
             if with_retcode:
-                return data[0].splitlines(), process.returncode
+                if not raw:
+                    return data[0].splitlines(), process.returncode
+                else:
+                    return data[0], process.returncode
             else:
-                return data[0].splitlines()
+                if not raw:
+                    return data[0].splitlines()
+                else:
+                    return data[0]
         finally:
             try:
                 process.terminate()
