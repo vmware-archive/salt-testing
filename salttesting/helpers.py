@@ -879,12 +879,12 @@ def requires_salt_modules(*names):
     def decorator(caller):
 
         if inspect.isclass(caller):
-
             # We're decorating a class
-            old_init = caller.__init__
+            old_setUp = getattr(caller, 'setUp', None)
 
-            def new_init(self, *args, **kwargs):
-                old_init(self, *args, **kwargs)
+            def setUp(self, *args, **kwargs):
+                if old_setUp is not None:
+                    old_setUp(self, *args, **kwargs)
 
                 if not hasattr(self, 'run_function'):
                     raise RuntimeError(
@@ -895,16 +895,12 @@ def requires_salt_modules(*names):
                     )
 
                 for name in names:
-                    if name not in self.run_function('sys.doc'):
-                        reason = 'Salt module {0!r} is not available'.format(
-                            name
-                        )
-                        for fname in dir(self):
-                            if not fname.startswith('test_'):
-                                continue
-                            setattr(self, fname, lambda: self.skipTest(reason))
-                        break
-            caller.__init__ = new_init
+                    if not hasattr(self, '__salt_sys_docs__'):
+                        # cache salts documentation
+                        self.__salt_sys_docs__ = self.run_function('sys.doc')
+                    if name not in self.__salt_sys_docs__:
+                        self.skipTest('Salt module {0!r} is not available'.format(name))
+            caller.setUp = setUp
             return caller
 
         # We're simply decorating functions
