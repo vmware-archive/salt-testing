@@ -288,6 +288,10 @@ class PEP8WhitespaceWarning(_PEP8BaseChecker):
                   'blank-line-contains-whitespace'),
     }
 
+    msgs_map = {
+        'W8293': 'C0303'
+    }
+
 
 class PEP8BlankLineWarning(_PEP8BaseChecker):
     '''
