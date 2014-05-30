@@ -13,6 +13,7 @@
 
 # Let's use absolute imports
 from __future__ import absolute_import
+import logging
 
 # Import PyLint libs
 from pylint.interfaces import IRawChecker
@@ -25,7 +26,6 @@ try:
     HAS_PEP8 = True
 except ImportError:
     HAS_PEP8 = False
-    import logging
     logging.getLogger(__name__).warning(
         'No pep8 library could be imported. No PEP8 check\'s will be done'
     )
