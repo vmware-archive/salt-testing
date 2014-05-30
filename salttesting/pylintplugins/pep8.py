@@ -96,7 +96,11 @@ class _PEP8BaseChecker(BaseChecker):
                 continue
 
             if pylintcode not in self.msgs:
-                # Log warning??
+                logging.getLogger(__name__).warning(
+                    'The following code, {0}, was not handled by the PEP8 plugin'.format(
+                        pylintcode
+                    )
+                )
                 continue
 
             if code == 'E113':
