@@ -13,6 +13,7 @@
 
 # Let's use absolute imports
 from __future__ import absolute_import
+import sys
 import logging
 
 # Import PyLint libs
@@ -26,12 +27,16 @@ try:
     HAS_PEP8 = True
 except ImportError:
     HAS_PEP8 = False
-    logging.getLogger(__name__).warning(
-        'No pep8 library could be imported. No PEP8 check\'s will be done'
-    )
+    msg = 'No pep8 library could be imported. No PEP8 check\'s will be done'
+    if logging.root.handlers:
+        logging.getLogger(__name__).warning(msg)
+    else:
+        sys.stderr.write('{0}\n'.format(msg))
 
 
 _PROCESSED_NODES = {}
+_KNOWN_PEP8_IDS = []
+_UNHANDLED_PEP8_IDS = []
 
 
 if HAS_PEP8 is True:
@@ -95,12 +100,14 @@ class _PEP8BaseChecker(BaseChecker):
                 # This will be handled by PyLint itself, skip it
                 continue
 
-            if pylintcode not in self.msgs:
-                logging.getLogger(__name__).warning(
-                    'The following code, {0}, was not handled by the PEP8 plugin'.format(
-                        pylintcode
-                    )
-                )
+            if pylintcode not in _KNOWN_PEP8_IDS:
+                if pylintcode not in _UNHANDLED_PEP8_IDS:
+                    _UNHANDLED_PEP8_IDS.append(pylintcode)
+                    msg = 'The following code, {0}, was not handled by the PEP8 plugin'.format(pylintcode)
+                    if logging.root.handlers:
+                        logging.getLogger(__name__).warning(msg)
+                    else:
+                        sys.stderr.write('{0}\n'.format(msg))
                 continue
 
             if code == 'E113':
@@ -327,6 +334,17 @@ class PEP8DeprecationWarning(_PEP8BaseChecker):
         'W8604': ("PEP8 %s: backticks are deprecated, use 'repr()'",
                   "backticks-are-deprecated,-use-'repr()'")
     }
+
+
+# ----- Keep Track Of Handled PEP8 MSG IDs -------------------------------------------------------------------------->
+for checker in locals().values():
+    try:
+        if issubclass(checker, _PEP8BaseChecker):
+            _KNOWN_PEP8_IDS.extend(checker._msgs.keys())
+    except TypeError:
+        # Not class
+        continue
+# <---- Keep Track Of Handled PEP8 MSG IDs ---------------------------------------------------------------------------
 
 
 def register(linter):
