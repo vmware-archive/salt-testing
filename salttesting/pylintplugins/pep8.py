@@ -267,6 +267,10 @@ class PEP8Statement(_PEP8BaseChecker):
                   "comparison-to-None-should-be-'if-cond-is-None:'"),
         'E8712': ("PEP8 %s: comparison to True should be 'if cond is True:' or 'if cond:'",
                   "comparison-to-True-should-be-'if-cond-is-True:'-or-'if-cond:'"),
+        'E8713': ("PEP8 %s: test for membership should be 'not in'",
+                  "test-for-membership-should-be 'not in'"),
+        'E8714': ("PEP8 %s: test for object identity should be 'is not'",
+                  "test-for-object-identity-should-be-'is not'"),
         'E8721': ("PEP8 %s: do not compare types, use 'isinstance()'",
                   "do-not-compare-types,-use-'isinstance()'"),
     }
