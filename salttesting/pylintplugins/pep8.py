@@ -145,6 +145,10 @@ class PEP8Indentation(_PEP8BaseChecker):
                   'closing-bracket-is-missing-indentation'),
     }
 
+    msgs_map = {
+        'E8126': 'C0330'
+    }
+
 
 class PEP8Whitespace(_PEP8BaseChecker):
     '''
