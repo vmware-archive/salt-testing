@@ -148,6 +148,8 @@ class PEP8Indentation(_PEP8BaseChecker):
                   'continuation-line-over-indented-for-visual-indent'),
         'E8128': ('PEP8 %s: continuation line under-indented for visual indent',
                   'continuation-line-under-indented-for-visual-indent'),
+        'E8131': ('PEP8 %s: unaligned for hanging indent',
+                  'unaligned-for-hanging-indent'),
         'E8133': ('PEP8 %s: closing bracket is missing indentation',
                   'closing-bracket-is-missing-indentation'),
     }
