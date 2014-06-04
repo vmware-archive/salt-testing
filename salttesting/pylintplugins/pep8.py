@@ -199,6 +199,10 @@ class PEP8Whitespace(_PEP8BaseChecker):
         'E8274': ('PEP8 %s: tab before keyword', 'tab-before-keyword'),
     }
 
+    msgs_map = {
+        'E8251': 'C0326'
+    }
+
 
 class PEP8BlankLine(_PEP8BaseChecker):
     '''
