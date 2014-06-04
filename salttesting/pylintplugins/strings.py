@@ -11,6 +11,7 @@
     Extended String Formatting Checkers
 '''
 
+import re
 import sys
 try:
     # >= pylint 1.0
@@ -44,6 +45,8 @@ MSGS = {
               'string-substitution-usage-error',
               'String substitution used instead of string formattting'),
 }
+
+BAD_FORMATTING_SLOT = re.compile(r'(\{[^\w]+(.*)\}|\{\})')
 
 
 class StringCurlyBracesFormatIndexChecker(BaseChecker):
@@ -97,14 +100,13 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
                 msgid, node=node.left, args=node.left.value
             )
 
-
     @check_messages(*(MSGS.keys()))
     def visit_callfunc(self, node):
         func = utils.safe_infer(node.func)
         if isinstance(func, astroid.BoundMethod) and func.name == 'format':
             # If there's a .format() call, run the code below
 
-            if isinstance(node.func.expr, astroid.Name):
+            if isinstance(node.func.expr, (astroid.Name, astroid.Const)):
                 # This is for:
                 #   foo = 'Foo {} bar'
                 #   print(foo.format(blah)
@@ -114,7 +116,7 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
                         # checking.
                         continue
 
-                    if '{}' in inferred.value:
+                    if BAD_FORMATTING_SLOT.findall(inferred.value):
                         if self.config.un_indexed_curly_braces_always_error or \
                                 sys.version_info[:2] < (2, 7):
                             msgid = 'E1320'
@@ -130,7 +132,7 @@ class StringCurlyBracesFormatIndexChecker(BaseChecker):
             elif isinstance(node.func.expr.value, astroid.Name):
                 # No need to check these either
                 return
-            elif '{}' in node.func.expr.value:
+            elif BAD_FORMATTING_SLOT.findall(node.func.expr.value):
                 if self.config.un_indexed_curly_braces_always_error or \
                         sys.version_info[:2] < (2, 7):
                     msgid = 'E1320'
