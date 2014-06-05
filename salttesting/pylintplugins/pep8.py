@@ -110,6 +110,10 @@ class _PEP8BaseChecker(BaseChecker):
                         sys.stderr.write('{0}\n'.format(msg))
                 continue
 
+            if pylintcode not in self._msgs:
+                # Not for our class implementation to handle
+                continue
+
             if code == 'E113':
                 if _PROCESSED_NODES[node.path].lines[lineno-1].strip().startswith('#'):
                     # If E113 is triggered in comments, which I consider a bug,
