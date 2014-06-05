@@ -318,6 +318,7 @@ class PEP8WhitespaceWarning(_PEP8BaseChecker):
     }
 
     msgs_map = {
+        'W8291': 'C0303',
         'W8293': 'C0303'
     }
 
