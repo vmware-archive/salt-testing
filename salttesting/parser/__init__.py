@@ -25,6 +25,7 @@ from functools import partial
 from contextlib import closing
 
 from salttesting import TestLoader, TextTestRunner
+from salttesting.version import __version_info__
 from salttesting.xmlunit import HAS_XMLRUNNER, XMLTestRunner
 try:
     from salttesting.ext import console
@@ -849,8 +850,10 @@ def run_testcase(testcase):
     Helper function which can be used in `__main__` block to execute that
     specific ``unittest.case.TestCase`` tests.
     '''
-    parser = SaltTestcaseParser()
-    parser.parse_args()
-    if parser.run_testcase(testcase) is False:
-        parser.finalize(1)
-    parser.finalize(0)
+    if __version_info__ >= (2014, 4, 24):
+        sys.stderr.write(
+            '1Please use the \'salt-runtests\' binary to run the tests '
+            'from {0[0]}'.format(sys.argv)
+        )
+        sys.stderr.flush()
+        exit(1)
