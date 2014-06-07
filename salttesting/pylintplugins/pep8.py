@@ -114,8 +114,11 @@ class _PEP8BaseChecker(BaseChecker):
                 # Not for our class implementation to handle
                 continue
 
-            if code == 'E113':
+            if code in ('E111', 'E113'):
                 if _PROCESSED_NODES[node.path].lines[lineno-1].strip().startswith('#'):
+                    # If E111 is triggered in a comment I consider it, at
+                    # least, bad judgement. See https://github.com/jcrocholl/pep8/issues/300
+
                     # If E113 is triggered in comments, which I consider a bug,
                     # skip it. See https://github.com/jcrocholl/pep8/issues/274
                     continue
