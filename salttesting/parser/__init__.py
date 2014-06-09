@@ -92,6 +92,7 @@ def print_header(header, sep='~', top=True, bottom=True, inline=False,
 class SaltTestingParser(optparse.OptionParser):
     support_docker_execution = False
     support_destructive_tests_selection = False
+    support_cloud_provider_tests = False
     source_code_basedir = None
 
     _known_interpreters = {
@@ -152,6 +153,15 @@ class SaltTestingParser(optparse.OptionParser):
                 help=('Run destructive tests. These tests can include adding '
                       'or removing users from your system for example. '
                       'Default: %default')
+            )
+        if self.support_cloud_provider_tests is True:
+            self.test_selection_group.add_option(
+                '--run-cloud-providers',
+                action='store_true',
+                default=False,
+                help=('Run cloud provider tests. These tests create and delete '
+                      'instances on cloud providers. Must provide valid credentials '
+                      'in salt/tests/integration/files/conf/cloud.*.d to run tests.')
             )
 
         self.test_selection_group.add_option(
@@ -343,6 +353,11 @@ class SaltTestingParser(optparse.OptionParser):
             # Set the required environment variable in order to know if
             # destructive tests should be executed or not.
             os.environ['DESTRUCTIVE_TESTS'] = str(self.options.run_destructive)
+
+        if self.support_cloud_provider_tests:
+            # Set the required environment variable in order to know if
+            # cloud provider tests should be exevuted or not.
+            os.environ['CLOUD_PROVIDER_TESTS'] = str(self.options.run_cloud_providers)
 
     def validate_options(self):
         '''

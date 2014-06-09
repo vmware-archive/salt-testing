@@ -36,6 +36,15 @@ def destructiveTest(func):
     return wrap
 
 
+def cloudProviderTest(func):
+    @wraps(func)
+    def wrap(cls):
+        if os.environ.get('CLOUD_PROVIDER_TESTS', 'False').lower() == 'false':
+            cls.skipTest('Cloud provider tests are disabled')
+        return func(cls)
+    return wrap
+
+
 class RedirectStdStreams(object):
     '''
     Temporarily redirect system output to file like objects.
