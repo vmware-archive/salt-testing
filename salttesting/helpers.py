@@ -36,11 +36,11 @@ def destructiveTest(func):
     return wrap
 
 
-def cloudProviderTest(func):
+def expensiveTest(func):
     @wraps(func)
     def wrap(cls):
-        if os.environ.get('CLOUD_PROVIDER_TESTS', 'False').lower() == 'false':
-            cls.skipTest('Cloud provider tests are disabled')
+        if os.environ.get('EXPENSIVE_TESTS', 'False').lower() == 'false':
+            cls.skipTest('Expensive tests are disabled')
         return func(cls)
     return wrap
 
