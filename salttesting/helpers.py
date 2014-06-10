@@ -36,6 +36,15 @@ def destructiveTest(func):
     return wrap
 
 
+def expensiveTest(func):
+    @wraps(func)
+    def wrap(cls):
+        if os.environ.get('EXPENSIVE_TESTS', 'False').lower() == 'false':
+            cls.skipTest('Expensive tests are disabled')
+        return func(cls)
+    return wrap
+
+
 class RedirectStdStreams(object):
     '''
     Temporarily redirect system output to file like objects.

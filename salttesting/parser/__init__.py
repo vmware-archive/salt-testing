@@ -92,6 +92,7 @@ def print_header(header, sep='~', top=True, bottom=True, inline=False,
 class SaltTestingParser(optparse.OptionParser):
     support_docker_execution = False
     support_destructive_tests_selection = False
+    support_expensive_tests_selection = False
     source_code_basedir = None
 
     _known_interpreters = {
@@ -152,6 +153,15 @@ class SaltTestingParser(optparse.OptionParser):
                 help=('Run destructive tests. These tests can include adding '
                       'or removing users from your system for example. '
                       'Default: %default')
+            )
+        if self.support_expensive_tests_selection is True:
+            self.test_selection_group.add_option(
+                '--run-expensive',
+                action='store_true',
+                default=False,
+                help=('Run expensive tests. Expensive tests are any tests that, '
+                      'once configured, cost money to run, such as creating or '
+                      'destroying cloud instances on a cloud provider.')
             )
 
         self.test_selection_group.add_option(
@@ -343,6 +353,11 @@ class SaltTestingParser(optparse.OptionParser):
             # Set the required environment variable in order to know if
             # destructive tests should be executed or not.
             os.environ['DESTRUCTIVE_TESTS'] = str(self.options.run_destructive)
+
+        if self.support_expensive_tests_selection:
+            # Set the required environment variable in order to know if
+            # expensive tests should be executed or not.
+            os.environ['EXPENSIVE_TESTS'] = str(self.options.run_expensive)
 
     def validate_options(self):
         '''
