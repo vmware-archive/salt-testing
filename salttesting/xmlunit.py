@@ -12,11 +12,19 @@
 '''
 
 # Import python libs
+import sys
 import logging
 
 try:
     import xmlrunner
     HAS_XMLRUNNER = True
+
+    class _DelegateIO(xmlrunner._DelegateIO):
+        def __getattr__(self, attr):
+            try:
+                return getattr(self._captured, attr)
+            except AttributeError:
+                return getattr(self.delegate, attr)
 
     class _XMLTestResult(xmlrunner._XMLTestResult):
         def startTest(self, test):
@@ -46,6 +54,14 @@ try:
             result = xmlrunner.XMLTestRunner.run(self, test)
             self.stream.writeln('Finished generating XML reports')
             return result
+
+        def _patch_standard_output(self):
+            '''
+            Replaces stdout and stderr streams with string-based streams
+            in order to capture the tests' output.
+            '''
+            sys.stdout = _DelegateIO(sys.stdout)
+            sys.stderr = _DelegateIO(sys.stderr)
 
 except ImportError:
     HAS_XMLRUNNER = False
