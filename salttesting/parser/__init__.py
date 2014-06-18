@@ -852,7 +852,7 @@ def run_testcase(testcase):
     '''
     if __version_info__ >= (2014, 4, 24):
         sys.stderr.write(
-            '1Please use the \'salt-runtests\' binary to run the tests '
+            'Please use the \'salt-runtests\' binary to run the tests '
             'from {0[0]}'.format(sys.argv)
         )
         sys.stderr.flush()
