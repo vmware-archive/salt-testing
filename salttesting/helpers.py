@@ -968,3 +968,9 @@ def skip_if_binaries_missing(binaries, check_all=False):
             )
         )
     return _id
+
+
+def skip_if_not_root(func):
+    if os.getuid() != 0:
+        return skip('You must be logged in as root to run this test')
+    return _id
