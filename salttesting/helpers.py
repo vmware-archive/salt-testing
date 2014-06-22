@@ -27,12 +27,25 @@ from salttesting.unit import skip, _id
 log = logging.getLogger(__name__)
 
 
-def destructiveTest(func):
-    @wraps(func)
+def destructiveTest(caller):
+    if inspect.isclass(caller):
+        # We're decorating a class
+        old_setUp = getattr(caller, 'setUp', None)
+
+        def setUp(self, *args, **kwargs):
+            if os.environ.get('DESTRUCTIVE_TESTS', 'False').lower() == 'false':
+                self.skipTest('Destructive tests are disabled')
+            if old_setUp is not None:
+                old_setUp(self, *args, **kwargs)
+        caller.setUp = setUp
+        return caller
+
+    # We're simply decorating functions
+    @wraps(caller)
     def wrap(cls):
         if os.environ.get('DESTRUCTIVE_TESTS', 'False').lower() == 'false':
             cls.skipTest('Destructive tests are disabled')
-        return func(cls)
+        return caller(cls)
     return wrap
 
 
