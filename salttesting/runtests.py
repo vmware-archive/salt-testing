@@ -865,6 +865,15 @@ class TestDaemon(object):
         self.colors = get_colors(self.parser.options.no_colors is False)
 
     def __enter__(self):
+        try:
+            return self.__real_enter__()
+        except Exception as exc:
+            log.error(
+                'Failed to __enter__ the TestDaemon: {0}'.format(exc),
+                exc_info=log.isEnabledFor(logging.DEBUG)
+            )
+
+    def __real_enter__(self):
         '''
         Start a master and minion
         '''
