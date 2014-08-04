@@ -38,6 +38,8 @@ except ImportError:
 
     # Let's not fail on imports by providing fake objects and classes
 
+    Mock = MagicMock
+
     class MagicMock(object):
 
         __name__ = '{0}.fakemock'.format(__name__)
@@ -54,7 +56,6 @@ except ImportError:
         def __call__(self, *args, **kwargs):
             return self
 
-    Mock = MagicMock
     patch = MagicMock()
     sentinel = object()
     DEFAULT = object()
@@ -62,9 +63,10 @@ except ImportError:
     FILTER_DIR = True
     NonCallableMock = MagicMock()
     NonCallableMagicMock = MagicMock()
+    mock_open = object()
+    PropertyMock = object()
     call = tuple
     ANY = object()
-    mock_open = object()
 
 
 if NO_MOCK is False:
