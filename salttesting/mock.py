@@ -64,6 +64,7 @@ except ImportError:
     NonCallableMagicMock = MagicMock()
     call = tuple
     ANY = object()
+    mock_open = object()
 
 
 if NO_MOCK is False:
