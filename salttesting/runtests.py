@@ -1442,7 +1442,47 @@ class AdaptedConfigurationTestCaseMixIn(object):
             ),
             DeprecationWarning,
         )
-        return salt.config.master_config(os.path.join(TMP_CONF_DIR, 'master'))
+        return salt.config.master_config(
+            self.get_config_file_path('master')
+        )
+
+    @property
+    def minion_opts(self):
+        '''
+        Return the options used for the minion
+        '''
+        warnings.warn(
+            'Please stop using the \'minion_opts\' attribute in \'{0}.{1}\' and instead '
+            'import \'{2}.TMP_CONF_DIR\' and instantiate the master configuration like '
+            '\'salt.config.minion_config(os.path.join(TMP_CONF_DIR, "minion"))\''.format(
+                self.__class__.__module__,
+                self.__class__.__name__,
+                __name__
+            ),
+            DeprecationWarning,
+        )
+        return salt.config.minion_config(
+            self.get_config_file_path('minion')
+        )
+
+    @property
+    def sub_minion_opts(self):
+        '''
+        Return the options used for the sub-minion
+        '''
+        warnings.warn(
+            'Please stop using the \'sub_minion_opts\' attribute in \'{0}.{1}\' and instead '
+            'import \'{2}.TMP_CONF_DIR\' and instantiate the master configuration like '
+            '\'salt.config.minion_config(os.path.join(TMP_CONF_DIR, "sub_minion_opts"))\''.format(
+                self.__class__.__module__,
+                self.__class__.__name__,
+                __name__
+            ),
+            DeprecationWarning,
+        )
+        return salt.config.minion_config(
+            self.get_config_file_path('sub_minion')
+        )
 
 
 def main():
