@@ -887,6 +887,7 @@ class TestDaemon(object):
                 'Failed to __enter__ the TestDaemon: {0}'.format(exc),
                 exc_info=log.isEnabledFor(logging.DEBUG)
             )
+            self.parser.error('Failed to start the TestDaemon: {0}'.format(exc))
 
     def __real_enter__(self):
         '''
@@ -942,7 +943,7 @@ class TestDaemon(object):
             TMP,
         ]
 
-        if self.options.transport == 'raet':
+        if self.parser.options.transport == 'raet':
             verify_env_entries.extend([
                 os.path.join(self.master_opts['cachedir'], 'raet'),
                 os.path.join(self.minion_opts['cachedir'], 'raet'),
@@ -973,7 +974,7 @@ class TestDaemon(object):
         # Set up PATH to mockbin
         self._enter_mockbin()
 
-        if self.options.transport == 'raet':
+        if self.parser.options.transport == 'raet':
             self.start_raet_daemons()
         else:
             self.start_zeromq_daemons()
@@ -1136,7 +1137,7 @@ class TestDaemon(object):
         salt.master.clean_proc(self.master_process, wait_for_kill=50)
         self.master_process.join()
 
-        if self.options.transport == 'zeromq':
+        if self.parser.options.transport == 'zeromq':
             salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
             self.syndic_process.join()
             salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
