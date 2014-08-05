@@ -20,6 +20,7 @@ import fnmatch
 import logging
 import argparse
 import tempfile
+import warnings
 import multiprocessing
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -1428,6 +1429,20 @@ class AdaptedConfigurationTestCaseMixIn(object):
 
     def get_config_file_path(self, filename):
         return os.path.join(TMP_CONF_DIR, filename)
+
+    @property
+    def master_opts(self):
+        warnings.warn(
+            'Please stop using the \'master_opts\' attribute in \'{0}.{1}\' and instead '
+            'import \'{2}.TMP_CONF_DIR\' and instantiate the master configuration like '
+            '\'salt.config.master_config(os.path.join(TMP_CONF_DIR, "master"))\''.format(
+                self.__class__.__module__,
+                self.__class__.__name__,
+                __name__
+            ),
+            DeprecationWarning,
+        )
+        return salt.config.master_config(os.path.join(TMP_CONF_DIR, 'master'))
 
 
 def main():
