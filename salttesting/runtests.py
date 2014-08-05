@@ -360,6 +360,12 @@ class SaltRuntests(argparse.ArgumentParser):
             'Select which tests are to be executed'
         )
         self.test_selection_group.add_argument(
+            '--transport',
+            default='zeromq',
+            choices=('zeromq', 'raet'),
+            help='Set to raet to run integration tests with raet transport. Default: %(default)s'
+        )
+        self.test_selection_group.add_argument(
             '--run-destructive',
             action=DestructiveTestsAction,
             help=('Run destructive tests. These tests can include adding '
@@ -663,6 +669,15 @@ class SaltRuntests(argparse.ArgumentParser):
         syndic_master_opts['user'] = running_tests_user
         syndic_master_opts['root_dir'] = os.path.join(TMP, 'syndic-master-root')
 
+        if self.options.transport == 'raet':
+            master_opts['transport'] = 'raet'
+            master_opts['raet_port'] = 64506
+            minion_opts['transport'] = 'raet'
+            minion_opts['raet_port'] = 64510
+            sub_minion_opts['transport'] = 'raet'
+            sub_minion_opts['raet_port'] = 64520
+            #syndic_master_opts['transport'] = 'raet'
+
         # Set up config options that require internal data
         master_opts['pillar_roots'] = self.__pillar_roots__.to_dict()
         master_opts['file_roots'] = self.__file_roots__.merge({
@@ -892,42 +907,54 @@ class TestDaemon(object):
         self.sub_minion_opts = salt.config.minion_config(os.path.join(TMP_CONF_DIR, 'sub_minion'))
         self.syndic_master_opts = salt.config.master_config(os.path.join(TMP_CONF_DIR, 'syndic_master'))
 
-        verify_env([os.path.join(self.master_opts['pki_dir'], 'minions'),
-                    os.path.join(self.master_opts['pki_dir'], 'minions_pre'),
-                    os.path.join(self.master_opts['pki_dir'], 'minions_rejected'),
-                    os.path.join(self.master_opts['cachedir'], 'jobs'),
-                    os.path.join(self.syndic_master_opts['pki_dir'], 'minions'),
-                    os.path.join(self.syndic_master_opts['pki_dir'], 'minions_pre'),
-                    os.path.join(self.syndic_master_opts['pki_dir'], 'minions_rejected'),
-                    os.path.join(self.syndic_master_opts['cachedir'], 'jobs'),
-                    os.path.join(self.master_opts['pki_dir'], 'accepted'),
-                    os.path.join(self.master_opts['pki_dir'], 'rejected'),
-                    os.path.join(self.master_opts['pki_dir'], 'pending'),
-                    os.path.join(self.syndic_master_opts['pki_dir'], 'accepted'),
-                    os.path.join(self.syndic_master_opts['pki_dir'], 'rejected'),
-                    os.path.join(self.syndic_master_opts['pki_dir'], 'pending'),
-                    os.path.join(self.minion_opts['pki_dir'], 'accepted'),
-                    os.path.join(self.minion_opts['pki_dir'], 'rejected'),
-                    os.path.join(self.minion_opts['pki_dir'], 'pending'),
-                    os.path.join(self.sub_minion_opts['pki_dir'], 'accepted'),
-                    os.path.join(self.sub_minion_opts['pki_dir'], 'rejected'),
-                    os.path.join(self.sub_minion_opts['pki_dir'], 'pending'),
-                    os.path.dirname(self.master_opts['log_file']),
-                    self.master_opts['extension_modules'],
-                    self.syndic_opts['extension_modules'],
-                    self.syndic_master_opts['extension_modules'],
-                    self.minion_opts['extension_modules'],
-                    self.sub_minion_opts['extension_modules'],
-                    self.sub_minion_opts['pki_dir'],
-                    self.master_opts['sock_dir'],
-                    self.syndic_master_opts['sock_dir'],
-                    self.sub_minion_opts['sock_dir'],
-                    self.minion_opts['sock_dir'],
-                    TMP_STATE_TREE,
-                    TMP_PRODENV_STATE_TREE,
-                    TMP,
-                    ],
-                   running_tests_user)
+        verify_env_entries = [
+            os.path.join(self.master_opts['pki_dir'], 'minions'),
+            os.path.join(self.master_opts['pki_dir'], 'minions_pre'),
+            os.path.join(self.master_opts['pki_dir'], 'minions_rejected'),
+            os.path.join(self.syndic_master_opts['pki_dir'], 'minions'),
+            os.path.join(self.syndic_master_opts['pki_dir'], 'minions_pre'),
+            os.path.join(self.syndic_master_opts['pki_dir'], 'minions_rejected'),
+            os.path.join(self.master_opts['pki_dir'], 'accepted'),
+            os.path.join(self.master_opts['pki_dir'], 'rejected'),
+            os.path.join(self.master_opts['pki_dir'], 'pending'),
+            os.path.join(self.syndic_master_opts['pki_dir'], 'accepted'),
+            os.path.join(self.syndic_master_opts['pki_dir'], 'rejected'),
+            os.path.join(self.syndic_master_opts['pki_dir'], 'pending'),
+            os.path.join(self.minion_opts['pki_dir'], 'accepted'),
+            os.path.join(self.minion_opts['pki_dir'], 'rejected'),
+            os.path.join(self.minion_opts['pki_dir'], 'pending'),
+            os.path.join(self.sub_minion_opts['pki_dir'], 'accepted'),
+            os.path.join(self.sub_minion_opts['pki_dir'], 'rejected'),
+            os.path.join(self.sub_minion_opts['pki_dir'], 'pending'),
+            os.path.dirname(self.master_opts['log_file']),
+            self.master_opts['extension_modules'],
+            self.syndic_opts['extension_modules'],
+            self.syndic_master_opts['extension_modules'],
+            self.minion_opts['extension_modules'],
+            self.sub_minion_opts['extension_modules'],
+            self.sub_minion_opts['pki_dir'],
+            self.master_opts['sock_dir'],
+            self.syndic_master_opts['sock_dir'],
+            self.sub_minion_opts['sock_dir'],
+            self.minion_opts['sock_dir'],
+            TMP_STATE_TREE,
+            TMP_PRODENV_STATE_TREE,
+            TMP,
+        ]
+
+        if self.options.transport == 'raet':
+            verify_env_entries.extend([
+                os.path.join(self.master_opts['cachedir'], 'raet'),
+                os.path.join(self.minion_opts['cachedir'], 'raet'),
+                os.path.join(self.sub_minion_opts['cachedir'], 'raet'),
+            ])
+        else:
+            verify_env_entries.extend([
+                os.path.join(self.master_opts['cachedir'], 'jobs'),
+                os.path.join(self.syndic_master_opts['cachedir'], 'jobs'),
+            ])
+
+        verify_env(verify_env_entries, running_tests_user)
 
         # Copy any provided extension modules to the proper path
         for extension_modules_dest in set([self.master_opts['extension_modules'],
@@ -946,27 +973,10 @@ class TestDaemon(object):
         # Set up PATH to mockbin
         self._enter_mockbin()
 
-        master = salt.master.Master(self.master_opts)
-        self.master_process = multiprocessing.Process(target=master.start)
-        self.master_process.start()
-
-        minion = salt.minion.Minion(self.minion_opts)
-        self.minion_process = multiprocessing.Process(target=minion.tune_in)
-        self.minion_process.start()
-
-        sub_minion = salt.minion.Minion(self.sub_minion_opts)
-        self.sub_minion_process = multiprocessing.Process(
-            target=sub_minion.tune_in
-        )
-        self.sub_minion_process.start()
-
-        smaster = salt.master.Master(self.syndic_master_opts)
-        self.smaster_process = multiprocessing.Process(target=smaster.start)
-        self.smaster_process.start()
-
-        syndic = salt.minion.Syndic(self.syndic_opts)
-        self.syndic_process = multiprocessing.Process(target=syndic.tune_in)
-        self.syndic_process.start()
+        if self.options.transport == 'raet':
+            self.start_raet_daemons()
+        else:
+            self.start_zeromq_daemons()
 
         self.minion_targets = set(['minion', 'sub_minion'])
         self.pre_setup_minions()
@@ -1015,6 +1025,53 @@ class TestDaemon(object):
             return self
         finally:
             self.post_setup_minions()
+
+    def start_zeromq_daemons(self):
+        master = salt.master.Master(self.master_opts)
+        self.master_process = multiprocessing.Process(target=master.start)
+        self.master_process.start()
+
+        minion = salt.minion.Minion(self.minion_opts)
+        self.minion_process = multiprocessing.Process(target=minion.tune_in)
+        self.minion_process.start()
+
+        sub_minion = salt.minion.Minion(self.sub_minion_opts)
+        self.sub_minion_process = multiprocessing.Process(
+            target=sub_minion.tune_in
+        )
+        self.sub_minion_process.start()
+
+        smaster = salt.master.Master(self.syndic_master_opts)
+        self.smaster_process = multiprocessing.Process(target=smaster.start)
+        self.smaster_process.start()
+
+        syndic = salt.minion.Syndic(self.syndic_opts)
+        self.syndic_process = multiprocessing.Process(target=syndic.tune_in)
+        self.syndic_process.start()
+
+    def start_raet_daemons(self):
+        import salt.daemons.flo
+        master = salt.daemons.flo.IofloMaster(self.master_opts)
+        self.master_process = multiprocessing.Process(target=master.start)
+        self.master_process.start()
+
+        minion = salt.daemons.flo.IofloMinion(self.minion_opts)
+        self.minion_process = multiprocessing.Process(target=minion.tune_in)
+        self.minion_process.start()
+
+        sub_minion = salt.daemons.flo.IofloMinion(self.sub_minion_opts)
+        self.sub_minion_process = multiprocessing.Process(
+            target=sub_minion.tune_in
+        )
+        self.sub_minion_process.start()
+        # Wait for the daemons to all spin up
+        time.sleep(5)
+
+        #smaster = salt.daemons.flo.IofloMaster(self.syndic_master_opts)
+        #self.smaster_process = multiprocessing.Process(target=smaster.start)
+        #self.smaster_process.start()
+
+        # no raet syndic daemon yet
 
     def prep_ssh(self):
         '''
@@ -1078,10 +1135,13 @@ class TestDaemon(object):
         self.minion_process.join()
         salt.master.clean_proc(self.master_process, wait_for_kill=50)
         self.master_process.join()
-        salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
-        self.syndic_process.join()
-        salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
-        self.smaster_process.join()
+
+        if self.options.transport == 'zeromq':
+            salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
+            self.syndic_process.join()
+            salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
+            self.smaster_process.join()
+
         self._exit_mockbin()
         for func in self.parser.__test_daemon_exit__:
             func(self)
