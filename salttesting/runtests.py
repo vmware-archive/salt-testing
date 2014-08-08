@@ -246,6 +246,7 @@ class SaltRuntests(argparse.ArgumentParser):
         self.__testsuite__ = {}
         self.__testsuite_status__ = []
         self.__testsuite_results__ = []
+        self.__testsuite_searched_paths__ = set()
         # <---- Tests Suite Attributes -------------------------------------------------------------------------------
 
         # ----- Let's not use argparse's help action ---------------------------------------------------------------->
@@ -468,6 +469,10 @@ class SaltRuntests(argparse.ArgumentParser):
             log.info('Loading tests from {0}. Meta: {1}'.format(filename, metadata))
             if start_dir is None:
                 start_dir = os.path.dirname(filename)
+
+            if start_dir.startswith(tuple(self.__testsuite_searched_paths__)):
+                return
+
             discovered_tests = loader.discover(
                 start_dir, pattern=os.path.basename(filename), top_level_dir=metadata.top_level_dir
             )
@@ -475,9 +480,13 @@ class SaltRuntests(argparse.ArgumentParser):
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
                 for test in self.__flatten_testsuite__(discovered_tests):
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
+
+            self.__testsuite_searched_paths__.add(start_dir)
             return
 
         try:
+            if start_dir.startswith(tuple(self.__testsuite_searched_paths__)):
+                return
             log.info('Loading tests from {0}  Meta: {1}'.format(start_dir, metadata))
             discovered_tests = loader.discover(
                 start_dir, pattern=metadata.suffix_pattern, top_level_dir=metadata.top_level_dir
@@ -486,6 +495,7 @@ class SaltRuntests(argparse.ArgumentParser):
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
                 for test in self.__flatten_testsuite__(discovered_tests):
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
+            self.__testsuite_searched_paths__.add(start_dir)
         except Exception as exc:
             log.debug('A failure occurred while discovering tests: {0}'.format(exc))
 
