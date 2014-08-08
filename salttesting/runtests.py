@@ -513,8 +513,22 @@ class SaltRuntests(argparse.ArgumentParser):
             log.info('Found meta in {0}'.format(directory))
             return self.__load_metadata__(directory, filename)
         parent = os.path.dirname(directory)
-        if os.getcwd() == directory or parent in (directory, os.getcwd()):
-            log.info('Reached originating CWD, stop searching for meta in parent directories')
+        if os.getcwd() == self.options.workspace:
+            log.debug(
+                'Current directory matches the originating workspace({0}). Stop meta search.'.format(
+                    self.options.workspace
+                )
+            )
+            return argparse.Namespace(
+                needs_daemons=True,
+                suffix_pattern='test_*.py',
+            )
+        if self.options.workspace == directory:
+            log.debug(
+                'Reached originating CWD({0}), stop searching for meta in parent directories'.format(
+                    self.options.workspace
+                )
+            )
             # Don't search parent directories above CWD
             return argparse.Namespace(
                 needs_daemons=True,
@@ -542,7 +556,7 @@ class SaltRuntests(argparse.ArgumentParser):
     def parse_args(self, args=None, namespace=None):
         # We will ignore this parse_args result, we just need to trigger the
         # tests discovery with the additional search paths
-        options = super(SaltRuntests, self).parse_args(args, namespace)
+        self.options = options = super(SaltRuntests, self).parse_args(args, namespace)
         # Let's now remove the bogus help handler added above and add the real
         # one just before parsing args again
         self._remove_action(self.help_action)
