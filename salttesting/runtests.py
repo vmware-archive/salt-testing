@@ -495,7 +495,8 @@ class SaltRuntests(argparse.ArgumentParser):
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
                 for test in self.__flatten_testsuite__(discovered_tests):
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
-            self.__testsuite_searched_paths__.add(start_dir)
+            if start_dir != self.options.workplace:
+                self.__testsuite_searched_paths__.add(start_dir)
         except Exception as exc:
             log.debug('A failure occurred while discovering tests: {0}'.format(exc))
 
@@ -522,6 +523,7 @@ class SaltRuntests(argparse.ArgumentParser):
             return argparse.Namespace(
                 needs_daemons=True,
                 suffix_pattern='test_*.py',
+                top_level_dir=directory
             )
         if self.options.workspace == directory:
             log.debug(
@@ -533,6 +535,7 @@ class SaltRuntests(argparse.ArgumentParser):
             return argparse.Namespace(
                 needs_daemons=True,
                 suffix_pattern='test_*.py',
+                top_level_dir=directory
             )
         metadata = self.__find_meta__(parent)
         if 'top_level_dir' not in metadata:
@@ -816,7 +819,7 @@ class SaltRuntests(argparse.ArgumentParser):
                 for testcase, reason in results.skipped:
                     print(fmt.format(testcase.id(), reason, maxlen=maxlen))
                 print_header(u' ', sep='-', inline=True,
-                            width=self.options.output_columns)
+                             width=self.options.output_columns)
 
             if results.errors:
                 print_header(
