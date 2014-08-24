@@ -764,7 +764,7 @@ class SaltRuntests(argparse.ArgumentParser):
         Execute a unit test suite
         '''
 
-        if self.options.xml_out:
+        if HAS_XMLRUNNER and self.options.xml_out:
             runner = XMLTestRunner(
                 stream=sys.stdout,
                 output=self.options.xml_out_path,
