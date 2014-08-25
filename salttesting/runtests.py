@@ -649,10 +649,11 @@ class SaltRuntests(argparse.ArgumentParser):
         self.__transplant_configs__()
 
         for func in self.__pre_test_daemon_enter__:
-            func(self, start_daemons=self.start_daemons)
+            func(self, start_daemons=self.__testsuite_needs_daemons_running__())
 
         print_header(u'', inline=True, width=self.options.output_columns)
         with TestDaemon(self, start_daemons=self.__testsuite_needs_daemons_running__()):
+            self.run_collected_tests()
         if self.__testsuite_status__.count(False) > 0:
             self.finalize(1)
         self.finalize(0)
@@ -880,7 +881,7 @@ class SaltRuntests(argparse.ArgumentParser):
         Run the finalization procedures. Show report, clean-up file-system, etc
         '''
         for func in self.__post_test_daemon_exit__:
-            func(self, start_daemons=self.start_daemons)
+            func(self, start_daemons=self.__testsuite_needs_daemons_running__())
 
         if self.options.no_report is False:
             self.print_overall_testsuite_report()
