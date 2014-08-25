@@ -652,11 +652,7 @@ class SaltRuntests(argparse.ArgumentParser):
             func(self)
 
         print_header(u'', inline=True, width=self.options.output_columns)
-        if self.__testsuite_needs_daemons_running__():
-            with TestDaemon(self):
-                self.run_collected_tests()
-        else:
-            self.run_collected_tests()
+        with TestDaemon(self, start_daemons=self.__testsuite_needs_daemons_running__()):
         if self.__testsuite_status__.count(False) > 0:
             self.finalize(1)
         self.finalize(0)
@@ -903,8 +899,9 @@ class TestDaemon(object):
     '''
     MINIONS_CONNECT_TIMEOUT = MINIONS_SYNC_TIMEOUT = 120
 
-    def __init__(self, parser):
+    def __init__(self, parser, start_daemons=True):
         self.parser = parser
+        self.start_daemons = start_daemons
         self.colors = get_colors(self.parser.options.no_colors is False)
 
     def __enter__(self):
@@ -1002,22 +999,23 @@ class TestDaemon(object):
         # Set up PATH to mockbin
         self._enter_mockbin()
 
-        if self.parser.options.transport == 'raet':
-            self.start_raet_daemons()
-        else:
-            self.start_zeromq_daemons()
+        if self.start_daemons:
+            if self.parser.options.transport == 'raet':
+                self.start_raet_daemons()
+            else:
+                self.start_zeromq_daemons()
 
-        self.minion_targets = set(['minion', 'sub_minion'])
-        self.pre_setup_minions()
-        self.setup_minions()
+            self.minion_targets = set(['minion', 'sub_minion'])
+            self.pre_setup_minions()
+            self.setup_minions()
 
         for func in self.parser.__test_daemon_enter__:
-            func(self)
+            func(self, start_daemons=self.start_daemons)
 
         #if self.parser.options.ssh:
         #    self.prep_ssh()
 
-        if self.parser.options.sysinfo:
+        if self.start_daemons and self.parser.options.sysinfo:
             try:
                 print_header(
                     '~~~~~~~ Versions Report ', inline=True,
@@ -1053,7 +1051,8 @@ class TestDaemon(object):
         try:
             return self
         finally:
-            self.post_setup_minions()
+            if self.start_daemons:
+                self.post_setup_minions()
 
     def start_zeromq_daemons(self):
         master = salt.master.Master(self.master_opts)
@@ -1158,22 +1157,23 @@ class TestDaemon(object):
         '''
         Kill the minion and master processes
         '''
-        salt.master.clean_proc(self.sub_minion_process, wait_for_kill=50)
-        self.sub_minion_process.join()
-        salt.master.clean_proc(self.minion_process, wait_for_kill=50)
-        self.minion_process.join()
-        salt.master.clean_proc(self.master_process, wait_for_kill=50)
-        self.master_process.join()
+        if self.start_daemons:
+            salt.master.clean_proc(self.sub_minion_process, wait_for_kill=50)
+            self.sub_minion_process.join()
+            salt.master.clean_proc(self.minion_process, wait_for_kill=50)
+            self.minion_process.join()
+            salt.master.clean_proc(self.master_process, wait_for_kill=50)
+            self.master_process.join()
 
-        if self.parser.options.transport == 'zeromq':
-            salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
-            self.syndic_process.join()
-            salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
-            self.smaster_process.join()
+            if self.parser.options.transport == 'zeromq':
+                salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
+                self.syndic_process.join()
+                salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
+                self.smaster_process.join()
 
         self._exit_mockbin()
         for func in self.parser.__test_daemon_exit__:
-            func(self)
+            func(self, start_daemons=self.start_daemons)
         self._clean()
 
     def pre_setup_minions(self):
