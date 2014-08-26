@@ -575,6 +575,9 @@ class SaltRuntests(argparse.ArgumentParser):
             if discovered_tests.countTestCases():
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
                 for test in self.__flatten_testsuite__(discovered_tests):
+                    if 'ModuleImportFailure' in test.id():
+                        self.__testsuite__[test._testMethodName] = (test, metadata.needs_daemons)
+                        continue
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
             if start_dir != self.options.workplace:
                 self.__testsuite_searched_paths__.add(start_dir)
