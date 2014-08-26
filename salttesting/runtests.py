@@ -205,6 +205,19 @@ class VerbosityAction(argparse._CountAction):
                     verbosity > 5 and 5 or 3
                 )
             )
+
+
+class SaltCheckoutPathAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        python_path = os.environ.get('PYTHONPATH', None)
+        if python_path is not None:
+            python_path = '{0}:{1}'.format(
+                values, python_path
+            )
+        else:
+            python_path = values
+        os.environ['PYTHONPATH'] = values
+        setattr(namespace, self.dest, values)
 # <---- Custom Argument Parser Actions -------------------------------------------------------------------------------
 
 
@@ -287,6 +300,12 @@ class SaltRuntests(argparse.ArgumentParser):
             action=AppendToSearchPathAction,
             default=self.__search_paths__,
             help='Path for tests preparation and discovery'
+        )
+        self.operational_options_group.add_argument(
+            '--salt-checkout',
+            action=SaltCheckoutPathAction,
+            metavar='PATH_TO_SALT_CHECKOUT',
+            help='Path to the salt checkout directory in case salt is not installed'
         )
         self.operational_options_group.add_argument(
             '--no-salt-daemons',
@@ -560,6 +579,7 @@ class SaltRuntests(argparse.ArgumentParser):
         # We will ignore this parse_args result, we just need to trigger the
         # tests discovery with the additional search paths
         self.options = options = super(SaltRuntests, self).parse_args(args, namespace)
+
         # Let's now remove the bogus help handler added above and add the real
         # one just before parsing args again
         self._remove_action(self.help_action)
@@ -581,6 +601,13 @@ class SaltRuntests(argparse.ArgumentParser):
         # Parse ARGV again now that we have more of the required data, Yes,
         # it's not neat...
         self.options = super(SaltRuntests, self).parse_args(args, namespace)
+        try:
+            import salt
+        except ImportError:
+            self.error(
+                'Salt is not importable. Please point --salt-checkout to the directory '
+                'where the salt code resides'
+            )
 
         # ----- Setup File Logging ---------------------------------------------------------------------------------->
         log.info('Logging tests on {0}'.format(options.tests_logfile))
