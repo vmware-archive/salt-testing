@@ -127,6 +127,7 @@ TMP_CONF_DIR = os.path.join(TMP, 'etc-salt')
 XML_OUTPUT_DIR = os.environ.get('SALT_XML_TEST_REPORTS_DIR', os.path.join(TMP, 'xml-test-reports'))
 TMP_STATE_TREE = os.path.join(SYS_TMP_DIR, 'salt-temp-state-tree')
 TMP_PRODENV_STATE_TREE = os.path.join(SYS_TMP_DIR, 'salt-temp-prodenv-state-tree')
+INTEGRATION_FILES = None  # late evaluation
 # <---- Global Variables ---------------------------------------------------------------------------------------------
 
 
@@ -665,6 +666,18 @@ class SaltRuntests(argparse.ArgumentParser):
             self.error(
                 'Salt is not importable. Please point --salt-checkout to the directory '
                 'where the salt code resides'
+            )
+
+        global INTEGRATION_FILES  # pylint: disable=global-statement
+        INTEGRATION_FILES = os.path.join(
+            os.path.dirname(os.path.dirname(salt.__file__)), 'tests', 'integration', 'files'
+        )
+        if not os.path.isdir(INTEGRATION_FILES):
+            self.error(
+                'The calculated path to salt\'s testing integration files({0}) does not exist. '
+                'This might be due to the fact that the salt module imported is a system-wide '
+                'installation and not from a salt source code tree. Please point --salt-checkout '
+                'to the directory where the salt code resides'
             )
 
         # ----- Setup File Logging ---------------------------------------------------------------------------------->
