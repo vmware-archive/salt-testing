@@ -719,11 +719,6 @@ class SaltRuntests(argparse.ArgumentParser):
                     self.__discover_salttests__(abs_testfile)
                     continue
                 start_dir = os.path.dirname(abs_testfile)
-                metadata = argparse.Namespace(
-                    needs_daemons=True,
-                    suffix_pattern=os.path.basename(abs_testfile),
-                    top_level_dir=os.getcwd()
-                )
                 self.__load_tests__(self.__find_meta__(start_dir), filename=abs_testfile, start_dir=start_dir)
 
         if self.__count_test_cases__() < 1:
