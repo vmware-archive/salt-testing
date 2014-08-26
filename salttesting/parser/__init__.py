@@ -857,3 +857,23 @@ def run_testcase(testcase):
         )
         sys.stderr.flush()
         exit(1)
+
+
+def run_tests(*test_cases, **kwargs):
+    '''
+    Run integration tests for the chosen test cases.
+
+    Function uses optparse to set up test environment
+    '''
+
+    needs_daemon = kwargs.pop('needs_daemon', True)
+    if __version_info__ > (2014, 4, 24):
+        print(
+            'Please use the \'salt-runtests\' binary to run the tests. Example:\n'
+            '  salt-runtests {0}{1}'.format(
+                '' if needs_daemon is True else '--no-salt-daemons ',
+                sys.argv[0]
+            )
+        )
+        sys.stdout.flush()
+        sys.exit(1)
