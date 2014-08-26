@@ -36,24 +36,75 @@ from salttesting.unit import TestLoader, TestSuite, TextTestRunner
 from salttesting.xmlunit import HAS_XMLRUNNER, XMLTestRunner
 try:
     from salttesting.ext import console
-    SCREEN_COLS, SCREEN_ROWS = console.getTerminalSize()
-except Exception:
+    SCREEN_COLS, SCREEN_ROWS = console.getTerminalSize()  # pylint: disable=unpacking-non-sequence
+except Exception:  # pylint: disable=broad-except
     SCREEN_COLS = 80
 
 
 # Import Salt libs
-import salt
-import salt._compat
-import salt.config
-import salt.master
-import salt.minion
-import salt.runner
-import salt.output
-import salt.version
-import salt.utils
-from salt.log.handlers import TemporaryLoggingHandler
-from salt.utils import aggregation, fopen, get_colors
-from salt.utils.verify import verify_env
+try:
+    from salt.log.handlers import TemporaryLoggingHandler
+except ImportError:
+    if sys.version_info < (2, 7):
+        class NewStyleClassMixIn(object):
+            '''
+            Simple new style class to make pylint shut up!
+            This is required because SaltLoggingClass can't subclass object directly:
+
+                'Cannot create a consistent method resolution order (MRO) for bases'
+            '''
+
+        # Since the NullHandler is only available on python >= 2.7, here's a copy
+        # with NewStyleClassMixIn so it's also a new style class
+        class NullHandler(logging.Handler, NewStyleClassMixIn):
+            '''
+            This is 1 to 1 copy of python's 2.7 NullHandler
+            '''
+            def handle(self, record):
+                pass
+
+            def emit(self, record):
+                pass
+
+            def createLock(self):  # pylint: disable=C0103
+                self.lock = None
+
+        logging.NullHandler = NullHandler
+
+    class TemporaryLoggingHandler(logging.NullHandler):
+        '''
+        Copied from ``salt.log.handlers``
+        '''
+
+        def __init__(self, level=logging.NOTSET, max_queue_size=10000):
+            self.__max_queue_size = max_queue_size
+            super(TemporaryLoggingHandler, self).__init__(level=level)
+            self.__messages = []
+
+        def handle(self, record):
+            self.acquire()
+            if len(self.__messages) >= self.__max_queue_size:
+                # Loose the initial log records
+                self.__messages.pop(0)
+            self.__messages.append(record)
+            self.release()
+
+        def sync_with_handlers(self, handlers=()):
+            '''
+            Sync the stored log records to the provided log handlers.
+            '''
+            if not handlers:
+                return
+
+            while self.__messages:
+                record = self.__messages.pop(0)
+                for handler in handlers:
+                    if handler.level > record.levelno:
+                        # If the handler's level is higher than the log record one,
+                        # it should not handle the log record
+                        continue
+                    handler.handle(record)
+
 
 # Import 3rd-party libs
 import yaml
@@ -157,6 +208,9 @@ class DestructiveTestsAction(argparse._StoreTrueAction):
 
 class NoColorAction(argparse._StoreTrueAction):
     def __call__(self, parser, namespace, values, option_string=None):
+        # Late import
+        from salt.utils import get_colors
+
         super(NoColorAction, self).__call__(parser, namespace, values, option_string)
         parser.colors = get_colors(False)
 
@@ -253,6 +307,9 @@ class SaltRuntests(argparse.ArgumentParser):
                                            argument_default=argument_default,
                                            conflict_handler=conflict_handler,
                                            add_help=False)
+
+        # Late import
+        from salt.utils import get_colors
 
         self.colors = get_colors(True)
         # ----- Tests Suite Attributes ------------------------------------------------------------------------------>
@@ -697,6 +754,9 @@ class SaltRuntests(argparse.ArgumentParser):
         return False
 
     def __transplant_configs__(self):
+        # Late import
+        import salt.config
+
         if os.path.isdir(TMP_CONF_DIR):
             shutil.rmtree(TMP_CONF_DIR)
         os.makedirs(TMP_CONF_DIR)
@@ -928,6 +988,8 @@ class TestDaemon(object):
     MINIONS_CONNECT_TIMEOUT = MINIONS_SYNC_TIMEOUT = 120
 
     def __init__(self, parser, start_daemons=True):
+        # Late import
+        from salt.utils import get_colors
         self.parser = parser
         self.start_daemons = start_daemons
         self.colors = get_colors(self.parser.options.no_colors is False)
@@ -946,6 +1008,10 @@ class TestDaemon(object):
         '''
         Start a master and minion
         '''
+        # Late import
+        import salt.config
+        from salt.utils.verify import verify_env
+
         self.parser.print_bulleted('Setting up Salt daemons to execute tests')
         print_header(u'', inline=True, width=self.parser.options.output_columns)
 
@@ -1052,6 +1118,8 @@ class TestDaemon(object):
             except TypeError:
                 print_header('~~~~~~~ Versions Report ', inline=True)
 
+            # Late import
+            import salt.version
             print('\n'.join(salt.version.versions_report()))
 
             try:
@@ -1066,6 +1134,9 @@ class TestDaemon(object):
 
             minion_opts = self.minion_opts.copy()
             minion_opts['color'] = self.parser.options.no_colors is False
+
+            # Late import
+            import salt.output
             salt.output.display_output(grains, 'grains', minion_opts)
 
         try:
@@ -1083,6 +1154,10 @@ class TestDaemon(object):
                 self.post_setup_minions()
 
     def start_zeromq_daemons(self):
+        # Late import Salt
+        import salt.master
+        import salt.minion
+
         master = salt.master.Master(self.master_opts)
         self.master_process = multiprocessing.Process(target=master.start)
         self.master_process.start()
@@ -1179,12 +1254,17 @@ class TestDaemon(object):
         to be deferred to a latter stage. If created it on `__enter__` like it
         previously was, it would not receive the master events.
         '''
+        # Late import
+        import salt.client
         return salt.client.LocalClient(mopts=self.master_opts)
 
     def __exit__(self, type, value, traceback):
         '''
         Kill the minion and master processes
         '''
+        # Late import
+        import salt.master
+
         if self.start_daemons:
             salt.master.clean_proc(self.sub_minion_process, wait_for_kill=50)
             self.sub_minion_process.join()
@@ -1429,6 +1509,9 @@ class TestDaemon(object):
             )
             raise SystemExit()
 
+        # Late import
+        import salt._compat
+
         while syncing:
             rdata = self.client.get_full_returns(jid_info['jid'], syncing, 1)
             if rdata:
@@ -1487,6 +1570,9 @@ class AdaptedConfigurationTestCaseMixIn(object):
 
     @property
     def master_opts(self):
+        # Late import
+        import salt.config
+
         warnings.warn(
             'Please stop using the \'master_opts\' attribute in \'{0}.{1}\' and instead '
             'import \'{2}.TMP_CONF_DIR\' and instantiate the master configuration like '
@@ -1506,6 +1592,9 @@ class AdaptedConfigurationTestCaseMixIn(object):
         '''
         Return the options used for the minion
         '''
+        # Late import
+        import salt.config
+
         warnings.warn(
             'Please stop using the \'minion_opts\' attribute in \'{0}.{1}\' and instead '
             'import \'{2}.TMP_CONF_DIR\' and instantiate the minion configuration like '
@@ -1525,6 +1614,9 @@ class AdaptedConfigurationTestCaseMixIn(object):
         '''
         Return the options used for the sub-minion
         '''
+        # Late import
+        import salt.config
+
         warnings.warn(
             'Please stop using the \'sub_minion_opts\' attribute in \'{0}.{1}\' and instead '
             'import \'{2}.TMP_CONF_DIR\' and instantiate the sub-minion configuration like '
