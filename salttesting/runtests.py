@@ -264,14 +264,15 @@ class VerbosityAction(argparse._CountAction):
 class SaltCheckoutPathAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         python_path = os.environ.get('PYTHONPATH', None)
+        salt_checkout_path = os.path.abspath(values)
         if python_path is not None:
             python_path = '{0}:{1}'.format(
-                values, python_path
+                salt_checkout_path, python_path
             )
         else:
-            python_path = values
-        os.environ['PYTHONPATH'] = values
-        setattr(namespace, self.dest, values)
+            python_path = salt_checkout_path
+        os.environ['PYTHONPATH'] = python_path
+        setattr(namespace, self.dest, salt_checkout_path)
 # <---- Custom Argument Parser Actions -------------------------------------------------------------------------------
 
 
