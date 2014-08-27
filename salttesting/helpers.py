@@ -956,13 +956,14 @@ def requires_salt_modules(*names):
 def skip_if_binaries_missing(*binaries, **kwargs):
     import salt.utils
     if len(binaries) == 1:
-        if isinstance(binaries[0], (list, tuple)):
+        if isinstance(binaries[0], (list, tuple, set, frozenset)):
             binaries = binaries[0]
     check_all = kwargs.pop('check_all', False)
+    message = kwargs.pop('message', None)
     if kwargs:
         raise RuntimeError(
-            'The only supported keyword argument is \'check_all\'. '
-            'Invalid keyword arguments: {0}'.format(
+            'The only supported keyword argument is \'check_all\' and '
+            '\'message\'. Invalid keyword arguments: {0}'.format(
                 ', '.join(kwargs.keys())
             )
         )
@@ -970,11 +971,15 @@ def skip_if_binaries_missing(*binaries, **kwargs):
         for binary in binaries:
             if salt.utils.which(binary) is None:
                 return skip(
-                    'The {0!r} binary was not found'.format(binary)
+                    '{0}The {1!r} binary was not found'.format(
+                        message and '{0}. '.format(message) or '',
+                        binary
+                    )
                 )
     elif salt.utils.which_bin(binaries) is None:
         return skip(
-            'None of the following binaries was found: {0}'.format(
+            '{0}None of the following binaries was found: {1}'.format(
+                message and '{0}. '.format(message) or '',
                 ', '.join(binaries)
             )
         )
