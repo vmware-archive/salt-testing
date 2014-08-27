@@ -953,8 +953,19 @@ def requires_salt_modules(*names):
     return decorator
 
 
-def skip_if_binaries_missing(binaries, check_all=False):
+def skip_if_binaries_missing(*binaries, **kwargs):
     import salt.utils
+    if len(binaries) == 1:
+        if isinstance(binaries[0], (list, tuple)):
+            binaries = binaries[0]
+    check_all = kwargs.pop('check_all', False)
+    if kwargs:
+        raise RuntimeError(
+            'The only supported keyword argument is \'check_all\'. '
+            'Invalid keyword arguments: {0}'.format(
+                ', '.join(kwargs.keys())
+            )
+        )
     if check_all:
         for binary in binaries:
             if salt.utils.which(binary) is None:
