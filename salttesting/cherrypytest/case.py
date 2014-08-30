@@ -9,7 +9,7 @@ except ImportError:
 import os
 
 import salt.config
-from salttesting.runtests import TMP_CONF_DIR
+from salttesting.runtests import RUNTIME_VARS
 
 if HAS_CHERRYPY:
     from salttesting.cherrypytest.base import BaseCherryPyTestCase
@@ -37,7 +37,7 @@ class BaseRestCherryPyTest(BaseCherryPyTestCase):
     def __init__(self, *args, **kwargs):
         super(BaseRestCherryPyTest, self).__init__(*args, **kwargs)
 
-        master_conf = os.path.join(TMP_CONF_DIR, 'master')
+        master_conf = os.path.join(runtime_vars.TMP_CONF_DIR, 'master')
         self.config = salt.config.client_config(master_conf)
 
     def setUp(self, *args, **kwargs):
