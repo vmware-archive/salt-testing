@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 # Import salt testing libs
 from salttesting.unit import TestCase
 from salttesting.helpers import RedirectStdStreams
-from salttesting.runtests import TMP, TMP_CONF_DIR, AdaptedConfigurationTestCaseMixIn
+from salttesting.runtests import RUNTIME_VARS, AdaptedConfigurationTestCaseMixIn
 from salttesting.mixins import CheckShellBinaryNameAndVersionMixIn
 
 # Import salt libs
@@ -36,7 +36,6 @@ import salt._compat
 import salt.version
 
 
-TMP_SCRIPT_DIR = os.path.join(TMP, 'salt-scripts')
 STATE_FUNCTION_RUNNING_RE = re.compile(
     r'''The function (?:"|')(?P<state_func>.*)(?:"|') is running as PID '''
     r'(?P<pid>[\d]+) and was started at (?P<date>.*) with jid (?P<jid>[\d]+)'
@@ -71,10 +70,10 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
     '''
 
     def get_script_path(self, script_name):
-        if not os.path.isdir(TMP_SCRIPT_DIR):
-            os.makedirs(TMP_SCRIPT_DIR)
+        if not os.path.isdir(RUNTIME_VARS.TMP_SCRIPT_DIR):
+            os.makedirs(RUNTIME_VARS.TMP_SCRIPT_DIR)
 
-        script_path = os.path.join(TMP_SCRIPT_DIR, script_name)
+        script_path = os.path.join(RUNTIME_VARS.TMP_SCRIPT_DIR, script_name)
         if not os.path.isfile(script_path):
             log.debug('Generating {0}'.format(script_path))
 
@@ -109,8 +108,8 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         '''
         arg_str = '-c {0} -i --priv {1} --roster-file {2} localhost {3} --out=json'.format(
             self.get_config_dir(),
-            os.path.join(TMP_CONF_DIR, 'key_test'),
-            os.path.join(TMP_CONF_DIR, 'roster'),
+            os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'key_test'),
+            os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'roster'),
             arg_str
         )
         return self.run_script('salt-ssh', arg_str, with_retcode=with_retcode, catch_stderr=catch_stderr, raw=True)
