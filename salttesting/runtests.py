@@ -709,6 +709,26 @@ class SaltRuntests(argparse.ArgumentParser):
         self._option_string_actions.pop('--help')
         self._option_string_actions.pop('-h')
 
+        # Late import
+        try:
+            from salt.version import __saltstack_version__
+        except ImportError:
+            self.error(
+                'Salt is not importable. Please point --salt-checkout to the directory '
+                'where the salt code resides'
+            )
+
+        # (Major version, Minor version, Nr. commits) ignoring bugfix and rc's
+        required_salt_version = (__saltstack_version__.major, __saltstack_version__.minor, __saltstack_version__.noc)
+        if required_salt_version < (2014, 7, 1000):
+            self.error(
+                'The current Salt(version {0}) checkout is not recent enough. '
+                'Please use the \'runtests.py\' script found under the \'tests/\' '
+                'directory to run Salt\'s tests suite'.format(
+                    __saltstack_version__.string
+                )
+            )
+
         if not options.testfiles:
             # Since we're not being passed test files, we can search for them
             self.__discover_salttests__()
@@ -935,13 +955,8 @@ class SaltRuntests(argparse.ArgumentParser):
         # <---- Transcribe Configuration -----------------------------------------------------------------------------
 
     def __transplant_salt_integration_files__(self):
-        try:
-            import salt
-        except ImportError:
-            self.error(
-                'Salt is not importable. Please point --salt-checkout to the directory '
-                'where the salt code resides'
-            )
+        # Late import
+        import salt
 
         salt_integration_files_dir = os.path.join(
             os.path.dirname(os.path.dirname(salt.__file__)), 'tests', 'integration', 'files'
