@@ -591,7 +591,11 @@ class SaltRuntests(argparse.ArgumentParser):
             log.warn('Import failure occurred while loading tests: {0}'.format(exc))
             raise
         except Exception as exc:
-            log.debug('A failure occurred while discovering tests: {0}'.format(exc))
+            log.error(
+                'A failure occurred while discovering tests: {0}'.format(exc),
+                exc_info=True
+            )
+            self.exit(1)
 
     def __flatten_testsuite__(self, tests):
         if hasattr(tests, '_tests'):
