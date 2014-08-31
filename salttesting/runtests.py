@@ -918,15 +918,11 @@ class SaltRuntests(argparse.ArgumentParser):
                 'to the directory where the salt code resides'
             )
 
-        if not os.path.isdir(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
-            os.makedirs(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES)
-
-        for directory in os.listdir(salt_integration_files_dir):
-            recursive_copytree(
-                os.path.join(salt_integration_files_dir, directory),
-                os.path.join(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES, directory),
-                overwrite=True
-            )
+        recursive_copytree(
+            salt_integration_files_dir,
+            RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
+            overwrite=True
+        )
 
     def run_collected_tests(self):
         self.run_suite(
