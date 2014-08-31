@@ -118,19 +118,6 @@ logging.root.addHandler(LOGGING_TEMP_HANDLER)
 
 log = logging.getLogger(__name__)
 
-# ----- Global Variables -------------------------------------------------------------------------------------------->
-CONF_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), '_saltconf')
-# Gentoo Portage prefers ebuild tests are rooted in ${TMPDIR}
-SYS_TMP_DIR = os.environ.get('TMPDIR', tempfile.gettempdir())
-TMP = os.path.join(SYS_TMP_DIR, 'salt-tests-tmpdir')
-TMP_CONF_DIR = os.path.join(TMP, 'etc-salt')
-XML_OUTPUT_DIR = os.environ.get('SALT_XML_TEST_REPORTS_DIR', os.path.join(TMP, 'xml-test-reports'))
-TMP_STATE_TREE = os.path.join(SYS_TMP_DIR, 'salt-temp-state-tree')
-TMP_PRODENV_STATE_TREE = os.path.join(SYS_TMP_DIR, 'salt-temp-prodenv-state-tree')
-INTEGRATION_FILES = None  # late evaluation
-# <---- Global Variables ---------------------------------------------------------------------------------------------
-
-
 # ----- Helper Methods ---------------------------------------------------------------------------------------------->
 def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=False, width=SCREEN_COLS):
     '''
@@ -190,7 +177,61 @@ def recursive_copytree(source, destination, overwrite=False):
                     os.makedirs(os.path.dirname(dst_path))
                 log.debug('Copying {0} to {1}'.format(src_path, dst_path))
                 shutil.copy2(src_path, dst_path)
+
+
+class RuntimeVars(object):
+
+    __self_attributes__ = ('_vars', '_locked', 'lock')
+
+    def __init__(self, **kwargs):
+        self._vars = {}
+        self._locked = False
+        for key, value in kwargs.iteritems():
+            self._vars[key] = value
+
+    def lock(self):
+        # Late import
+        from salt.utils.immutabletypes import freeze
+        frozen_vars = freeze(self._vars.copy())
+        self._vars = frozen_vars
+        self._locked = True
+
+    def __getattribute__(self, name):
+        if name in object.__getattribute__(self, '__self_attributes__'):
+            return object.__getattribute__(self, name)
+        return object.__getattribute__(self, '_vars')[name]
+
+    def __setattr__(self, name, value):
+        if getattr(self, '_locked', False) is True:
+            raise RuntimeError(
+                'After {0} is locked, no additional data can be added to it'.format(
+                    self.__class__.__name__
+                )
+            )
+        if name in object.__getattribute__(self, '__self_attributes__'):
+            object.__setattr__(self, name, value)
+            return
+        self._vars[name] = value
 # <---- Helper Methods -----------------------------------------------------------------------------------------------
+
+# ----- Global Variables -------------------------------------------------------------------------------------------->
+CONF_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), '_saltconf')
+# Gentoo Portage prefers ebuild tests are rooted in ${TMPDIR}
+__TMP = os.path.join(os.environ.get('TMPDIR', tempfile.gettempdir()), 'salt-tests-tmpdir')
+XML_OUTPUT_DIR = os.environ.get('SALT_XML_TEST_REPORTS_DIR', os.path.join(__TMP, 'xml-test-reports'))
+# <---- Global Variables ---------------------------------------------------------------------------------------------
+
+
+# ----- Tests Runtime Variables ------------------------------------------------------------------------------------->
+RUNTIME_VARS = RuntimeVars(
+    TMP=__TMP,
+    TMP_CONF_DIR=os.path.join(__TMP, 'etc-salt'),
+    TMP_SCRIPT_DIR=os.path.join(__TMP, 'scripts'),
+    TMP_SALT_INTEGRATION_FILES=os.path.join(__TMP, 'integration-files'),
+    TMP_BASEENV_STATE_TREE=os.path.join(__TMP, 'integration-files', 'file', 'base'),
+    TMP_PRODENV_STATE_TREE=os.path.join(__TMP, 'integration-files', 'file', 'prod')
+)
+# <---- Tests Runtime Variables --------------------------------------------------------------------------------------
 
 
 # ----- Custom Argument Parser Actions ------------------------------------------------------------------------------>
@@ -671,25 +712,6 @@ class SaltRuntests(argparse.ArgumentParser):
         # Parse ARGV again now that we have more of the required data, Yes,
         # it's not neat...
         self.options = super(SaltRuntests, self).parse_args(args, namespace)
-        try:
-            import salt
-        except ImportError:
-            self.error(
-                'Salt is not importable. Please point --salt-checkout to the directory '
-                'where the salt code resides'
-            )
-
-        global INTEGRATION_FILES  # pylint: disable=global-statement
-        INTEGRATION_FILES = os.path.join(
-            os.path.dirname(os.path.dirname(salt.__file__)), 'tests', 'integration', 'files'
-        )
-        if not os.path.isdir(INTEGRATION_FILES):
-            self.error(
-                'The calculated path to salt\'s testing integration files({0}) does not exist. '
-                'This might be due to the fact that the salt module imported is a system-wide '
-                'installation and not from a salt source code tree. Please point --salt-checkout '
-                'to the directory where the salt code resides'
-            )
 
         # ----- Setup File Logging ---------------------------------------------------------------------------------->
         log.info('Logging tests on {0}'.format(options.tests_logfile))
@@ -743,19 +765,31 @@ class SaltRuntests(argparse.ArgumentParser):
         if os.getcwd() not in sys.path:
             sys.path.insert(0, os.getcwd())
 
-        if any([os.path.isdir(path) for path in [TMP, TMP_CONF_DIR, TMP_PRODENV_STATE_TREE, TMP_STATE_TREE]]):
+        if any([os.path.isdir(path) for path in [RUNTIME_VARS.TMP,
+                                                 RUNTIME_VARS.TMP_CONF_DIR,
+                                                 RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
+                                                 RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
+                                                 RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES]]):
             self.print_bulleted('Cleaning up previous execution temporary directories')
-            for path in [TMP, TMP_CONF_DIR, TMP_PRODENV_STATE_TREE, TMP_STATE_TREE]:
+            for path in [RUNTIME_VARS.TMP,
+                         RUNTIME_VARS.TMP_CONF_DIR,
+                         RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
+                         RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
+                         RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES]:
                 if os.path.isdir(path):
                     shutil.rmtree(path)
 
         self.print_bulleted('Found {0} test cases'.format(self.__count_test_cases__()))
         self.__transplant_configs__()
+        # Transplant Salt's integration files directory
+        self.__transplant_salt_integration_files__()
 
         for func in self.__pre_test_daemon_enter__:
             func(self, start_daemons=self.__testsuite_needs_daemons_running__())
 
         print_header(u'', inline=True, width=self.options.output_columns)
+        RUNTIME_VARS.lock()
+
         with TestDaemon(self, start_daemons=self.__testsuite_needs_daemons_running__()):
             self.run_collected_tests()
         if self.__testsuite_status__.count(False) > 0:
@@ -777,10 +811,10 @@ class SaltRuntests(argparse.ArgumentParser):
         # Late import
         import salt.config
 
-        if os.path.isdir(TMP_CONF_DIR):
-            shutil.rmtree(TMP_CONF_DIR)
-        os.makedirs(TMP_CONF_DIR)
-        self.print_bulleted('Transplanting configuration files to {0!r}'.format(TMP_CONF_DIR))
+        if os.path.isdir(RUNTIME_VARS.TMP_CONF_DIR):
+            shutil.rmtree(RUNTIME_VARS.TMP_CONF_DIR)
+        os.makedirs(RUNTIME_VARS.TMP_CONF_DIR)
+        self.print_bulleted('Transplanting configuration files to {0!r}'.format(RUNTIME_VARS.TMP_CONF_DIR))
         running_tests_user = pwd.getpwuid(os.getuid()).pw_name
         master_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'master'))
         master_opts['user'] = running_tests_user
@@ -788,18 +822,18 @@ class SaltRuntests(argparse.ArgumentParser):
         minion_config_path = os.path.join(CONF_DIR, 'minion')
         minion_opts = salt.config._read_conf_file(minion_config_path)
         minion_opts['user'] = running_tests_user
-        minion_opts['root_dir'] = master_opts['root_dir'] = os.path.join(TMP, 'master-minion-root')
+        minion_opts['root_dir'] = master_opts['root_dir'] = os.path.join(RUNTIME_VARS.TMP, 'master-minion-root')
 
         syndic_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'syndic'))
         syndic_opts['user'] = running_tests_user
 
         sub_minion_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'sub_minion'))
-        sub_minion_opts['root_dir'] = os.path.join(TMP, 'sub-minion-root')
+        sub_minion_opts['root_dir'] = os.path.join(RUNTIME_VARS.TMP, 'sub-minion-root')
         sub_minion_opts['user'] = running_tests_user
 
         syndic_master_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'syndic_master'))
         syndic_master_opts['user'] = running_tests_user
-        syndic_master_opts['root_dir'] = os.path.join(TMP, 'syndic-master-root')
+        syndic_master_opts['root_dir'] = os.path.join(RUNTIME_VARS.TMP, 'syndic-master-root')
 
         if self.options.transport == 'raet':
             master_opts['transport'] = 'raet'
@@ -816,11 +850,11 @@ class SaltRuntests(argparse.ArgumentParser):
             'base': [
                 # Let's support runtime created files that can be used like:
                 #   salt://my-temp-file.txt
-                TMP_STATE_TREE
+                RUNTIME_VARS.TMP_BASEENV_STATE_TREE
             ],
             # Alternate root to test __env__ choices
             'prod': [
-                TMP_PRODENV_STATE_TREE
+                RUNTIME_VARS.TMP_PRODENV_STATE_TREE
             ]
         }).to_dict()
         master_opts['ext_pillar'].extend(self.__ext_pillar__)
@@ -828,7 +862,7 @@ class SaltRuntests(argparse.ArgumentParser):
         # Point the config values to the correct temporary paths
         for name in ('hosts', 'aliases'):
             optname = '{0}.file'.format(name)
-            optname_path = os.path.join(TMP, name)
+            optname_path = os.path.join(RUNTIME_VARS.TMP, name)
             master_opts[optname] = optname_path
             minion_opts[optname] = optname_path
             sub_minion_opts[optname] = optname_path
@@ -843,20 +877,56 @@ class SaltRuntests(argparse.ArgumentParser):
             if os.path.isfile(entry_path):
                 shutil.copy(
                     entry_path,
-                    os.path.join(TMP_CONF_DIR, entry)
+                    os.path.join(RUNTIME_VARS.TMP_CONF_DIR, entry)
                 )
             elif os.path.isdir(entry_path):
                 shutil.copytree(
                     entry_path,
-                    os.path.join(TMP_CONF_DIR, entry)
+                    os.path.join(RUNTIME_VARS.TMP_CONF_DIR, entry)
                 )
 
         for entry in ('master', 'minion', 'sub_minion', 'syndic_master'):
             computed_config = deepcopy(locals()['{0}_opts'.format(entry)])
-            open(os.path.join(TMP_CONF_DIR, entry), 'w').write(
+            open(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, entry), 'w').write(
                 yaml.dump(computed_config, default_flow_style=False)
             )
         # <---- Transcribe Configuration -----------------------------------------------------------------------------
+
+    def __transplant_salt_integration_files__(self):
+        try:
+            import salt
+        except ImportError:
+            self.error(
+                'Salt is not importable. Please point --salt-checkout to the directory '
+                'where the salt code resides'
+            )
+
+        salt_integration_files_dir = os.path.join(
+            os.path.dirname(os.path.dirname(salt.__file__)), 'tests', 'integration', 'files'
+        )
+        self.print_bulleted(
+            'Transplanting Salt\'s test suite integration files from {0} to {1}'.format(
+                salt_integration_files_dir,
+                RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES
+            )
+        )
+        if not os.path.isdir(salt_integration_files_dir):
+            self.error(
+                'The calculated path to salt\'s testing integration files({0}) does not exist. '
+                'This might be due to the fact that the salt module imported is a system-wide '
+                'installation and not from a salt source code tree. Please point --salt-checkout '
+                'to the directory where the salt code resides'
+            )
+
+        if not os.path.isdir(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
+            os.makedirs(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES)
+
+        for directory in os.listdir(salt_integration_files_dir):
+            recursive_copytree(
+                os.path.join(salt_integration_files_dir, directory),
+                os.path.join(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES, directory),
+                overwrite=True
+            )
 
     def run_collected_tests(self):
         self.run_suite(
@@ -1036,16 +1106,16 @@ class TestDaemon(object):
         print_header(u'', inline=True, width=self.parser.options.output_columns)
 
         running_tests_user = pwd.getpwuid(os.getuid()).pw_name
-        self.master_opts = salt.config.master_config(os.path.join(TMP_CONF_DIR, 'master'))
-        minion_config_path = os.path.join(TMP_CONF_DIR, 'minion')
+        self.master_opts = salt.config.master_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'master'))
+        minion_config_path = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'minion')
         self.minion_opts = salt.config.minion_config(minion_config_path)
 
         self.syndic_opts = salt.config.syndic_config(
-            os.path.join(TMP_CONF_DIR, 'syndic'),
+            os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'syndic'),
             minion_config_path
         )
-        self.sub_minion_opts = salt.config.minion_config(os.path.join(TMP_CONF_DIR, 'sub_minion'))
-        self.syndic_master_opts = salt.config.master_config(os.path.join(TMP_CONF_DIR, 'syndic_master'))
+        self.sub_minion_opts = salt.config.minion_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'sub_minion'))
+        self.syndic_master_opts = salt.config.master_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'syndic_master'))
 
         verify_env_entries = [
             os.path.join(self.master_opts['pki_dir'], 'minions'),
@@ -1077,9 +1147,10 @@ class TestDaemon(object):
             self.syndic_master_opts['sock_dir'],
             self.sub_minion_opts['sock_dir'],
             self.minion_opts['sock_dir'],
-            TMP_STATE_TREE,
-            TMP_PRODENV_STATE_TREE,
-            TMP,
+            RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
+            RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
+            RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
+            RUNTIME_VARS.TMP,
         ]
 
         if self.parser.options.transport == 'raet':
@@ -1235,8 +1306,8 @@ class TestDaemon(object):
         if not (keygen and sshd):
             print('WARNING: Could not initialize SSH subsystem. Tests for salt-ssh may break!')
             return
-        if not os.path.exists(TMP_CONF_DIR):
-            os.makedirs(TMP_CONF_DIR)
+        if not os.path.exists(RUNTIME_VARS.TMP_CONF_DIR):
+            os.makedirs(RUNTIME_VARS.TMP_CONF_DIR)
 
         keygen_process = subprocess.Popen(
                 [keygen, '-t', 'ecdsa', '-b', '521', '-C', '"$(whoami)@$(hostname)-$(date -I)"', '-f', 'key_test',
@@ -1244,24 +1315,24 @@ class TestDaemon(object):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,
-                cwd=TMP_CONF_DIR
+                cwd=RUNTIME_VARS.TMP_CONF_DIR
         )
         out, err = keygen_process.communicate()
         if err:
             print('ssh-keygen had errors: {0}'.format(err))
         sshd_config_path = os.path.join(FILES, 'files/ext-conf/sshd_config')
-        shutil.copy(sshd_config_path, TMP_CONF_DIR)
-        auth_key_file = os.path.join(TMP_CONF_DIR, 'key_test.pub')
-        with open(os.path.join(TMP_CONF_DIR, 'sshd_config'), 'a') as ssh_config:
+        shutil.copy(sshd_config_path, RUNTIME_VARS.TMP_CONF_DIR)
+        auth_key_file = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'key_test.pub')
+        with open(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'sshd_config'), 'a') as ssh_config:
             ssh_config.write('AuthorizedKeysFile {0}\n'.format(auth_key_file))
         sshd_process = subprocess.Popen(
                 [sshd, '-f', 'sshd_config'],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,
-                cwd=TMP_CONF_DIR
+                cwd=RUNTIME_VARS.TMP_CONF_DIR
         )
-        shutil.copy(os.path.join(FILES, 'conf/roster'), TMP_CONF_DIR)
+        shutil.copy(os.path.join(FILES, 'conf/roster'), RUNTIME_VARS.TMP_CONF_DIR)
         '''
 
     @property
@@ -1380,7 +1451,10 @@ class TestDaemon(object):
         if os.path.isdir(self.syndic_master_opts['root_dir']):
             shutil.rmtree(self.syndic_master_opts['root_dir'])
 
-        for dirname in (TMP, TMP_STATE_TREE, TMP_PRODENV_STATE_TREE):
+        for dirname in (RUNTIME_VARS.TMP,
+                        RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
+                        RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
+                        RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
             if os.path.isdir(dirname):
                 shutil.rmtree(dirname)
 
@@ -1583,10 +1657,10 @@ class AdaptedConfigurationTestCaseMixIn(object):
     __slots__ = ()
 
     def get_config_dir(self):
-        return TMP_CONF_DIR
+        return RUNTIME_VARS.TMP_CONF_DIR
 
     def get_config_file_path(self, filename):
-        return os.path.join(TMP_CONF_DIR, filename)
+        return os.path.join(RUNTIME_VARS.TMP_CONF_DIR, filename)
 
     @property
     def master_opts(self):
@@ -1595,8 +1669,8 @@ class AdaptedConfigurationTestCaseMixIn(object):
 
         warnings.warn(
             'Please stop using the \'master_opts\' attribute in \'{0}.{1}\' and instead '
-            'import \'{2}.TMP_CONF_DIR\' and instantiate the master configuration like '
-            '\'salt.config.master_config(os.path.join(TMP_CONF_DIR, "master"))\''.format(
+            'import \'RUNTIME_VARS\' from {2!r} and instantiate the master configuration like '
+            '\'salt.config.master_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, "master"))\''.format(
                 self.__class__.__module__,
                 self.__class__.__name__,
                 __name__
@@ -1617,8 +1691,8 @@ class AdaptedConfigurationTestCaseMixIn(object):
 
         warnings.warn(
             'Please stop using the \'minion_opts\' attribute in \'{0}.{1}\' and instead '
-            'import \'{2}.TMP_CONF_DIR\' and instantiate the minion configuration like '
-            '\'salt.config.minion_config(os.path.join(TMP_CONF_DIR, "minion"))\''.format(
+            'import \'RUNTIME_VARS\' from {2!r} and instantiate the minion configuration like '
+            '\'salt.config.minion_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, "minion"))\''.format(
                 self.__class__.__module__,
                 self.__class__.__name__,
                 __name__
@@ -1639,8 +1713,8 @@ class AdaptedConfigurationTestCaseMixIn(object):
 
         warnings.warn(
             'Please stop using the \'sub_minion_opts\' attribute in \'{0}.{1}\' and instead '
-            'import \'{2}.TMP_CONF_DIR\' and instantiate the sub-minion configuration like '
-            '\'salt.config.minion_config(os.path.join(TMP_CONF_DIR, "sub_minion_opts"))\''.format(
+            'import \'RUNTIME_VARS\' from {2!r} and instantiate the sub-minion configuration like '
+            '\'salt.config.minion_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, "sub_minion_opts"))\''.format(
                 self.__class__.__module__,
                 self.__class__.__name__,
                 __name__
