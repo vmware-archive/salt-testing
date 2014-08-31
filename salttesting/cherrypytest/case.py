@@ -37,7 +37,7 @@ class BaseRestCherryPyTest(BaseCherryPyTestCase):
     def __init__(self, *args, **kwargs):
         super(BaseRestCherryPyTest, self).__init__(*args, **kwargs)
 
-        master_conf = os.path.join(runtime_vars.TMP_CONF_DIR, 'master')
+        master_conf = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'master')
         self.config = salt.config.client_config(master_conf)
 
     def setUp(self, *args, **kwargs):
