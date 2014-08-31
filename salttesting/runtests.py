@@ -587,6 +587,9 @@ class SaltRuntests(argparse.ArgumentParser):
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
             if start_dir != self.options.workspace:
                 self.__testsuite_searched_paths__.add(start_dir)
+        except ImportError as exc:
+            log.warn('Import failure occurred while loading tests: {0}'.format(exc))
+            raise
         except Exception as exc:
             log.debug('A failure occurred while discovering tests: {0}'.format(exc))
 
@@ -630,7 +633,10 @@ class SaltRuntests(argparse.ArgumentParser):
             for top_level_dir, start_dirs, filenames in os.walk(root):
                 if not fnmatch.filter(filenames, '*.py*'):
                     continue
-                self.__load_tests__(self.__find_meta__(top_level_dir), start_dir=top_level_dir)
+                try:
+                    self.__load_tests__(self.__find_meta__(top_level_dir), start_dir=top_level_dir)
+                except ImportError:
+                    continue
 
     def print_bulleted(self, message, color='LIGHT_BLUE'):
         print(' {0}*{ENDC} {1}'.format(self.colors[color], message, **self.colors))
