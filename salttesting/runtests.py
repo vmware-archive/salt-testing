@@ -78,7 +78,7 @@ except ImportError:
 
         def __init__(self, level=logging.NOTSET, max_queue_size=10000):
             self.__max_queue_size = max_queue_size
-            super(TemporaryLoggingHandler, self).__init__(level=level)
+            super(TemporaryLoggingHandler, self).__init__(level=level)  # pylint: disable=bad-super-call
             self.__messages = []
 
         def handle(self, record):
