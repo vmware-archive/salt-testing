@@ -588,7 +588,7 @@ class SaltRuntests(argparse.ArgumentParser):
         return metadata
         # <---- Return defined metadata ------------------------------------------------------------------------------
 
-    def __load_tests__(self, metadata, filename=None, start_dir=None):
+    def __load_tests__(self, metadata, filename=None, name=None, start_dir=None):
         loader = TestLoader()
         if filename is not None:
             log.info('Loading tests from {0}. Meta: {1}'.format(filename, metadata))
@@ -610,6 +610,18 @@ class SaltRuntests(argparse.ArgumentParser):
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
 
             self.__testsuite_searched_paths__.add(start_dir)
+            return
+
+        if name is not None:
+            log.info('Loading tests from {0}. Meta: {1}'.format(name, metadata))
+            discovered_tests = loader.loadTestsFromName(name)
+            if discovered_tests.countTestCases():
+                log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
+                for test in self.__flatten_testsuite__(discovered_tests):
+                    if 'ModuleImportFailure' in test.id():
+                        self.__testsuite__[test._testMethodName] = (test, metadata.needs_daemons)
+                        continue
+                    self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
             return
 
         try:
@@ -750,6 +762,36 @@ class SaltRuntests(argparse.ArgumentParser):
                     continue
                 start_dir = os.path.dirname(abs_testfile)
                 self.__load_tests__(self.__find_meta__(start_dir), filename=abs_testfile, start_dir=start_dir)
+
+        if options.name:
+            if not options.testfiles:
+                # We allowed self.__discover_salttests__() to be executed above in
+                # order for the import routine bellow to work, however, we will
+                # reset the self.__testsuite__ dictionary in order to only have the
+                # tests passed in options.name and options.testfiles loaded
+                self.__testsuite__ = {}
+            for name in options.name:
+                log.info('Processing {0}'.format(name))
+                # Let's mimic TestLoader.loadTestsFromName behaviour of
+                # discovering the test case module
+                parts = name.split('.')
+                module = None
+                while parts:
+                    try:
+                        module = __import__('.'.join(parts))
+                        break
+                    except ImportError:
+                        del parts[-1]
+                        if not parts:
+                            self.error('Unable to load tests from {0!r}'.format(name))
+                try:
+                    self.__load_tests__(
+                        self.__find_meta__(os.path.dirname(module.__file__)),
+                        name=name,
+                        start_dir=self.options.workspace
+                    )
+                except AttributeError:
+                    self.error('Unable to load tests from {0!r}'.format(name))
 
         if self.__count_test_cases__() < 1:
             # No need to continue if no tests were discovered
