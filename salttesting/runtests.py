@@ -171,6 +171,11 @@ class RootsDict(dict):
 
 def recursive_copytree(source, destination, overwrite=False):
     for root, dirs, files in os.walk(source):
+        for item in dirs:
+            src_path = os.path.join(root, item)
+            dst_path = os.path.join(destination, src_path.replace(source, '').lstrip(os.sep))
+            if not os.path.exists(dst_path):
+                os.makedirs(dst_path)
         for item in files:
             src_path = os.path.join(root, item)
             dst_path = os.path.join(destination, src_path.replace(source, '').lstrip(os.sep))
@@ -179,11 +184,6 @@ def recursive_copytree(source, destination, overwrite=False):
                     shutil.copy2(src_path, dst_path)
             else:
                 shutil.copy2(src_path, dst_path)
-        for item in dirs:
-            src_path = os.path.join(root, item)
-            dst_path = os.path.join(destination, src_path.replace(source, '').lstrip(os.sep))
-            if not os.path.exists(dst_path):
-                os.makedirs(dst_path)
 # <---- Helper Methods -----------------------------------------------------------------------------------------------
 
 
