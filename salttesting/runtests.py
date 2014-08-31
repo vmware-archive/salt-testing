@@ -918,11 +918,9 @@ class SaltRuntests(argparse.ArgumentParser):
                 'to the directory where the salt code resides'
             )
 
-        recursive_copytree(
-            salt_integration_files_dir,
-            RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
-            overwrite=True
-        )
+        shutil.copytree(salt_integration_files_dir,
+                        RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
+                        symlinks=True)
 
     def run_collected_tests(self):
         self.run_suite(
