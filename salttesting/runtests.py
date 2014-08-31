@@ -585,7 +585,7 @@ class SaltRuntests(argparse.ArgumentParser):
                         self.__testsuite__[test._testMethodName] = (test, metadata.needs_daemons)
                         continue
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
-            if start_dir != self.options.workplace:
+            if start_dir != self.options.workspace:
                 self.__testsuite_searched_paths__.add(start_dir)
         except Exception as exc:
             log.debug('A failure occurred while discovering tests: {0}'.format(exc))
