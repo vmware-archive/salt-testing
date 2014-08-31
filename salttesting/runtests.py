@@ -604,17 +604,6 @@ class SaltRuntests(argparse.ArgumentParser):
             log.info('Found meta in {0}'.format(directory))
             return self.__load_metadata__(directory, filename)
         parent = os.path.dirname(directory)
-        if os.getcwd() == self.options.workspace:
-            log.debug(
-                'Current directory matches the originating workspace({0}). Stop meta search.'.format(
-                    self.options.workspace
-                )
-            )
-            return argparse.Namespace(
-                needs_daemons=True,
-                suffix_pattern='test_*.py',
-                top_level_dir=directory
-            )
         if self.options.workspace == directory:
             log.debug(
                 'Reached originating CWD({0}), stop searching for meta in parent directories'.format(
