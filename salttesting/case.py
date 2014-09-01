@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 from salttesting.unit import TestCase
 from salttesting.helpers import RedirectStdStreams
 from salttesting.runtests import RUNTIME_VARS, AdaptedConfigurationTestCaseMixIn
-from salttesting.mixins import CheckShellBinaryNameAndVersionMixIn, SaltClientTestCaseMixIn
+from salttesting.mixins import SaltClientTestCaseMixIn
 
 # Import salt libs
 import salt
