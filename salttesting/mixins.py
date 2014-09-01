@@ -14,7 +14,11 @@
 import pprint
 import logging
 
+# Import Salt Testing Libs
+from salttesting.runtests import AdaptedConfigurationTestCaseMixIn
+
 # Import salt libs
+import salt.client
 import salt.version
 
 log = logging.getLogger(__name__)
@@ -189,4 +193,16 @@ class SaltReturnAssertsMixIn(object):
         keys = ['changes'] + self.__return_valid_keys(keys)
         return self.assertNotEqual(
             self.__getWithinSaltReturn(ret, keys), comparison
+        )
+
+
+class SaltClientTestCaseMixIn(AdaptedConfigurationTestCaseMixIn):
+
+    _salt_client_config_file_name_ = 'master'
+    __slots__ = ('client', '_salt_client_config_file_name_')
+
+    @property
+    def client(self):
+        return salt.client.get_local_client(
+            self.get_config_file_path(self._salt_client_config_file_name_)
         )

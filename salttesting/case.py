@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 from salttesting.unit import TestCase
 from salttesting.helpers import RedirectStdStreams
 from salttesting.runtests import RUNTIME_VARS, AdaptedConfigurationTestCaseMixIn
-from salttesting.mixins import CheckShellBinaryNameAndVersionMixIn
+from salttesting.mixins import CheckShellBinaryNameAndVersionMixIn, SaltClientTestCaseMixIn
 
 # Import salt libs
 import salt
@@ -328,18 +328,6 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
             except OSError as err:
                 # process already terminated
                 pass
-
-
-class SaltClientTestCaseMixIn(AdaptedConfigurationTestCaseMixIn):
-
-    _salt_client_config_file_name_ = 'master'
-    __slots__ = ('client', '_salt_client_config_file_name_')
-
-    @property
-    def client(self):
-        return salt.client.get_local_client(
-            self.get_config_file_path(self._salt_client_config_file_name_)
-        )
 
 
 class ModuleCase(TestCase, SaltClientTestCaseMixIn):
