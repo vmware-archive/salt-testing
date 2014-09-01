@@ -193,8 +193,6 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         cmd += '{0} '.format(script_path)
         cmd += '{0} '.format(arg_str)
 
-        print cmd
-
         popen_kwargs = {
             'shell': True,
             'stdout': subprocess.PIPE
@@ -476,3 +474,7 @@ class ClientCase(AdaptedConfigurationTestCaseMixIn, TestCase):
                 pass
             else:
                 raise
+
+# ----- Backwards Compatible Imports -------------------------------------------------------------------------------->
+from salttesting.mixins import ShellCaseCommonTestsMixIn, SaltClientTestCaseMixIn
+# <---- Backwards Compatible Imports ---------------------------------------------------------------------------------
