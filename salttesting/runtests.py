@@ -487,39 +487,159 @@ class SaltRuntests(argparse.ArgumentParser):
         )
         # <---- Files-system cleanup options -------------------------------------------------------------------------
 
-        # ----- Tests Selection Group ------------------------------------------------------------------------------->
-        self.test_selection_group = self.add_argument_group(
-            'Tests Selection',
-            'Select which tests are to be executed'
+        # ----- Tests Execution Tweaks Group ------------------------------------------------------------------------>
+        self.tests_execution_tweaks_group = self.add_argument_group(
+            'Tests Execution Tweaks'
         )
-        self.test_selection_group.add_argument(
+        self.tests_execution_tweaks_group.add_argument(
             '--transport',
             default='zeromq',
             choices=('zeromq', 'raet'),
             help='Set to raet to run integration tests with raet transport. Default: %(default)s'
         )
-        self.test_selection_group.add_argument(
+        self.tests_execution_tweaks_group.add_argument(
             '--run-destructive',
             action=DestructiveTestsAction,
             help=('Run destructive tests. These tests can include adding '
                   'or removing users from your system for example. '
                   'Default: %(default)s')
         )
-        self.test_selection_group.add_argument(
+        self.tests_execution_tweaks_group.add_argument(
             '--run-expensive-tests',
             action=ExpensiveTestsAction,
             help=('Run expensive tests. These tests can include testing code '
                   'which can cost money, for example, the cloud provider tests. '
                   'Default: %(default)s')
         )
-        self.test_selection_group.add_argument(
+        # <---- Tests Execution Tweaks Group -------------------------------------------------------------------------
+
+        # ----- Tests Filtering Group ------------------------------------------------------------------------------->
+        self.test_filtering_group = self.add_argument_group(
+            'Tests Filtering',
+            'Select which tests are to be executed. The options on the "Tests Filtering" group '
+            'are cumulative options that filter which tests are to be executed, and, if none '
+            'are provided, then all found tests are executed.'
+        )
+        self.test_filtering_group.add_argument(
             '-n',
             '--name',
             action='append',
             help=('Specific test name to run. A named test is the module path '
-                  'relative to the tests directory.')
+                  'relative to the tests directory. Example: unit.config_test')
         )
-        # <---- Tests Selection Group --------------------------------------------------------------------------------
+        self.test_filtering_group.add_argument(
+            '--unit-tests',
+            action='append_const',
+            const='unit.',
+            dest='tests_filter',
+            help='Run Salt Unit Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--integration-tests',
+            action='append_const',
+            const='integration.',
+            dest='tests_filter',
+            help='Run ALL Salt Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--cli-tests',
+            action='append_const',
+            const='integration.cli.',
+            dest='tests_filter',
+            help='Run Salt CLI Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--client-tests',
+            action='append_const',
+            const='integration.client.',
+            dest='tests_filter',
+            help='Run Salt Client Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--cloud-providers-tests',
+            action='append_const',
+            const='integration.cloud.providers.',
+            dest='tests_filter',
+            help='Run Salt Cloud Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--fileserver-tests',
+            action='append_const',
+            const='integration.fileserver.',
+            dest='tests_filter',
+            help='Run Salt Fileserver Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--loader-tests',
+            action='append_const',
+            const='integration.loader.',
+            dest='tests_filter',
+            help='Run Salt Loader Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--modules-tests',
+            action='append_const',
+            const='integration.modules.',
+            dest='tests_filter',
+            help='Run Salt Modules Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--netapi-tests',
+            action='append_const',
+            const='integration.netapi.',
+            dest='tests_filter',
+            help='Run Salt Netapi Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--output-tests',
+            action='append_const',
+            const='integration.output.',
+            dest='tests_filter',
+            help='Run Salt Output Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--runner-tests',
+            action='append_const',
+            const='integration.runner.',
+            dest='tests_filter',
+            help='Run Salt Runner Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--runners-tests',
+            action='append_const',
+            const='integration.runners.',
+            dest='tests_filter',
+            help='Run Salt Runners Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--shell-tests',
+            action='append_const',
+            const='integration.shell.',
+            dest='tests_filter',
+            help='Run Salt Shell Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--ssh-tests',
+            action='append_const',
+            const='integration.ssh.',
+            dest='tests_filter',
+            help='Run Salt Ssh Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--states-tests',
+            action='append_const',
+            const='integration.states.',
+            dest='tests_filter',
+            help='Run Salt States Integration Tests'
+        )
+        self.test_filtering_group.add_argument(
+            '--wheel-tests',
+            action='append_const',
+            const='integration.wheel.',
+            dest='tests_filter',
+            help='Run Salt Wheel Integration Tests'
+        )
+        # <---- Tests Filtering Group --------------------------------------------------------------------------------
 
         # ----- Tests discovery search path ------------------------------------------------------------------------->
         # TestDaemon context manager extension attributes
@@ -618,7 +738,15 @@ class SaltRuntests(argparse.ArgumentParser):
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
                 for test in self.__flatten_testsuite__(discovered_tests):
                     if 'ModuleImportFailure' in test.id():
+                        if self.options.tests_filter and not \
+                                test._testMethodName.startswith(tuple(self.options.tests_filter)):
+                            # We're filtering the tests and it does not match
+                            continue
+
                         self.__testsuite__[test._testMethodName] = (test, metadata.needs_daemons)
+                        continue
+                    if self.options.tests_filter and not test.id().startswith(tuple(self.options.tests_filter)):
+                        # We're filtering the tests and it does not match
                         continue
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
 
@@ -632,7 +760,14 @@ class SaltRuntests(argparse.ArgumentParser):
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
                 for test in self.__flatten_testsuite__(discovered_tests):
                     if 'ModuleImportFailure' in test.id():
+                        if self.options.tests_filter and not \
+                                test._testMethodName.startswith(tuple(self.options.tests_filter)):
+                            # We're filtering the tests and it does not match
+                            continue
                         self.__testsuite__[test._testMethodName] = (test, metadata.needs_daemons)
+                        continue
+                    if self.options.tests_filter and not test.id().startswith(tuple(self.options.tests_filter)):
+                        # We're filtering the tests and it does not match
                         continue
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
             return
@@ -648,7 +783,14 @@ class SaltRuntests(argparse.ArgumentParser):
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
                 for test in self.__flatten_testsuite__(discovered_tests):
                     if 'ModuleImportFailure' in test.id():
+                        if self.options.tests_filter and not \
+                                test._testMethodName.startswith(tuple(self.options.tests_filter)):
+                            # We're filtering the tests and it does not match
+                            continue
                         self.__testsuite__[test._testMethodName] = (test, metadata.needs_daemons)
+                        continue
+                    if self.options.tests_filter and not test.id().startswith(tuple(self.options.tests_filter)):
+                        # We're filtering the tests and it does not match
                         continue
                     self.__testsuite__[test.id()] = (test, metadata.needs_daemons)
             if start_dir != self.options.workspace:
