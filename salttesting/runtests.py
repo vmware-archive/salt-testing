@@ -254,6 +254,12 @@ class DestructiveTestsAction(argparse._StoreTrueAction):
         os.environ['DESTRUCTIVE_TESTS'] = 'YES'
 
 
+class ExpensiveTestsAction(argparse._StoreTrueAction):
+    def __call__(self, parser, namespace, values, option_string=None):
+        super(ExpensiveTestsAction, self).__call__(parser, namespace, values, option_string)
+        os.environ['EXPENSIVE_TESTS'] = 'YES'
+
+
 class NoColorAction(argparse._StoreTrueAction):
     def __call__(self, parser, namespace, values, option_string=None):
         # Late import
@@ -497,6 +503,13 @@ class SaltRuntests(argparse.ArgumentParser):
             action=DestructiveTestsAction,
             help=('Run destructive tests. These tests can include adding '
                   'or removing users from your system for example. '
+                  'Default: %(default)s')
+        )
+        self.test_selection_group.add_argument(
+            '--run-expensive-tests',
+            action=ExpensiveTestsAction,
+            help=('Run expensive tests. These tests can include testing code '
+                  'which can cost money, for example, the cloud provider tests. '
                   'Default: %(default)s')
         )
         self.test_selection_group.add_argument(
