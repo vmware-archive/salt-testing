@@ -476,5 +476,5 @@ class ClientCase(AdaptedConfigurationTestCaseMixIn, TestCase):
                 raise
 
 # ----- Backwards Compatible Imports -------------------------------------------------------------------------------->
-from salttesting.mixins import ShellCaseCommonTestsMixIn, SaltClientTestCaseMixIn
+from salttesting.mixins import ShellCaseCommonTestsMixIn  # pylint: disable=unused-import
 # <---- Backwards Compatible Imports ---------------------------------------------------------------------------------
