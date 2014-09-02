@@ -984,17 +984,9 @@ class SaltRuntests(argparse.ArgumentParser):
         if os.getcwd() not in sys.path:
             sys.path.insert(0, os.getcwd())
 
-        if any([os.path.isdir(path) for path in [RUNTIME_VARS.TMP,
-                                                 RUNTIME_VARS.TMP_CONF_DIR,
-                                                 RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
-                                                 RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
-                                                 RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES]]):
+        if any([os.path.isdir(path) for (name, path) in RUNTIME_VARS]):
             self.print_bulleted('Cleaning up previous execution temporary directories')
-            for path in [RUNTIME_VARS.TMP,
-                         RUNTIME_VARS.TMP_CONF_DIR,
-                         RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
-                         RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
-                         RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES]:
+            for name, path in RUNTIME_VARS:
                 if os.path.isdir(path):
                     shutil.rmtree(path)
 
@@ -1030,9 +1022,9 @@ class SaltRuntests(argparse.ArgumentParser):
         # Late import
         import salt.config
 
-        if os.path.isdir(RUNTIME_VARS.TMP_CONF_DIR):
-            shutil.rmtree(RUNTIME_VARS.TMP_CONF_DIR)
-        os.makedirs(RUNTIME_VARS.TMP_CONF_DIR)
+        for name, path in RUNTIME_VARS:
+            if 'CONF' in name and not os.path.isdir(path):
+                os.makedirs(path)
         self.print_bulleted('Transplanting configuration files to {0!r}'.format(RUNTIME_VARS.TMP_CONF_DIR))
         running_tests_user = pwd.getpwuid(os.getuid()).pw_name
         master_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'master'))
