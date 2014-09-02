@@ -184,10 +184,8 @@ class RuntimeVars(object):
     __self_attributes__ = ('_vars', '_locked', 'lock')
 
     def __init__(self, **kwargs):
-        self._vars = {}
+        self._vars = kwargs
         self._locked = False
-        for key, value in kwargs.iteritems():
-            self._vars[key] = value
 
     def lock(self):
         # Late import
@@ -195,6 +193,10 @@ class RuntimeVars(object):
         frozen_vars = freeze(self._vars.copy())
         self._vars = frozen_vars
         self._locked = True
+
+    def __iter__(self):
+        for name, value in self._vars.iteritems():
+            yield name, value
 
     def __getattribute__(self, name):
         if name in object.__getattribute__(self, '__self_attributes__'):
