@@ -426,6 +426,12 @@ class SaltRuntests(argparse.ArgumentParser):
             action='store_true',
             help='Don\'t start the Salt testing daemons. Tests requiring them WILL fail'
         )
+        self.operational_options_group.add_argument(
+            '--test-module-pattern',
+            default='test_*.py',
+            metavar='GLOB_PATTERN',
+            help='The name of modules that unittest should consider as test case modules. Default %(default)r'
+        )
         # <---- Operational Options ----------------------------------------------------------------------------------
 
         # ----- Output Options -------------------------------------------------------------------------------------->
@@ -673,7 +679,7 @@ class SaltRuntests(argparse.ArgumentParser):
             log.warning('Failed to import {0} from {1}: {2}'.format(filename, root, exc))
             return argparse.Namespace(
                 needs_daemons=True,
-                suffix_pattern='test_*.py',
+                test_module_pattern=self.options.test_module_pattern
             )
 
         # ----- Allow the discovered salt tests to tweak the parser ------------------------------------->
@@ -710,7 +716,7 @@ class SaltRuntests(argparse.ArgumentParser):
             #display_name=getattr(mod, '__display_name__', u' '.join([
             #    part.capitalize() for part in os.path.basename(root).split('_')
             #])),
-            suffix_pattern=getattr(mod, '__suffix_pattern__', 'test_*.py'),
+            test_module_pattern=getattr(mod, '__test_module_pattern__', self.options.test_module_pattern),
             needs_daemons=getattr(mod, '__needs_daemons__', True),
             top_level_dir=getattr(mod, '__suite_root__', os.path.dirname(root))
         )
@@ -779,7 +785,7 @@ class SaltRuntests(argparse.ArgumentParser):
                 return
             log.info('Loading tests from {0}  Meta: {1}'.format(start_dir, metadata))
             discovered_tests = loader.discover(
-                start_dir, pattern=metadata.suffix_pattern, top_level_dir=metadata.top_level_dir
+                start_dir, pattern=metadata.test_module_pattern, top_level_dir=metadata.top_level_dir
             )
             if discovered_tests.countTestCases():
                 log.info('Found {0} tests'.format(discovered_tests.countTestCases()))
@@ -830,7 +836,7 @@ class SaltRuntests(argparse.ArgumentParser):
             # Don't search parent directories above CWD
             return argparse.Namespace(
                 needs_daemons=True,
-                suffix_pattern='test_*.py',
+                test_module_pattern=self.options.test_module_pattern,
                 top_level_dir=directory
             )
         metadata = self.__find_meta__(parent)
