@@ -430,7 +430,8 @@ class SaltRuntests(argparse.ArgumentParser):
             '--test-module-pattern',
             default='test_*.py',
             metavar='GLOB_PATTERN',
-            help='The name of modules that unittest should consider as test case modules. Default %(default)r'
+            help='Any found module which matches this pattern is considered by unittest as a test case module '
+                 'and there for searched for tests. Default %(default)r'
         )
         # <---- Operational Options ----------------------------------------------------------------------------------
 
