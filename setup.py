@@ -65,6 +65,7 @@ setup(
         'salttesting',
         'salttesting/ext',
         'salttesting/parser',
+        'salttesting/cherrypytest',
         'salttesting/pylintplugins',
     ],
     **SETUP_KWARGS
