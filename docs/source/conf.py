@@ -40,6 +40,7 @@ class Mock(object):
 
 mock_modules = [
     'pep8',
+    'yaml',
     'pylint',
     'pylint.interfaces',
     'pylint.checkers',
