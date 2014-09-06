@@ -89,7 +89,6 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.email'
 ]
 
 try:
@@ -98,6 +97,13 @@ except ImportError:
     pass
 else:
     extensions += ['sphinxcontrib.spelling']
+
+try:
+    import sphinxcontrib.email  # pylint: disable=import-error
+except ImportError:
+    pass
+else:
+    extensions += ['sphinxcontrib.email']
 
 autosummary_generate = True
 
