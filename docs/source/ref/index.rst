@@ -13,5 +13,4 @@ Reference
     pylintplugins/*
     runtests
     unit
-    utils
     xmlunit
