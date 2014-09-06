@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 '''
+    :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
+
     salttesting.mock
     ~~~~~~~~~~~~~~~~
 
-    Helper module that wraps `mock`_ and provides some fake objects in order to
-    properly set the function/class decorators and yet skip the test cases
-    execution.
-
-    :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
-    :license: Apache 2.0, see LICENSE for more details.
+    Helper module that wraps :mod:`mock <python3:unittest.mock>` and provides
+    some fake objects in order to properly set the function/class decorators
+    and yet skip the test cases execution.
 '''
 
 from __future__ import absolute_import

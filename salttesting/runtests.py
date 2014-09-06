@@ -3,11 +3,305 @@
     :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
 
 
-    salttesting.runtests
-    ~~~~~~~~~~~~~~~~~~~~
+    =====================
+    Salt CLI Tests Runner
+    =====================
 
-    CLI entry point to run salt related tests
-'''
+    :command:`salt-runtests` is a unit tests runner similar to `pytest`_ or `nose`_ but specially tailored for Salt's
+    needs.
+
+    Since testing Salt requires some properly configured and running daemons, currently a :command:`salt-master`,
+    two :command:`salt-minion`'s and a :command:`salt-syndic`, :command:`salt-runtests` does all of the preparation
+    work out of the box.
+
+    Running it against Salt's source is as simple changing to your Salt checkout directory and running:
+
+    .. code-block:: bash
+
+        salt-runtests
+
+    By default, all files that match ``test_*.py`` are considered modules containing tests. To provide a different
+    pattern from the CLI:
+
+    .. code-block:: bash
+
+        salt-runtests --test-module-pattern='*_test.py'
+
+
+    To run all the test cases from a file:
+
+    .. code-block:: bash
+
+        salt-runtests path/to/test_file.py
+
+
+    By default, :command:`salt-runtests` starts all of the required daemons, but, if you're acquainted with Salt's
+    tests suite you also know that there are some unit tests which do not require the Salt daemons to be running.
+    Disabling the daemons is as simple as:
+
+    .. code-block:: bash
+
+        salt-runtests --no-salt-daemons
+
+
+    :command:`salt-runtests` is packed with a myriad of options so please check them out by passing ``--help``:
+
+    .. code-block:: bash
+
+        salt-runtests --help
+
+
+    .. _runtime_vars:
+
+    Runtime Variables
+    -----------------
+
+    :command:`salt-runtests` provides a variable, :py:attr:`RUNTIME_VARS` which has some common paths defined at
+    startup:
+
+    .. autoattribute:: salttesting.runtests.RUNTIME_VARS
+        :annotation:
+
+        :TMP: Tests suite temporary directory
+        :TMP_CONF_DIR: Configuration directory from where the daemons that :command:`salt-runtests` starts get their
+                       configuration files.
+        :TMP_CONF_MASTER_INCLUDES: Salt Master configuration files includes directory. See
+                                   :salt_conf_master:`default_include`.
+        :TMP_CONF_MINION_INCLUDES: Salt Minion configuration files includes directory. Seei
+                                   :salt_conf_minion:`include`.
+        :TMP_CONF_CLOUD_INCLUDES: Salt cloud configuration files includes directory. The same as the salt master and
+                                  minion includes configuration, though under a different directory name.
+        :TMP_CONF_CLOUD_PROFILE_INCLUDES: Salt cloud profiles configuration files includes directory. Same as above.
+        :TMP_CONF_CLOUD_PROVIDER_INCLUDES: Salt cloud providers configuration files includes directory. Same as above.
+        :TMP_SCRIPT_DIR: Temporary scripts directory from where the Salt CLI tools will be called when running tests.
+        :TMP_SALT_INTEGRATION_FILES: Temporary directory from where Salt's test suite integration files are copied to.
+        :TMP_BASEENV_STATE_TREE: Salt master's **base** environment state tree directory
+        :TMP_PRODENV_STATE_TREE: Salt master's **production** environment state tree directory
+        :TMP_BASEENV_PILLAR_TREE: Salt master's **base** environment pillar tree directory
+        :TMP_PRODENV_PILLAR_TREE: Salt master's **production** environment pillar tree directory
+
+
+    Use it on your test case in case of need. As simple as:
+
+    .. code-block:: python
+
+        import os
+        from salttesting.runtests import RUNTIME_VARS
+
+        # Path to the testing minion configuration file
+        minion_config_path = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'minion')
+
+
+
+    Advanced Topics
+    ---------------
+
+    :command:`salt-runtests` was given *some* intelligence to prepare the Salt daemons and can be told to include
+    additional environments in Salt's :salt_conf_master:`file_roots` and :salt_conf_master:`pillar_roots`, extend
+    :salt_conf_master:`ext_pillar` or :salt_conf_master:`extension_modules`, add a mocked binaries directory to
+    ``$PATH``, specify the test module names pattern and even extend the :command:`salt-runtests` argument parser.
+
+    All this is achieved by using a ``__salttest__.py`` *metadata* file which is searched for while searching for the
+    test case files.
+
+    Attributes and methods handled by ``__salttest__.py`` metadata
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    ``__test_module_pattern__``
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    Define this attribute if you wish to hard code your test suite to use a pattern different from the default one.
+    This removes the need to pass that same pattern to :command:`salt-runtests`
+
+    For example:
+
+    .. code-block:: python
+
+        __test_module_pattern__ = '*_test.py'
+
+
+    ``__needs_daemons__``
+    ^^^^^^^^^^^^^^^^^^^^^
+
+    Set this to ``True``(default) or ``False`` to start daemons or not, respectively. Example:
+
+    .. code-block:: python
+
+        __needs_daemons__ = True
+
+    .. _suite_root:
+
+    ``__suite_root__``
+    ^^^^^^^^^^^^^^^^^^
+
+    Use this setting if you wish to define where the tests suite root resides. This also changes how the modules are
+    named. Considering the following directory tree:
+
+    .. code-block:: text
+        tests/
+          __init__.py
+          unit/
+            __init__.py
+            test_foo.py
+
+    The tests loaded from ``test_foo.py`` would be called something like ``tests.unit.test_foo.MyTestCase.test_bar``.
+    If you wanted to only consider the module name after the ``tests.`` part you could place a ``__salttest.py__``
+    metadata file under unit:
+
+    .. code-block:: text
+
+        tests/
+          __init__.py
+          unit/
+            __init__.py
+            __salttest__.py
+            test_foo.py
+
+
+    And inside you'd define :ref:`suite_root` as something like:
+
+    .. code-block:: python
+
+        __suite_root__ = os.path.dirname(__file__)
+
+    Now :command:`salt-runtests` would load tests from ``tests/unit/test_foo.py`` but name them
+    ``unit.test_foo.MyTestCase.test_bar``.
+
+
+    ``__ext_pillar__``
+    ^^^^^^^^^^^^^^^^^^
+
+    ``__ext_pillar__`` allows you do custom pillars to the salt master :salt_conf_master:`ext_pillar` configuration.
+    As an example:
+
+    .. code-block:: python
+
+        __ext_pillar__ = [
+            {'cmd_yaml': 'cat {0}'.format(os.path.join(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES, 'ext.yaml'))}
+        ]
+
+    ``__mockbin_paths__``
+    ^^^^^^^^^^^^^^^^^^^^^
+
+    In case you need to add fake binaries to test against, ``__mockbin_paths__`` helps here. Example:
+
+    .. code-block:: python
+
+        __mockbin_paths__ = [
+            '/path/to/mockbin-directory'
+        ]
+
+
+    ``__file_roots__``
+    ^^^^^^^^^^^^^^^^^^
+
+    If you need to add a custom state tree to the Salt master, you can define them like:
+
+    .. code-block:: python
+
+        __file_roots__ = {
+            'base': [
+                '/path/to/base-env/directory'
+            ],
+            'prod': [
+                '/path/to/prod-env/directory'
+            ]
+        }
+
+    Note that you can copy and/or generate your state files and write them to the ``base`` and ``prod`` environment
+    directories which :command:`salt-runtests` is already prepared to handle. You can access those directories using
+    the :ref:`runtime_vars` object. The ``base`` environment path is accessed through
+    ``RUNTIME_VARS.TMP_BASEENV_STATE_TREE``, the ``prod`` environment path through
+    ``RUNTIME_VARS.TMP_PRODENV_STATE_TREE``.
+
+
+    ``__pillar_roots__``
+    ^^^^^^^^^^^^^^^^^^^^
+
+    If you need to add a custom pillar tree to the Salt master, you can define them like:
+
+    .. code-block:: python
+
+        __pillar_roots__ = {
+            'base': [
+                '/path/to/base-pillar/directory'
+            ],
+            'prod': [
+                '/path/to/prod-pillar/directory'
+            ]
+        }
+
+    Note that you can copy and/or generate your pillar files and write them to the ``base`` and ``prod`` environment
+    directories which :command:`salt-runtests` is already prepared to handle. You can access those directories using
+    the :ref:`runtime_vars` object. The ``base`` environment path is accessed through
+    ``RUNTIME_VARS.TMP_BASEENV_PILLAR_TREE``, the ``prod`` environment path through
+    ``RUNTIME_VARS.TMP_PRODENV_PILLAR_TREE``.
+
+    ``__extension_modules_paths__``
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    You can add custom extension modules paths to the testing salt daemon. Example:
+
+    .. code-block:: python
+
+        __extension_modules_paths__ = [
+            '/path/to/extension-modules-directory'
+        ]
+
+    ``__setup_parser__(parser)``
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    This method allows extending the :command:`salt-runtests` argument parser.
+    As an example, we can add a tests filter.
+
+    .. code-block:: python
+
+        def __setup_parser__(parser):
+            parser.test_filtering_group.add_argument(
+                '--foo-tests',
+                action='append_const',
+                const='unit.test_foo.',
+                dest='tests_filter',
+                help='Run Foo Unit Tests'
+            )
+
+
+    Now :command:`salt-runtests` will also have a ``--foo-tests`` which will run the tests whose module name starts
+    with ``unit.test_foo.``
+
+
+    ``__pre_test_daemon_enter__(parser, start_daemons)``
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    This function is called right before starting the test daemons and accepts two arguments, ``parser`` (the
+    :command:`salt-runtests` arguments parser) and ``start_daemons`` (a boolean which defines if the test daemons
+    are to be started or not).
+
+    ``__test_daemon_enter__(test_daemon_instance)``
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    This function is called right after starting the test daemon context manager and accepts a single argument,
+    :class:`test_daemon_instance <TestDaemon>` (the tests daemon context manager).
+
+    ``__test_daemon_exit__(test_daemon_instance)``
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    This function is called when stopping the test daemon context manager and accepts a single argument,
+    :class:`test_daemon_instance <TestDaemon>` (the tests daemon context manager).
+
+    ``__post_test_daemon_exit__(parser, start_daemons)``
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    This function is called after stopping the test daemons and accepts two arguments, ``parser`` (the
+    :command:`salt-runtests` arguments parser) and ``start_daemons`` (a boolean which defines if the test daemons
+    were to be started or not)
+
+
+
+
+    .. _`pytest`: http://pytest.org
+    .. _`nose`: https://nose.readthedocs.org
+    '''
 
 # Import Python modules
 from __future__ import absolute_import
@@ -225,13 +519,21 @@ XML_OUTPUT_DIR = os.environ.get('SALT_XML_TEST_REPORTS_DIR', os.path.join(__TMP,
 
 
 # ----- Tests Runtime Variables ------------------------------------------------------------------------------------->
+
 RUNTIME_VARS = RuntimeVars(
     TMP=__TMP,
-    TMP_CONF_DIR=os.path.join(__TMP, 'etc-salt'),
+    TMP_CONF_DIR=os.path.join(__TMP, 'conf'),
+    TMP_CONF_MASTER_INCLUDES=os.path.join(__TMP, 'conf', 'master.d'),
+    TMP_CONF_MINION_INCLUDES=os.path.join(__TMP, 'conf', 'minion.d'),
+    TMP_CONF_CLOUD_INCLUDES=os.path.join(__TMP, 'conf', 'cloud.conf.d'),
+    TMP_CONF_CLOUD_PROFILE_INCLUDES=os.path.join(__TMP, 'conf', 'cloud.profiles.d'),
+    TMP_CONF_CLOUD_PROVIDER_INCLUDES=os.path.join(__TMP, 'conf', 'cloud.providers.d'),
     TMP_SCRIPT_DIR=os.path.join(__TMP, 'scripts'),
     TMP_SALT_INTEGRATION_FILES=os.path.join(__TMP, 'integration-files'),
     TMP_BASEENV_STATE_TREE=os.path.join(__TMP, 'integration-files', 'file', 'base'),
-    TMP_PRODENV_STATE_TREE=os.path.join(__TMP, 'integration-files', 'file', 'prod')
+    TMP_PRODENV_STATE_TREE=os.path.join(__TMP, 'integration-files', 'file', 'prod'),
+    TMP_BASEENV_PILLAR_TREE=os.path.join(__TMP, 'integration-files', 'pillar', 'base'),
+    TMP_PRODENV_PILLAR_TREE=os.path.join(__TMP, 'integration-files', 'pillar', 'prod')
 )
 # <---- Tests Runtime Variables --------------------------------------------------------------------------------------
 
@@ -655,12 +957,12 @@ class SaltRuntests(argparse.ArgumentParser):
         self.__ext_pillar__ = []
         self.__file_roots__ = RootsDict()
         self.__pillar_roots__ = RootsDict()
+        self.__extension_modules__ = []
         self.__mockbin_paths__ = []
         self.__pre_test_daemon_enter__ = []
         self.__test_daemon_enter__ = []
         self.__test_daemon_exit__ = []
         self.__post_test_daemon_exit__ = []
-        self.__extension_modules__ = []
 
         self.add_argument(
             'testfiles',
@@ -684,7 +986,7 @@ class SaltRuntests(argparse.ArgumentParser):
             )
 
         # ----- Allow the discovered salt tests to tweak the parser ------------------------------------->
-        setup_parser = getattr(mod, 'setup_parser', None)
+        setup_parser = getattr(mod, '__setup_parser__', None)
         if setup_parser is not None:
             setup_parser(self)
         # <---- Allow the discovered salt tests to tweak the parser --------------------------------------
@@ -704,7 +1006,7 @@ class SaltRuntests(argparse.ArgumentParser):
 
         self.__file_roots__.merge(getattr(mod, '__file_roots__', {}))
         self.__pillar_roots__.merge(getattr(mod, '__pillar_roots__', {}))
-        extension_modules = getattr(mod, '__extension_modules_path__', None)
+        extension_modules = getattr(mod, '__extension_modules_paths__', None)
         if extension_modules is not None:
             if isinstance(extension_modules, (list, tuple)):
                 self.__extension_modules__.extend(list(extension_modules))
@@ -1063,7 +1365,14 @@ class SaltRuntests(argparse.ArgumentParser):
             #syndic_master_opts['transport'] = 'raet'
 
         # Set up config options that require internal data
-        master_opts['pillar_roots'] = self.__pillar_roots__.to_dict()
+        master_opts['pillar_roots'] = self.__pillar_roots__.merge({
+            'base': [
+                RUNTIME_VARS.RUNTIME_VARS.TMP_BASEENV_PILLAR_TREE
+            ],
+            'prod': [
+                RUNTIME_VARS.RUNTIME_VARS.TMP_PRODENV_PILLAR_TREE
+            ],
+        }).to_dict()
         master_opts['file_roots'] = self.__file_roots__.merge({
             'base': [
                 # Let's support runtime created files that can be used like:
@@ -1098,10 +1407,7 @@ class SaltRuntests(argparse.ArgumentParser):
                     os.path.join(RUNTIME_VARS.TMP_CONF_DIR, entry)
                 )
             elif os.path.isdir(entry_path):
-                shutil.copytree(
-                    entry_path,
-                    os.path.join(RUNTIME_VARS.TMP_CONF_DIR, entry)
-                )
+                recursive_copytree(entry_path, os.path.join(RUNTIME_VARS.TMP_CONF_DIR, entry))
 
         for entry in ('master', 'minion', 'sub_minion', 'syndic_master'):
             computed_config = deepcopy(locals()['{0}_opts'.format(entry)])
@@ -1402,7 +1708,7 @@ class TestDaemon(object):
             self.setup_minions()
 
         for func in self.parser.__test_daemon_enter__:
-            func(self, start_daemons=self.start_daemons)
+            func(self)
 
         #if self.parser.options.ssh:
         #    self.prep_ssh()
@@ -1579,7 +1885,7 @@ class TestDaemon(object):
 
         self._exit_mockbin()
         for func in self.parser.__test_daemon_exit__:
-            func(self, start_daemons=self.start_daemons)
+            func(self)
         self._clean()
 
     def pre_setup_minions(self):

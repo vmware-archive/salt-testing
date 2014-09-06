@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 '''
-    salttesting.mixins
-    ~~~~~~~~~~~~~~~~~~
-
-    Some reusable TestCase MixIns
-
     :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
-    :license: Apache 2.0, see LICENSE for more details.
+
+    =============
+    Class Mix-Ins
+    =============
+
+    Some reusable class MixIns
 '''
 
 # Import python libs
@@ -27,6 +26,10 @@ log = logging.getLogger(__name__)
 
 
 class CheckShellBinaryNameAndVersionMixIn(object):
+    '''
+    Simple class mix-in to subclass in companion to :class:`ShellTestCase<salttesting.case.ShellTestCase>` which
+    adds a test case to verify proper version report from Salt's CLI tools.
+    '''
 
     _call_binary_ = None
     _call_binary_expected_version_ = salt.version.__version__
@@ -41,6 +44,21 @@ class CheckShellBinaryNameAndVersionMixIn(object):
 
 
 class SaltReturnAssertsMixIn(object):
+    '''
+    Mix-in class to add as a companion to the TestCase class or it's subclasses which
+    adds test assertions for Salt's return data.
+
+    .. code-block: python
+
+        from salttesting.case import ModuleCase
+        from salttesting.mixins import SaltReturnAssertsMixIn
+
+        class FooTestCase(ModuleCase, SaltReturnAssertsMixIn):
+
+            def test_bar(self):
+                ret = self.run_function('publish.publish', ['minion', 'test.ping'])
+                self.assertReturnSaltType(ret)
+    '''
 
     def assertReturnSaltType(self, ret):
         try:
@@ -199,6 +217,30 @@ class SaltReturnAssertsMixIn(object):
 
 
 class SaltClientTestCaseMixIn(AdaptedConfigurationTestCaseMixIn):
+    '''
+    Mix-in class that provides a ``client`` attribute which returns a Salt
+    :class:`LocalClient<salt:salt.client.LocalClient>`.
+
+    .. code-block:: python
+
+        class LocalClientTestCase(TestCase, SaltClientTestCaseMixIn):
+
+            def test_check_pub_data(self):
+                just_minions = {'minions': ['m1', 'm2']}
+                jid_no_minions = {'jid': '1234', 'minions': []}
+                valid_pub_data = {'minions': ['m1', 'm2'], 'jid': '1234'}
+
+                self.assertRaises(EauthAuthenticationError,
+                                  self.client._check_pub_data, None)
+                self.assertDictEqual({},
+                    self.client._check_pub_data(just_minions),
+                    'Did not handle lack of jid correctly')
+
+                self.assertDictEqual(
+                    {},
+                    self.client._check_pub_data({'jid': '0'}),
+                    'Passing JID of zero is not handled gracefully')
+    '''
 
     _salt_client_config_file_name_ = 'master'
     __slots__ = ('client', '_salt_client_config_file_name_')

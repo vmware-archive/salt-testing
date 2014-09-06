@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 '''
-    salttesting.case
-    ~~~~~~~~~~~~~~~~
-
-    Custom reusable ``unittest,case.TestCase`` implementations
-
     :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
-    :license: Apache 2.0, see LICENSE for more details.
+
+
+    ====================================
+    Custom Salt TestCase Implementations
+    ====================================
+
+    Custom reusable :class:`TestCase<python2:unittest.TestCase>`
+    implementations.
 '''
 
 # Import python libs
@@ -70,6 +71,9 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
     '''
 
     def get_script_path(self, script_name):
+        '''
+        Return the path to a testing runtime script
+        '''
         if not os.path.isdir(RUNTIME_VARS.TMP_SCRIPT_DIR):
             os.makedirs(RUNTIME_VARS.TMP_SCRIPT_DIR)
 
@@ -96,8 +100,19 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         return script_path
 
     def run_salt(self, arg_str, with_retcode=False, catch_stderr=False):
-        '''
-        Execute salt
+        r'''
+        Run the ``salt`` CLI tool with the provided arguments
+
+        .. code-block:: python
+
+            class MatchTest(ShellTestCase):
+                def test_list(self):
+                    """
+                    test salt -L matcher
+                    """
+                    data = self.run_salt('-L minion test.ping')
+                    data = '\n'.join(data)
+                    self.assertIn('minion', data)
         '''
         arg_str = '-c {0} {1}'.format(self.get_config_dir(), arg_str)
         return self.run_script('salt', arg_str, with_retcode=with_retcode, catch_stderr=catch_stderr)
@@ -439,8 +454,6 @@ class SyndicCase(TestCase, SaltClientTestCaseMixIn):
         return orig['minion']
 
 
-
-
 class SSHCase(ShellTestCase):
     '''
     Execute a command via salt-ssh
@@ -454,8 +467,6 @@ class SSHCase(ShellTestCase):
             return json.loads(ret)['localhost']
         except Exception:
             return ret
-
-
 
 
 class ClientCase(AdaptedConfigurationTestCaseMixIn, TestCase):
