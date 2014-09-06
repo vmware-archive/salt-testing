@@ -56,7 +56,8 @@ mock_modules = [
     'salt.config',
     'salt.client',
     'salt.version',
-    'salt.utils'
+    'salt.utils',
+    'salt._compat'
 ]
 
 for mod_name in mock_modules:
