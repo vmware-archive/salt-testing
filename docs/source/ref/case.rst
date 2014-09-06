@@ -1,0 +1,2 @@
+.. automodule:: salttesting.case
+    :members:
