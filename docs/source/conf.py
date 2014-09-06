@@ -52,6 +52,7 @@ mock_modules = [
     'cherrypy',
     'cherrypy.lib',
     'cherrypy.lib.cpstats',
+    'salt',
     'salt.config',
     'salt.client',
     'salt.version'
