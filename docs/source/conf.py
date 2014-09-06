@@ -51,7 +51,9 @@ mock_modules = [
     'logilab.astng',
     'cherrypy',
     'cherrypy.lib',
-    'cherrypy.lib.cpstats'
+    'cherrypy.lib.cpstats',
+    'salt.config',
+    'salt.client'
 ]
 
 for mod_name in mock_modules:
