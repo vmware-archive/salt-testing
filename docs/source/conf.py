@@ -51,6 +51,10 @@ mock_modules = [
     'cherrypy',
     'cherrypy.lib',
     'cherrypy.lib.cpstats',
+    'yaml',
+    'salt.config',
+    'salt.client',
+    'salt.version'
 ]
 
 for mod_name in mock_modules:
@@ -89,6 +93,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.email',
 ]
 
 try:
@@ -98,12 +103,6 @@ except ImportError:
 else:
     extensions += ['sphinxcontrib.spelling']
 
-try:
-    import sphinxcontrib.email  # pylint: disable=import-error
-except ImportError:
-    pass
-else:
-    extensions += ['sphinxcontrib.email']
 
 autosummary_generate = True
 
