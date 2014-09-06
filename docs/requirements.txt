@@ -1,2 +1,2 @@
-salt
 sphinxcontrib-email
+-e git+https://github.com/saltstack/salt.git#egg=salt
