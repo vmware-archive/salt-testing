@@ -1,2 +1,0 @@
-.. automodule:: salttesting.utils
-    :members:
