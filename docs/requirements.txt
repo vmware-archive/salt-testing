@@ -1,3 +1,2 @@
-PyYAML
 sphinxcontrib-email
--e git+https://github.com/saltstack/salt.git#egg=salt
+-e git+https://github.com/saltstack/salt.git@master#egg=salt
