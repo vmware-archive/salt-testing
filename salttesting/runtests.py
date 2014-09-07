@@ -1187,12 +1187,15 @@ class SaltRuntests(argparse.ArgumentParser):
         # (Major version, Minor version, Nr. commits) ignoring bugfix and rc's
         required_salt_version = (__saltstack_version__.major, __saltstack_version__.minor, __saltstack_version__.noc)
         if required_salt_version < (2014, 7, 1000):
-            self.error(
-                'The current Salt(version {0}) checkout is not recent enough. '
-                'Please use the \'runtests.py\' script found under the \'tests/\' '
-                'directory to run Salt\'s tests suite'.format(
-                    __saltstack_version__.string
-                )
+            self.print_bulleted(
+                'The current Salt(version {0}) checkout is not recent enough and therefor '
+                'is not prepared to use this script.'.format(__saltstack_version__.string),
+                'YELLOW'
+            )
+            self.print_bulleted(
+                'Please prefer the \'runtests.py\' script found under the \'tests/\' '
+                'directory to run Salt\'s tests suite',
+                'YELLOW'
             )
 
         if not options.testfiles:
