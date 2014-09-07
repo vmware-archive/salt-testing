@@ -1,2 +1,3 @@
 .. automodule:: salttesting.runtests
-   :members:
+
+.. autoclass:: salttesting.runtests.TestDaemon
