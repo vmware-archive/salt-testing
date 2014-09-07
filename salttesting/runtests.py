@@ -1367,10 +1367,10 @@ class SaltRuntests(argparse.ArgumentParser):
         # Set up config options that require internal data
         master_opts['pillar_roots'] = self.__pillar_roots__.merge({
             'base': [
-                RUNTIME_VARS.RUNTIME_VARS.TMP_BASEENV_PILLAR_TREE
+                RUNTIME_VARS.TMP_BASEENV_PILLAR_TREE
             ],
             'prod': [
-                RUNTIME_VARS.RUNTIME_VARS.TMP_PRODENV_PILLAR_TREE
+                RUNTIME_VARS.TMP_PRODENV_PILLAR_TREE
             ],
         }).to_dict()
         master_opts['file_roots'] = self.__file_roots__.merge({
