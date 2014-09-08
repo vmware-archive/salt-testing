@@ -306,8 +306,10 @@
 # Import Python modules
 from __future__ import absolute_import
 import os
+import re
 import imp
 import sys
+import json
 import time
 import shutil
 import fnmatch
@@ -402,6 +404,50 @@ except ImportError:
 
 # Import 3rd-party libs
 import yaml
+
+try:
+    import coverage  # pylint: disable=import-error
+    HAS_COVERAGE = True
+except ImportError:
+    HAS_COVERAGE = False
+
+try:
+    import multiprocessing.util
+    # Force forked multiprocessing processes to be measured as well
+
+    def multiprocessing_stop(coverage_object):
+        '''
+        Save the multiprocessing process coverage object
+        '''
+        coverage_object.stop()
+        coverage_object.save()
+
+    def multiprocessing_start(obj):
+        coverage_options = json.loads(os.environ.get('SALT_RUNTESTS_COVERAGE_OPTIONS', '{}'))
+        if not coverage_options:
+            return
+
+        if coverage_options.get('data_suffix', False) is False:
+            return
+
+        coverage_object = coverage.coverage(**coverage_options)
+        coverage_object.start()
+
+        multiprocessing.util.Finalize(
+            None,
+            multiprocessing_stop,
+            args=(coverage_object,),
+            exitpriority=1000
+        )
+
+    if HAS_COVERAGE:
+        multiprocessing.util.register_after_fork(
+            multiprocessing_start,
+            multiprocessing_start
+        )
+except ImportError:
+    pass
+
 
 # ----- Setup Temporary Logging ------------------------------------------------------------------------------------->
 # Store a reference to the temporary queue logging handler
@@ -631,6 +677,56 @@ class SaltCheckoutPathAction(argparse.Action):
             python_path = salt_checkout_path
         os.environ['PYTHONPATH'] = python_path
         setattr(namespace, self.dest, salt_checkout_path)
+
+
+class CoverageAction(argparse._StoreTrueAction):
+    def __call__(self, parser, namespace, values, option_string=None):
+        super(CoverageAction, self).__call__(parser, namespace, values, option_string)
+
+        if HAS_COVERAGE is False:
+            parser.error('Cannot run tests with coverage report. Please install coverage>=3.5.3')
+
+        coverage_version = tuple([
+            int(part) for part in re.search(r'([0-9.]+)', coverage.__version__).group(0).split('.')
+        ])
+        if coverage_version < (3, 5, 3):
+            # Should we just print the error instead of exiting?
+            parser.error(
+                'Versions lower than 3.5.3 of the coverage library are '
+                'know to produce incorrect results. Please upgrade. '
+            )
+
+        # Force forked multiprocessing processes to be measured as well
+        def multiprocessing_stop(coverage_object):
+            '''
+            Save the multiprocessing process coverage object
+            '''
+            coverage_object.stop()
+            coverage_object.save()
+
+        def multiprocessing_start(obj):
+            coverage_options = json.loads(os.environ.get('SALT_RUNTESTS_COVERAGE_OPTIONS', '{}'))
+            if not coverage_options:
+                return
+
+            if coverage_options.get('data_suffix', False) is False:
+                return
+
+            coverage_object = coverage.coverage(**coverage_options)
+            coverage_object.start()
+
+            multiprocessing.util.Finalize(
+                None,
+                multiprocessing_stop,
+                args=(coverage_object,),
+                exitpriority=1000
+            )
+
+        multiprocessing.util.register_after_fork(
+            multiprocessing_start,
+            multiprocessing_start
+        )
+
 # <---- Custom Argument Parser Actions -------------------------------------------------------------------------------
 
 
@@ -677,6 +773,10 @@ class SaltRuntests(argparse.ArgumentParser):
         self.__testsuite_results__ = []
         self.__testsuite_searched_paths__ = set()
         # <---- Tests Suite Attributes -------------------------------------------------------------------------------
+
+        # ----- Coverage Support Attributes ------------------------------------------------------------------------->
+        self.__coverage_instance__ = None
+        # <---- Coverage Support Attributes --------------------------------------------------------------------------
 
         # ----- Let's not use argparse's help action ---------------------------------------------------------------->
         # We need some additional processing ( double parse_args() )
@@ -823,6 +923,36 @@ class SaltRuntests(argparse.ArgumentParser):
                   'Default: %(default)s')
         )
         # <---- Tests Execution Tweaks Group -------------------------------------------------------------------------
+
+        # ----- Code Coverage Group --------------------------------------------------------------------------------->
+        self.code_coverage_group = self.add_argument_group(
+            'Code Coverage'
+        )
+        self.code_coverage_group.add_argument(
+            '--coverage',
+            action=CoverageAction,
+            help='Report code coverage'
+        )
+        self.code_coverage_group.add_argument(
+            '--coverage-no-processes',
+            default=False,
+            action='store_true',
+            help='Do not track subprocess and/or multiprocessing processes'
+        )
+        self.code_coverage_group.add_argument(
+            '--coverage-xml-output',
+            default=None,
+            help='If provided, the path to where a XML report of the code '
+                 'coverage will be written to'
+        )
+        self.code_coverage_group.add_argument(
+            '--coverage-html-output',
+            default=None,
+            help=('The directory where the generated HTML coverage report '
+                  'will be saved to. The directory, if existing, will be '
+                  'deleted before the report is generated.')
+        )
+        # <---- Code Coverage Group ----------------------------------------------------------------------------------
 
         # ----- Tests Filtering Group ------------------------------------------------------------------------------->
         self.test_filtering_group = self.add_argument_group(
@@ -1161,6 +1291,58 @@ class SaltRuntests(argparse.ArgumentParser):
                 except ImportError:
                     continue
 
+    # ----- Coverage Support Methods --------------------------------------->
+    def __start_coverage__(self):
+        self.print_bulleted('Starting Code Coverage Tracking')
+        coverage_options = {
+            'branch': True,
+            'source': [self.options.workspace]
+        }
+        if self.options.coverage_no_processes is False:
+            os.environ['COVERAGE_PROCESS_START'] = '1'
+            coverage_options['data_suffix'] = True
+
+        os.environ['SALT_RUNTESTS_COVERAGE_OPTIONS'] = json.dumps(coverage_options)
+
+        self.__coverage_instance__ = coverage.coverage(**coverage_options)
+        self.__coverage_instance__.start()
+
+
+    def __stop_coverage__(self):
+        # Clean up environment
+        print_header(u'', inline=True, width=self.options.output_columns)
+        os.environ.pop('COVERAGE_PROCESS_START', None)
+        os.environ.pop('SALT_RUNTESTS_COVERAGE_OPTIONS', None)
+
+        self.print_bulleted('Stopping Code Coverage')
+        self.__coverage_instance__.stop()
+
+        self.print_bulleted('Saving Coverage Data')
+        self.__coverage_instance__.save()
+
+        if self.options.coverage_no_processes is False:
+            self.print_bulleted('Combining Multiple Coverage Files')
+            self.__coverage_instance__.combine()
+
+        if self.options.coverage_xml_output is not None:
+            self.print_bulleted(
+                'Writing XML Coverage Data At {0!r}'.format(self.options.coverage_xml_output)
+            )
+            self.__coverage_instance__.xml_report(outfile=self.options.coverage_xml_output)
+
+        if self.options.coverage_html_output is not None:
+            self.print_bulleted(
+                'Writing HTML Coverage Data Under {0!r}'.format(
+                    self.options.coverage_html_output
+                )
+            )
+            self.__coverage_instance__.html_report(
+                directory=self.options.coverage_html_output
+            )
+        print_header(u'', inline=True, width=self.options.output_columns)
+
+
+    # <---- Coverage Support Methods ----------------------------------------
     def print_bulleted(self, message, color='LIGHT_BLUE'):
         print(' {0}*{ENDC} {1}'.format(self.colors[color], message, **self.colors))
 
@@ -1213,6 +1395,14 @@ class SaltRuntests(argparse.ArgumentParser):
         # Parse ARGV again now that we have more of the required data, Yes,
         # it's not neat...
         self.options = super(SaltRuntests, self).parse_args(args, namespace)
+
+        # ----- Coverage Checks ------------------------------------------------------------------------------------->
+        if (self.options.coverage_html_output or self.options.coverage_xml_output) and not self.options.coverage:
+            self.error(
+                '\'--coverage-html-output\' and \'--coverage-xml-output\' require the \'--coverage\''
+            )
+        # <---- Coverage Checks --------------------------------------------------------------------------------------
+
 
         # ----- Setup File Logging ---------------------------------------------------------------------------------->
         log.info('Logging tests on {0}'.format(options.tests_logfile))
@@ -1312,9 +1502,15 @@ class SaltRuntests(argparse.ArgumentParser):
 
         print_header(u'', inline=True, width=self.options.output_columns)
         RUNTIME_VARS.lock()
+        if self.options.coverage is True:
+            self.__start_coverage__()
 
         with TestDaemon(self, start_daemons=self.__testsuite_needs_daemons_running__()):
             self.run_collected_tests()
+
+        if self.options.coverage is True:
+            self.__stop_coverage__()
+
         if self.__testsuite_status__.count(False) > 0:
             self.finalize(1)
         self.finalize(0)
