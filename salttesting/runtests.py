@@ -934,6 +934,29 @@ class SaltRuntests(argparse.ArgumentParser):
             help='Report code coverage'
         )
         self.code_coverage_group.add_argument(
+            '--coverage-source',
+            default=None,
+            help='Path to the source code against which coverage will do it\'s measurement. Default: ./'
+        )
+        self.code_coverage_group.add_argument(
+            '--coverage-pylib',
+            action='store_true',
+            default=False,
+            help='Whether to measure the Python standard library. Default: %(default)s'
+        )
+        self.code_coverage_group.add_argument(
+            '--coverage-include',
+            action='append',
+            help=('A filename pattern, the files to include in measurement or reporting. '
+                  'One option string per file pattern.')
+        )
+        self.code_coverage_group.add_argument(
+            '--coverage-omit',
+            action='append',
+            help=('A filename pattern, the files to leave out from the measurement or reporting. '
+                  'One option string per file pattern.')
+        )
+        self.code_coverage_group.add_argument(
             '--coverage-no-processes',
             default=False,
             action='store_true',
@@ -1296,7 +1319,10 @@ class SaltRuntests(argparse.ArgumentParser):
         self.print_bulleted('Starting Code Coverage Tracking')
         coverage_options = {
             'branch': True,
-            'source': [self.options.workspace]
+            'source': [self.options.coverage_source],
+            'cover_pylib': self.options.coverage_pylib,
+            'include': self.options.coverage_include,
+            'omit': self.options.coverage_omit
         }
         if self.options.coverage_no_processes is False:
             os.environ['COVERAGE_PROCESS_START'] = '1'
@@ -1392,8 +1418,8 @@ class SaltRuntests(argparse.ArgumentParser):
             help='show this help message and exit'
         )
 
-        # Parse ARGV again now that we have more of the required data, Yes,
-        # it's not neat...
+        # Parse ARGV again now that we have more of the required data...
+        # Yes, it's not neat...
         self.options = super(SaltRuntests, self).parse_args(args, namespace)
 
         # ----- Coverage Checks ------------------------------------------------------------------------------------->
@@ -1401,6 +1427,8 @@ class SaltRuntests(argparse.ArgumentParser):
             self.error(
                 '\'--coverage-html-output\' and \'--coverage-xml-output\' require the \'--coverage\''
             )
+        if self.options.coverage_source is None:
+            self.options.coverage_source = self.options.workspace
         # <---- Coverage Checks --------------------------------------------------------------------------------------
 
 
