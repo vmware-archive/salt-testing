@@ -1841,6 +1841,11 @@ class TestDaemon(object):
         # Late import
         import salt.config
         from salt.utils.verify import verify_env
+        try:
+            from salt.utils.process import ProcessManager
+            self.process_manager = ProcessManager()
+        except ImportError:
+            self.process_manager = None
 
         self.parser.print_bulleted('Setting up Salt daemons to execute tests')
         print_header(u'', inline=True, width=self.parser.options.output_columns)
@@ -1990,42 +1995,66 @@ class TestDaemon(object):
         import salt.minion
 
         master = salt.master.Master(self.master_opts)
-        self.master_process = multiprocessing.Process(target=master.start)
-        self.master_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(master.start)
+        else:
+            self.master_process = multiprocessing.Process(target=master.start)
+            self.master_process.start()
 
         minion = salt.minion.Minion(self.minion_opts)
-        self.minion_process = multiprocessing.Process(target=minion.tune_in)
-        self.minion_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(minion.tune_in)
+        else:
+            self.minion_process = multiprocessing.Process(target=minion.tune_in)
+            self.minion_process.start()
 
         sub_minion = salt.minion.Minion(self.sub_minion_opts)
-        self.sub_minion_process = multiprocessing.Process(
-            target=sub_minion.tune_in
-        )
-        self.sub_minion_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(sub_minion.tune_in)
+        else:
+            self.sub_minion_process = multiprocessing.Process(
+                target=sub_minion.tune_in
+            )
+            self.sub_minion_process.start()
 
         smaster = salt.master.Master(self.syndic_master_opts)
-        self.smaster_process = multiprocessing.Process(target=smaster.start)
-        self.smaster_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(smaster.start)
+        else:
+            self.smaster_process = multiprocessing.Process(target=smaster.start)
+            self.smaster_process.start()
 
         syndic = salt.minion.Syndic(self.syndic_opts)
-        self.syndic_process = multiprocessing.Process(target=syndic.tune_in)
-        self.syndic_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(syndic.tune_in)
+        else:
+            self.syndic_process = multiprocessing.Process(target=syndic.tune_in)
+            self.syndic_process.start()
 
     def start_raet_daemons(self):
         import salt.daemons.flo
         master = salt.daemons.flo.IofloMaster(self.master_opts)
-        self.master_process = multiprocessing.Process(target=master.start)
-        self.master_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(master.start)
+        else:
+            self.master_process = multiprocessing.Process(target=master.start)
+            self.master_process.start()
 
         minion = salt.daemons.flo.IofloMinion(self.minion_opts)
-        self.minion_process = multiprocessing.Process(target=minion.tune_in)
-        self.minion_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(minion.tune_in)
+        else:
+            self.minion_process = multiprocessing.Process(target=minion.tune_in)
+            self.minion_process.start()
 
         sub_minion = salt.daemons.flo.IofloMinion(self.sub_minion_opts)
-        self.sub_minion_process = multiprocessing.Process(
-            target=sub_minion.tune_in
-        )
-        self.sub_minion_process.start()
+        if self.process_manager:
+            self.process_manager.add_process(sub_minion.tune_in)
+        else:
+            self.sub_minion_process = multiprocessing.Process(
+                target=sub_minion.tune_in
+            )
+            self.sub_minion_process.start()
         # Wait for the daemons to all spin up
         time.sleep(5)
 
@@ -2097,18 +2126,21 @@ class TestDaemon(object):
         import salt.master
 
         if self.start_daemons:
-            salt.master.clean_proc(self.sub_minion_process, wait_for_kill=50)
-            self.sub_minion_process.join()
-            salt.master.clean_proc(self.minion_process, wait_for_kill=50)
-            self.minion_process.join()
-            salt.master.clean_proc(self.master_process, wait_for_kill=50)
-            self.master_process.join()
+            if self.process_manager:
+                self.process_manager.kill_children()
+            else:
+                salt.master.clean_proc(self.sub_minion_process, wait_for_kill=50)
+                self.sub_minion_process.join()
+                salt.master.clean_proc(self.minion_process, wait_for_kill=50)
+                self.minion_process.join()
+                salt.master.clean_proc(self.master_process, wait_for_kill=50)
+                self.master_process.join()
 
-            if self.parser.options.transport == 'zeromq':
-                salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
-                self.syndic_process.join()
-                salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
-                self.smaster_process.join()
+                if self.parser.options.transport == 'zeromq':
+                    salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
+                    self.syndic_process.join()
+                    salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
+                    self.smaster_process.join()
 
         self._exit_mockbin()
         for func in self.parser.__test_daemon_exit__:
