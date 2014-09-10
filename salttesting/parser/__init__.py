@@ -280,34 +280,82 @@ class SaltTestingParser(optparse.OptionParser):
         self.setup_additional_options()
 
     def parse_args(self, args=None, values=None):
-        # Let's switch to the new salt-runtests runner
-        print_header(u'', inline=True, width=PNUM)
-        from salttesting.runtests import SaltRuntests
-        salt_runtests = SaltRuntests()
+        try:
+            from salt.version import __saltstack_version__
 
-        salt_runtests.print_bulleted(
-            'Swapping runtests.py script for salt-runtests', 'YELLOW'
-        )
-        salt_runtests.print_bulleted(
-            'ATTENTION: Only some of the options of runtests.py are directy '
-            'supported by salt-runtests', 'YELLOW'
-        )
-        salt_runtests.print_bulleted(
-            'Please use the salt-runtests script directly', 'YELLOW'
-        )
-        for idx, arg in enumerate(sys.argv):
-            if '--coverage-xml' in arg:
-                sys.argv[idx] = arg.replace('--coverage-xml', '--coverage-xml-output')
-            if '--coverage-html' in arg:
-                sys.argv[idx] = arg.replace('--coverage-html', '--coverage-html-output')
-            if '--xml' in arg:
-                sys.argv[idx] = arg.replace('--xml', '--xml-out')
+            # (Major version, Minor version, Nr. commits) ignoring bugfix and rc's
+            required_salt_version = (__saltstack_version__.major,
+                                     __saltstack_version__.minor,
+                                     __saltstack_version__.noc)
+            if required_salt_version >= (2014, 7, 1000):
 
-        sys.argv[0] = 'salt-runtests'
+                # Let's switch to the new salt-runtests runner
+                print_header(u'', inline=True, width=PNUM)
+                from salttesting.runtests import SaltRuntests
+                salt_runtests = SaltRuntests()
 
-        print_header(u'', inline=True, width=PNUM)
+                salt_runtests.print_bulleted(
+                    'Swapping runtests.py script for salt-runtests', 'YELLOW'
+                )
+                salt_runtests.print_bulleted(
+                    'ATTENTION: Only some of the options of runtests.py are directy '
+                    'supported by salt-runtests', 'YELLOW'
+                )
+                salt_runtests.print_bulleted(
+                    'Please use the salt-runtests script directly', 'YELLOW'
+                )
+                for idx, arg in enumerate(sys.argv[:]):
+                    if '--coverage-xml' in arg:
+                        sys.argv[idx] = arg.replace('--coverage-xml', '--coverage-xml-output')
+                    if '--coverage-html' in arg:
+                        sys.argv[idx] = arg.replace('--coverage-html', '--coverage-html-output')
+                    if '--xml' in arg:
+                        sys.argv[idx] = arg.replace('--xml', '--xml-out-path')
+                        sys.argv.append('--xml-out')
 
-        sys.exit(salt_runtests.parse_args())
+                sys.argv[0] = 'salt-runtests'
+                sys.exit(salt_runtests.parse_args())
+        except ImportError:
+            pass
+
+        self.options, self.args = optparse.OptionParser.parse_args(self, args, values)
+
+        print_header(u'', inline=True, width=self.options.output_columns)
+        self.pre_execution_cleanup()
+
+        if self.support_docker_execution and self.options.docked is not None:
+            if self.source_code_basedir is None:
+                raise RuntimeError(
+                    'You need to define the \'source_code_basedir\' attribute '
+                    'in {0!r}.'.format(self.__class__.__name__)
+                )
+
+            if '/' not in self.options.docked:
+                self.options.docked = 'salttest/{0}'.format(
+                    self.options.docked
+                )
+
+            if self.options.docked_interpreter is None:
+                self.options.docked_interpreter = self._known_interpreters.get(
+                    self.options.docked, 'python'
+                )
+
+            # No more processing should be done. We'll exit with the return
+            # code we get from the docker container execution
+            self.exit(self.run_suite_in_docker())
+
+        # Validate options after checking that we're not goint to execute the
+        # tests suite under a docker container
+        self._validate_options()
+
+        print(' * Current Directory: {0}'.format(os.getcwd()))
+        print(' * Test suite is running under PID {0}'.format(os.getpid()))
+
+        self._setup_logging()
+        try:
+            return (self.options, self.args)
+        finally:
+            print_header(u'', inline=True, width=self.options.output_columns)
 
     def setup_additional_options(self):
         '''
