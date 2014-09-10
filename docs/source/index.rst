@@ -5,8 +5,18 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
+   :glob:
 
-   ref/index
+   case
+   cherrypytest/*
+   helpers
+   mixins
+   mock
+   parser/*
+   pylintplugins/*
+   runtests
+   unit
+   xmlunit
 
 
 Indices and tables
