@@ -1,0 +1,2 @@
+.. automodule:: salttesting.mixins
+    :members:

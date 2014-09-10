@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 '''
+    :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
+    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
+    :license: Apache 2.0, see LICENSE for more details.
+
+
     salttesting.helpers
     ~~~~~~~~~~~~~~~~~~~
 
     Unit testing helpers
-
-    :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
-    :license: Apache 2.0, see LICENSE for more details.
-'''
+    '''
 
 # Import Python libs
 import os
@@ -28,6 +29,18 @@ log = logging.getLogger(__name__)
 
 
 def destructiveTest(caller):
+    '''
+    Mark a test case as a destructive test for example adding or removing users
+    from your system.
+
+    .. code-block:: python
+
+        class MyTestCase(TestCase):
+
+            @destructiveTest
+            def test_create_user(self):
+                pass
+    '''
     if inspect.isclass(caller):
         # We're decorating a class
         old_setUp = getattr(caller, 'setUp', None)
@@ -50,6 +63,18 @@ def destructiveTest(caller):
 
 
 def expensiveTest(caller):
+    '''
+    Mark a test case as an expensive test, for example, a test which can cost
+    money(Salt's cloud provider tests).
+
+    .. code-block:: python
+
+        class MyTestCase(TestCase):
+
+            @expensiveTest
+            def test_create_user(self):
+                pass
+    '''
     if inspect.isclass(caller):
         # We're decorating a class
         old_setUp = getattr(caller, 'setUp', None)
@@ -138,9 +163,9 @@ class RedirectStdStreams(object):
 class TestsLoggingHandler(object):
     '''
     Simple logging handler which can be used to test if certain logging
-    messages get emitted or not::
+    messages get emitted or not:
 
-    ..code-block: python
+    .. code-block:: python
 
         with TestsLoggingHandler() as handler:
             # (...)               Do what ever you wish here
@@ -486,8 +511,8 @@ def requires_network(only_local_network=False):
 
 def with_system_account(account, on_existing='delete', delete=True):
     '''
-    This method has been deprecated in favour of ``with_system_user``, please
-    use it instead.
+    This method has been deprecated in favour of :func:`with_system_user`,
+    please use it instead.
     '''
     import warnings
     caller = inspect.getframeinfo(sys._getframe(1))
@@ -515,11 +540,11 @@ def with_system_user(username, on_existing='delete', delete=True):
 
     :param username: The desired username for the system user.
     :param on_existing: What to do when the desired username is taken. The
-    available options are:
+      available options are:
 
-        * nothing: Do nothing, act as if the user was created.
-        * delete: delete and re-create the existing user
-        * skip: skip the test case
+      * nothing: Do nothing, act as if the user was created.
+      * delete: delete and re-create the existing user
+      * skip: skip the test case
     '''
     if on_existing not in ('nothing', 'delete', 'skip'):
         raise RuntimeError(
@@ -625,11 +650,11 @@ def with_system_group(group, on_existing='delete', delete=True):
 
     :param group: The desired group name for the system user.
     :param on_existing: What to do when the desired username is taken. The
-    available options are:
+      available options are:
 
-        * nothing: Do nothing, act as if the group was created.
-        * delete: delete and re-create the existing user
-        * skip: skip the test case
+      * nothing: Do nothing, act as if the group was created
+      * delete: delete and re-create the existing user
+      * skip: skip the test case
     '''
     if on_existing not in ('nothing', 'delete', 'skip'):
         raise RuntimeError(
@@ -731,11 +756,11 @@ def with_system_user_and_group(username, group,
     :param username: The desired username for the system user.
     :param group: The desired name for the system group.
     :param on_existing: What to do when the desired username is taken. The
-    available options are:
+      available options are:
 
-        * nothing: Do nothing, act as if the user was created.
-        * delete: delete and re-create the existing user
-        * skip: skip the test case
+      * nothing: Do nothing, act as if the user was created.
+      * delete: delete and re-create the existing user
+      * skip: skip the test case
     '''
     if on_existing not in ('nothing', 'delete', 'skip'):
         raise RuntimeError(
@@ -953,18 +978,41 @@ def requires_salt_modules(*names):
     return decorator
 
 
-def skip_if_binaries_missing(binaries, check_all=False):
+def skip_if_binaries_missing(*binaries, **kwargs):
     import salt.utils
+    if len(binaries) == 1:
+        if isinstance(binaries[0], (list, tuple, set, frozenset)):
+            binaries = binaries[0]
+    check_all = kwargs.pop('check_all', False)
+    message = kwargs.pop('message', None)
+    if kwargs:
+        raise RuntimeError(
+            'The only supported keyword argument is \'check_all\' and '
+            '\'message\'. Invalid keyword arguments: {0}'.format(
+                ', '.join(kwargs.keys())
+            )
+        )
     if check_all:
         for binary in binaries:
             if salt.utils.which(binary) is None:
                 return skip(
-                    'The {0!r} binary was not found'.format(binary)
+                    '{0}The {1!r} binary was not found'.format(
+                        message and '{0}. '.format(message) or '',
+                        binary
+                    )
                 )
     elif salt.utils.which_bin(binaries) is None:
         return skip(
-            'None of the following binaries was found: {0}'.format(
+            '{0}None of the following binaries was found: {1}'.format(
+                message and '{0}. '.format(message) or '',
                 ', '.join(binaries)
             )
         )
     return _id
+
+
+def skip_if_not_root(func):
+    if os.getuid() != 0:
+        func.__unittest_skip__ = True
+        func.__unittest_skip_why__ = 'You must be logged in as root to run this test'
+    return func

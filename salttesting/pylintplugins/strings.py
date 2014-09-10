@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 '''
     :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :copyright: © 2013 by the SaltStack Team, see AUTHORS for more details.
-    :license: Apache 2.0, see LICENSE for more details.
 
 
-    salttesting.pylintplugins.strings
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ==========================================
+    PyLint Extended String Formatting Checkers
+    ==========================================
 
-    Extended String Formatting Checkers
+    Proper string formatting PyLint checker
 '''
 
 import re
@@ -17,7 +16,7 @@ try:
     # >= pylint 1.0
     import astroid
 except ImportError:  # pylint < 1.0
-    from logilab import astng as astroid
+    from logilab import astng as astroid  # pylint: disable=no-name-in-module
 from pylint.checkers import utils
 from pylint.checkers import BaseChecker
 from pylint.checkers.utils import check_messages, parse_format_string
@@ -26,7 +25,7 @@ try:
     # >= pylint 1.0
     from pylint.interfaces import IAstroidChecker
 except ImportError:  # < pylint 1.0
-    from pylint.interfaces import IASTNGChecker as IAstroidChecker
+    from pylint.interfaces import IASTNGChecker as IAstroidChecker  # pylint: disable=no-name-in-module
 
 
 MSGS = {
@@ -51,7 +50,7 @@ BAD_FORMATTING_SLOT = re.compile(r'(\{![\w]{1}\}|\{\})')
 
 class StringCurlyBracesFormatIndexChecker(BaseChecker):
 
-    __implements__ = (IAstroidChecker,)
+    __implements__ = (IAstroidChecker,)  # pylint: disable=unresolved-interface
 
     name = 'string'
     msgs = MSGS

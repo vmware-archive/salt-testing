@@ -25,6 +25,7 @@ from functools import partial
 from contextlib import closing
 
 from salttesting import TestLoader, TextTestRunner
+from salttesting.version import __version_info__
 from salttesting.xmlunit import HAS_XMLRUNNER, XMLTestRunner
 try:
     from salttesting.ext import console
@@ -279,9 +280,46 @@ class SaltTestingParser(optparse.OptionParser):
         self.setup_additional_options()
 
     def parse_args(self, args=None, values=None):
-        self.options, self.args = optparse.OptionParser.parse_args(
-            self, args, values
-        )
+        try:
+            from salt.version import __saltstack_version__
+
+            # (Major version, Minor version, Nr. commits) ignoring bugfix and rc's
+            required_salt_version = (__saltstack_version__.major,
+                                     __saltstack_version__.minor,
+                                     __saltstack_version__.noc)
+            if required_salt_version >= (2014, 7, 1000):
+
+                # Let's switch to the new salt-runtests runner
+                print_header(u'', inline=True, width=PNUM)
+                from salttesting.runtests import SaltRuntests
+                salt_runtests = SaltRuntests()
+
+                salt_runtests.print_bulleted(
+                    'Swapping runtests.py script for salt-runtests', 'YELLOW'
+                )
+                salt_runtests.print_bulleted(
+                    'ATTENTION: Only some of the options of runtests.py are directy '
+                    'supported by salt-runtests', 'YELLOW'
+                )
+                salt_runtests.print_bulleted(
+                    'Please use the salt-runtests script directly', 'YELLOW'
+                )
+                for idx, arg in enumerate(sys.argv[:]):
+                    if '--coverage-xml' in arg:
+                        sys.argv[idx] = arg.replace('--coverage-xml', '--coverage-xml-output')
+                    if '--coverage-html' in arg:
+                        sys.argv[idx] = arg.replace('--coverage-html', '--coverage-html-output')
+                    if '--xml' in arg:
+                        sys.argv[idx] = arg.replace('--xml', '--xml-out-path')
+                        sys.argv.append('--xml-out')
+
+                sys.argv[0] = 'salt-runtests'
+                sys.exit(salt_runtests.parse_args())
+        except ImportError:
+            pass
+
+        self.options, self.args = optparse.OptionParser.parse_args(self, args, values)
+
         print_header(u'', inline=True, width=self.options.output_columns)
         self.pre_execution_cleanup()
 
@@ -849,8 +887,30 @@ def run_testcase(testcase):
     Helper function which can be used in `__main__` block to execute that
     specific ``unittest.case.TestCase`` tests.
     '''
-    parser = SaltTestcaseParser()
-    parser.parse_args()
-    if parser.run_testcase(testcase) is False:
-        parser.finalize(1)
-    parser.finalize(0)
+    if __version_info__ >= (2014, 4, 24):
+        sys.stderr.write(
+            'Please use the \'salt-runtests\' binary to run the tests '
+            'from {0[0]}'.format(sys.argv)
+        )
+        sys.stderr.flush()
+        exit(1)
+
+
+def run_tests(*test_cases, **kwargs):
+    '''
+    Run integration tests for the chosen test cases.
+
+    Function uses optparse to set up test environment
+    '''
+
+    needs_daemon = kwargs.pop('needs_daemon', True)
+    if __version_info__ > (2014, 4, 24):
+        print(
+            'Please use the \'salt-runtests\' binary to run the tests. Example:\n'
+            '  salt-runtests {0}{1}'.format(
+                '' if needs_daemon is True else '--no-salt-daemons ',
+                sys.argv[0]
+            )
+        )
+        sys.stdout.flush()
+        sys.exit(1)

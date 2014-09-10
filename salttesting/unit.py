@@ -1,15 +1,24 @@
 # -*- coding: utf-8 -*-
 '''
     :codeauthor: :email:`Pedro Algarvio (pedro@algarvio.me)`
-    :copyright: © 2013-2014 by the SaltStack Team, see AUTHORS for more details
-    :license: Apache 2.0, see LICENSE for more details.
 
 
-    salttesting.unit
-    ~~~~~~~~~~~~~~~~
+    ============================
+    Unittest Compatibility Layer
+    ============================
 
-    Unit test related functions
-'''
+    Compatibility layer to use :mod:`unittest <python2:unittest>` under Python
+    2.7 or `unittest2`_ under Python 2.6 without having to worry about which is
+    in use.
+
+    .. attention::
+
+        Please refer to Python's :mod:`unittest <python2:unittest>`
+        documentation as the ultimate source of information, this is just a
+        compatibility layer.
+
+    .. _`unittest2`: https://pypi.python.org/pypi/unittest2
+    '''
 
 # Import python libs
 import sys
@@ -19,6 +28,7 @@ import logging
 # support python < 2.7 via unittest2
 if sys.version_info < (2, 7):
     try:
+        # pylint: disable=import-error
         from unittest2 import (
             TestLoader as _TestLoader,
             TextTestRunner as __TextTestRunner,
@@ -31,6 +41,7 @@ if sys.version_info < (2, 7):
             TextTestResult as __TextTestResult
         )
         from unittest2.case import _id
+        # pylint: enable=import-error
 
         class NewStyleClassMixin(object):
             '''

@@ -5,7 +5,6 @@ The setup script for SaltTesting
 
 import os
 import sys
-from distutils.core import setup
 
 SETUP_KWARGS = {}
 USE_SETUPTOOLS = False
@@ -16,13 +15,19 @@ if 'USE_SETUPTOOLS' in os.environ:
         USE_SETUPTOOLS = True
 
         if sys.version_info < (2, 7):
-            SETUP_KWARGS['install_requires'] = ['unittest2']
+            SETUP_KWARGS['install_requires'] = ['unittest2', 'argparse']
+        SETUP_KWARGS['entry_points'] = {
+            'console_scripts': [
+                'salt-runtests = salttesting.runtests:main'
+            ]
+        }
     except ImportError:
         USE_SETUPTOOLS = False
 
 
 if USE_SETUPTOOLS is False:
     from distutils.core import setup
+    SETUP_KWARGS['scripts'] = ['scripts/salt-runtests']
 
 exec(
     compile(
@@ -34,7 +39,7 @@ exec(
 NAME = 'SaltTesting'
 VERSION = __version__
 DESCRIPTION = (
-    'Required testing tools needed in the several Salt Stack projects.'
+    'Required testing tools needed in the several SaltStack projects.'
 )
 
 setup(
@@ -60,6 +65,7 @@ setup(
         'salttesting',
         'salttesting/ext',
         'salttesting/parser',
+        'salttesting/cherrypytest',
         'salttesting/pylintplugins',
     ],
     **SETUP_KWARGS

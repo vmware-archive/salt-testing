@@ -5,11 +5,15 @@
     :license: Apache 2.0, see LICENSE for more details.
 
 
-    salttesting.pylintplugins.pep8
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ===================
+    PEP-8 PyLint Plugin
+    ===================
 
-    PEP-8 PyLint Checker
-'''
+    A bridge between the `pep8`_ library and PyLint
+
+    .. _`pep8`: http://pep8.readthedocs.org
+
+    '''
 
 # Let's use absolute imports
 from __future__ import absolute_import

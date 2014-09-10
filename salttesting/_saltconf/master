@@ -1,0 +1,45 @@
+publish_port: 64505
+ret_port: 64506
+worker_threads: 3
+root_dir: /tmp/salttest
+pidfile: masterpid
+pki_dir: pki
+cachedir: cache
+timeout: 3
+sock_dir: .salt-unix
+open_mode: True
+syndic_master: localhost
+fileserver_list_cache_time: 0
+peer:
+  '.*':
+    - 'test.*'
+log_file: master
+key_logfile: key
+token_file: /tmp/ksfjhdgiuebfgnkefvsikhfjdgvkjahcsidk
+
+file_buffer_size: 8192
+
+ext_pillar:
+  - git: master https://github.com/saltstack/pillar1.git
+  - git: master https://github.com/saltstack/pillar2.git
+  - test_ext_pillar_opts:
+    - test_issue_5951_actual_file_roots_in_opts
+
+config_opt:
+  layer2: 'kosher'
+yaml_utf8: True
+
+external_auth:
+  pam:
+    saltdev:
+      - '@wheel'
+      - '@runner'
+      - test.*
+  auto:
+    saltdev_auto:
+      - '@wheel'
+      - '@runner'
+      - test.*
+
+master_tops:
+  master_tops_test: True
