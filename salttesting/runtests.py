@@ -336,72 +336,6 @@ try:
 except Exception:  # pylint: disable=broad-except
     SCREEN_COLS = 80
 
-
-# Import Salt libs
-try:
-    from salt.log.handlers import TemporaryLoggingHandler
-except ImportError:
-    if sys.version_info < (2, 7):
-        class NewStyleClassMixIn(object):
-            '''
-            Simple new style class to make pylint shut up!
-            This is required because SaltLoggingClass can't subclass object directly:
-
-                'Cannot create a consistent method resolution order (MRO) for bases'
-            '''
-
-        # Since the NullHandler is only available on python >= 2.7, here's a copy
-        # with NewStyleClassMixIn so it's also a new style class
-        class NullHandler(logging.Handler, NewStyleClassMixIn):
-            '''
-            This is 1 to 1 copy of python's 2.7 NullHandler
-            '''
-            def handle(self, record):
-                pass
-
-            def emit(self, record):
-                pass
-
-            def createLock(self):  # pylint: disable=C0103
-                self.lock = None
-
-        logging.NullHandler = NullHandler
-
-    class TemporaryLoggingHandler(logging.NullHandler):
-        '''
-        Copied from ``salt.log.handlers``
-        '''
-
-        def __init__(self, level=logging.NOTSET, max_queue_size=10000):
-            self.__max_queue_size = max_queue_size
-            super(TemporaryLoggingHandler, self).__init__(level=level)  # pylint: disable=bad-super-call
-            self.__messages = []
-
-        def handle(self, record):
-            self.acquire()
-            if len(self.__messages) >= self.__max_queue_size:
-                # Loose the initial log records
-                self.__messages.pop(0)
-            self.__messages.append(record)
-            self.release()
-
-        def sync_with_handlers(self, handlers=()):
-            '''
-            Sync the stored log records to the provided log handlers.
-            '''
-            if not handlers:
-                return
-
-            while self.__messages:
-                record = self.__messages.pop(0)
-                for handler in handlers:
-                    if handler.level > record.levelno:
-                        # If the handler's level is higher than the log record one,
-                        # it should not handle the log record
-                        continue
-                    handler.handle(record)
-
-
 # Import 3rd-party libs
 import yaml
 
@@ -448,6 +382,68 @@ try:
 except ImportError:
     pass
 
+# ----- 1 to 1 copy of Salt's Temporary Logging Handler ------------------------------------------------------------->
+if sys.version_info < (2, 7):
+    class NewStyleClassMixIn(object):
+        '''
+        Simple new style class to make pylint shut up!
+        This is required because SaltLoggingClass can't subclass object directly:
+
+            'Cannot create a consistent method resolution order (MRO) for bases'
+        '''
+
+    # Since the NullHandler is only available on python >= 2.7, here's a copy
+    # with NewStyleClassMixIn so it's also a new style class
+    class NullHandler(logging.Handler, NewStyleClassMixIn):
+        '''
+        This is 1 to 1 copy of python's 2.7 NullHandler
+        '''
+        def handle(self, record):
+            pass
+
+        def emit(self, record):
+            pass
+
+        def createLock(self):  # pylint: disable=C0103
+            self.lock = None
+
+    logging.NullHandler = NullHandler
+
+class TemporaryLoggingHandler(logging.NullHandler):
+    '''
+    Copied from ``salt.log.handlers``
+    '''
+
+    def __init__(self, level=logging.NOTSET, max_queue_size=10000):
+        self.__max_queue_size = max_queue_size
+        super(TemporaryLoggingHandler, self).__init__(level=level)  # pylint: disable=bad-super-call
+        self.__messages = []
+
+    def handle(self, record):
+        self.acquire()
+        if len(self.__messages) >= self.__max_queue_size:
+            # Loose the initial log records
+            self.__messages.pop(0)
+        self.__messages.append(record)
+        self.release()
+
+    def sync_with_handlers(self, handlers=()):
+        '''
+        Sync the stored log records to the provided log handlers.
+        '''
+        if not handlers:
+            return
+
+        while self.__messages:
+            record = self.__messages.pop(0)
+            for handler in handlers:
+                if handler.level > record.levelno:
+                    # If the handler's level is higher than the log record one,
+                    # it should not handle the log record
+                    continue
+                handler.handle(record)
+
+# <---- 1 to 1 copy of Salt's Temporary Logging Handler --------------------------------------------------------------
 
 # ----- Setup Temporary Logging ------------------------------------------------------------------------------------->
 # Store a reference to the temporary queue logging handler
