@@ -18,10 +18,6 @@ import subprocess
 # Import Salt Testing Libs
 from salttesting.runtests import AdaptedConfigurationTestCaseMixIn
 
-# Import salt libs
-import salt.client
-import salt.version
-
 log = logging.getLogger(__name__)
 
 
@@ -32,11 +28,16 @@ class CheckShellBinaryNameAndVersionMixIn(object):
     '''
 
     _call_binary_ = None
-    _call_binary_expected_version_ = salt.version.__version__
+    _call_binary_expected_version_ = None
 
     def test_version_includes_binary_name(self):
         if getattr(self, '_call_binary_', None) is None:
             self.skipTest('\'_call_binary_\' not defined.')
+
+        if self._call_binary_expected_version_ is None:
+            # Late import
+            import salt.version
+            self._call_binary_expected_version_ = salt.version.__version__
 
         out = '\n'.join(self.run_script(self._call_binary_, '--version'))
         self.assertIn(self._call_binary_, out)
@@ -247,6 +248,8 @@ class SaltClientTestCaseMixIn(AdaptedConfigurationTestCaseMixIn):
 
     @property
     def client(self):
+        # Late import
+        import salt.client
         return salt.client.get_local_client(
             self.get_config_file_path(self._salt_client_config_file_name_)
         )
@@ -255,6 +258,11 @@ class SaltClientTestCaseMixIn(AdaptedConfigurationTestCaseMixIn):
 class ShellCaseCommonTestsMixIn(CheckShellBinaryNameAndVersionMixIn):
 
     def test_salt_with_git_version(self):
+        # Late import
+        import salt
+        import salt.utils
+        import salt.version
+
         if getattr(self, '_call_binary_', None) is None:
             self.skipTest('\'_call_binary_\' not defined.')
         git = salt.utils.which('git')
