@@ -8,12 +8,10 @@ except ImportError:
 
 import os
 
-import salt.config
 from salttesting.runtests import RUNTIME_VARS
 
 if HAS_CHERRYPY:
     from salttesting.cherrypytest.base import BaseCherryPyTestCase
-    from salt.netapi.rest_cherrypy import app
 else:
     from salttesting.unit import TestCase, skipIf
 
@@ -37,10 +35,16 @@ class BaseRestCherryPyTest(BaseCherryPyTestCase):
     def __init__(self, *args, **kwargs):
         super(BaseRestCherryPyTest, self).__init__(*args, **kwargs)
 
+        # Late import
+        import salt.config
+
         master_conf = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'master')
         self.config = salt.config.client_config(master_conf)
 
     def setUp(self, *args, **kwargs):
+        # Late import
+        from salt.netapi.rest_cherrypy import app
+
         # Make a local reference to the CherryPy app so we can mock attributes.
         self.app = app
 
