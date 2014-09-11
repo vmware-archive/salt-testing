@@ -289,14 +289,11 @@ class SaltTestingParser(optparse.OptionParser):
 
     def parse_args(self, args=None, values=None):
         try:
-            from salt.version import __saltstack_version__
-
-            # (Major version, Minor version, Nr. commits) ignoring bugfix and rc's
-            required_salt_version = (__saltstack_version__.major,
-                                     __saltstack_version__.minor,
-                                     __saltstack_version__.noc)
-            if required_salt_version >= (2014, 7, 1000):
-
+            test_salttest_meta_path = os.path.join(
+                os.path.dirname(sys.modules[self.__class__.__module__].__file__),
+                '___salttest___.py'
+            )
+            if os.path.exists(test_salttest_meta_path):
                 # Let's switch to the new salt-runtests runner
                 print_header(u'', inline=True, width=PNUM)
                 from salttesting.runtests import SaltRuntests
