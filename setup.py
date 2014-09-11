@@ -68,5 +68,6 @@ setup(
         'salttesting/cherrypytest',
         'salttesting/pylintplugins',
     ],
+    package_data = {'salttesting': ['_saltconf/*']},
     **SETUP_KWARGS
 )
