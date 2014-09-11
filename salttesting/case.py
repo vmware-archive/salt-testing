@@ -28,15 +28,6 @@ from salttesting.helpers import RedirectStdStreams
 from salttesting.runtests import RUNTIME_VARS, AdaptedConfigurationTestCaseMixIn
 from salttesting.mixins import SaltClientTestCaseMixIn
 
-# Import salt libs
-import salt
-import salt.utils
-import salt.config
-import salt.client
-import salt._compat
-import salt.version
-
-
 STATE_FUNCTION_RUNNING_RE = re.compile(
     r'''The function (?:"|')(?P<state_func>.*)(?:"|') is running as PID '''
     r'(?P<pid>[\d]+) and was started at (?P<date>.*) with jid (?P<jid>[\d]+)'
@@ -80,6 +71,9 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         script_path = os.path.join(RUNTIME_VARS.TMP_SCRIPT_DIR, script_name)
         if not os.path.isfile(script_path):
             log.debug('Generating {0}'.format(script_path))
+
+            # Late import
+            import salt.utils
 
             with salt.utils.fopen(script_path, 'w') as sfh:
                 script_template = SCRIPT_TEMPLATES.get(script_name, None)
@@ -145,6 +139,10 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         ret['out'] = self.run_run(
             '{0} {1} {2}'.format(options, fun, ' '.join(arg)), catch_stderr=kwargs.get('catch_stderr', None)
         )
+        # Late import
+        import salt.config
+        import salt.runner
+
         opts = salt.config.master_config(
             self.get_config_file_path('master')
         )
@@ -402,6 +400,9 @@ class ModuleCase(TestCase, SaltClientTestCaseMixIn):
             # This is the supposed return format for state calls
             return ret
 
+        # Late import
+        import salt._compat
+
         if isinstance(ret, list):
             jids = []
             # These are usually errors
@@ -475,6 +476,9 @@ class ClientCase(AdaptedConfigurationTestCaseMixIn, TestCase):
     Python API entrypoints
     '''
     def get_opts(self):
+        # Late import
+        import salt.config
+
         return salt.config.client_config(self.get_config_file_path('master'))
 
     def mkdir_p(self, path):
