@@ -1838,7 +1838,7 @@ class TestDaemon(object):
         import salt.config
         from salt.utils.verify import verify_env
         try:
-            from salt.utils.process import ProcessManager
+            from salt.utils.process import ProcessManager  # pylint: disable=no-name-in-module
             self.process_manager = ProcessManager()
         except ImportError:
             self.process_manager = None
