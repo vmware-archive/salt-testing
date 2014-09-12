@@ -68,12 +68,5 @@ setup(
         'salttesting/cherrypytest',
         'salttesting/pylintplugins',
     ],
-    package_data = {
-        'salttesting': [
-            '_saltconf/*',
-            '_saltconf/cloud.profiles.d/*.conf',
-            '_saltconf/cloud.providers.d/*.conf'
-        ]
-    },
     **SETUP_KWARGS
 )

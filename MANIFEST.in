@@ -1,1 +1,1 @@
-recursive-include salttesting/_saltconf
+graft salttesting/_saltconf/*
