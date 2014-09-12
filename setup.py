@@ -70,7 +70,7 @@ setup(
     ],
     package_data = {
         'salttesting': [
-            '_saltconf/*'
+            '_saltconf/*',
             '_saltconf/cloud.profiles.d/*.conf',
             '_saltconf/cloud.providers.d/*.conf'
         ]
