@@ -316,7 +316,6 @@ import fnmatch
 import logging
 import argparse
 import tempfile
-import warnings
 import multiprocessing
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -2418,80 +2417,6 @@ class TestDaemon(object):
     def sync_minion_modules(self, targets, timeout=None):
         self.sync_minion_modules_('modules', targets, timeout=timeout)
 # <---- Salt Tests Daemons Context Manager ---------------------------------------------------------------------------
-
-
-class AdaptedConfigurationTestCaseMixIn(object):
-
-    __slots__ = ()
-
-    def get_config_dir(self):
-        return RUNTIME_VARS.TMP_CONF_DIR
-
-    def get_config_file_path(self, filename):
-        return os.path.join(RUNTIME_VARS.TMP_CONF_DIR, filename)
-
-    @property
-    def master_opts(self):
-        # Late import
-        import salt.config
-
-        warnings.warn(
-            'Please stop using the \'master_opts\' attribute in \'{0}.{1}\' and instead '
-            'import \'RUNTIME_VARS\' from {2!r} and instantiate the master configuration like '
-            '\'salt.config.master_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, "master"))\''.format(
-                self.__class__.__module__,
-                self.__class__.__name__,
-                __name__
-            ),
-            DeprecationWarning,
-        )
-        return salt.config.master_config(
-            self.get_config_file_path('master')
-        )
-
-    @property
-    def minion_opts(self):
-        '''
-        Return the options used for the minion
-        '''
-        # Late import
-        import salt.config
-
-        warnings.warn(
-            'Please stop using the \'minion_opts\' attribute in \'{0}.{1}\' and instead '
-            'import \'RUNTIME_VARS\' from {2!r} and instantiate the minion configuration like '
-            '\'salt.config.minion_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, "minion"))\''.format(
-                self.__class__.__module__,
-                self.__class__.__name__,
-                __name__
-            ),
-            DeprecationWarning,
-        )
-        return salt.config.minion_config(
-            self.get_config_file_path('minion')
-        )
-
-    @property
-    def sub_minion_opts(self):
-        '''
-        Return the options used for the sub-minion
-        '''
-        # Late import
-        import salt.config
-
-        warnings.warn(
-            'Please stop using the \'sub_minion_opts\' attribute in \'{0}.{1}\' and instead '
-            'import \'RUNTIME_VARS\' from {2!r} and instantiate the sub-minion configuration like '
-            '\'salt.config.minion_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, "sub_minion_opts"))\''.format(
-                self.__class__.__module__,
-                self.__class__.__name__,
-                __name__
-            ),
-            DeprecationWarning,
-        )
-        return salt.config.minion_config(
-            self.get_config_file_path('sub_minion')
-        )
 
 
 def main():

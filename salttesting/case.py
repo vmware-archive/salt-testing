@@ -25,8 +25,8 @@ from datetime import datetime, timedelta
 # Import salt testing libs
 from salttesting.unit import TestCase
 from salttesting.helpers import RedirectStdStreams
-from salttesting.runtests import RUNTIME_VARS, AdaptedConfigurationTestCaseMixIn
-from salttesting.mixins import SaltClientTestCaseMixIn
+from salttesting.runtests import RUNTIME_VARS
+from salttesting.mixins import AdaptedConfigurationTestCaseMixIn, SaltClientTestCaseMixIn
 
 STATE_FUNCTION_RUNNING_RE = re.compile(
     r'''The function (?:"|')(?P<state_func>.*)(?:"|') is running as PID '''
