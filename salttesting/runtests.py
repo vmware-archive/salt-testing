@@ -605,15 +605,6 @@ class ExpensiveTestsAction(argparse._StoreTrueAction):
         os.environ['EXPENSIVE_TESTS'] = 'YES'
 
 
-class NoColorAction(argparse._StoreTrueAction):
-    def __call__(self, parser, namespace, values, option_string=None):
-        # Late import
-        from salt.utils import get_colors
-
-        super(NoColorAction, self).__call__(parser, namespace, values, option_string)
-        parser.colors = get_colors(False)
-
-
 class VerbosityAction(argparse._CountAction):
     def __call__(self, parser, namespace, value, option_string=None):
         super(VerbosityAction, self).__call__(parser, namespace, value, option_string)
@@ -758,10 +749,6 @@ class SaltRuntests(argparse.ArgumentParser):
                                            conflict_handler=conflict_handler,
                                            add_help=False)
 
-        # Late import
-        from salt.utils import get_colors
-
-        self.colors = get_colors(True)
         # ----- Tests Suite Attributes ------------------------------------------------------------------------------>
         self.__testsuite__ = {}
         self.__testsuite_status__ = []
@@ -862,7 +849,8 @@ class SaltRuntests(argparse.ArgumentParser):
         self.output_options_group.add_argument(
             '--no-colors',
             '--no-colours',
-            action=NoColorAction,
+            action='store_true',
+            default=False,
             help='Disable colour printing.'
         )
         if HAS_XMLRUNNER:
@@ -1378,14 +1366,17 @@ class SaltRuntests(argparse.ArgumentParser):
         self._option_string_actions.pop('--help')
         self._option_string_actions.pop('-h')
 
-        # Late import
         try:
+            # Late imports
+            from salt.utils import get_colors
             from salt.version import __saltstack_version__
         except ImportError:
             self.error(
                 'Salt is not importable. Please point --salt-checkout to the directory '
                 'where the salt code resides'
             )
+
+        self.colors = get_colors(self.options.no_color is False)
 
         # (Major version, Minor version, Nr. commits) ignoring bugfix and rc's
         required_salt_version = (__saltstack_version__.major, __saltstack_version__.minor, __saltstack_version__.noc)
@@ -1416,6 +1407,7 @@ class SaltRuntests(argparse.ArgumentParser):
         # Parse ARGV again now that we have more of the required data...
         # Yes, it's not neat...
         self.options = super(SaltRuntests, self).parse_args(args, namespace)
+        self.colors = get_colors(self.options.no_color is False)
 
         # ----- Coverage Checks ------------------------------------------------------------------------------------->
         if (self.options.coverage_html_output or self.options.coverage_xml_output) and not self.options.coverage:
