@@ -685,6 +685,10 @@ def main():
             parser.exit(delete_cloud_vm(options))
         elif options.lxc_deploy:
             parser.exit(delete_lxc_vm(options))
+        else:
+            parser.error(
+                'You need to specify from which deployment to delete the VM from. --cloud-deploy/--lxc-deploy'
+            )
 
     if options.bootstrap_salt_commit is None:
         options.bootstrap_salt_commit = os.environ.get(
