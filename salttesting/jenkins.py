@@ -185,7 +185,7 @@ def run_command(cmd, sleep=0.025, return_output=False):
 
             time.sleep(sleep)
         if proc.exitstatus != 0:
-            print('Failed execute command. Exit code: {1}'.format(proc.exitstatus))
+            print('Failed execute command. Exit code: {0}'.format(proc.exitstatus))
         else:
             print('Command execution succeeded. Exit code: {0}'.format(proc.exitstatus))
         if return_output is True:
