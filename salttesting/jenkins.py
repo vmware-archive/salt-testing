@@ -692,7 +692,7 @@ def main():
         )
 
     if options.bootstrap_salt_url is None:
-        options.boostrap_salt_url = SALT_GIT_URL
+        options.bootstrap_salt_url = SALT_GIT_URL
 
     if options.cloud_deploy:
         exitcode = bootstrap_cloud_minion(options)
@@ -726,7 +726,7 @@ def main():
             print('The execution of the {0!r} SLS failed')
             parser.exit(exitcode)
 
-    if options.download_artifacts:
+    if options.download_artifact:
         sys.exit(0)
 
 
