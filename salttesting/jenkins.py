@@ -301,7 +301,7 @@ def get_minion_external_address(options):
 
     stdout_buffer = stderr_buffer = ''
     cmd = 'salt --out=json {0} grains.get external_ip'.format(options.vm_name)
-    stdout, stderr, exitcode = run_command(cmd)
+    stdout, stderr, exitcode = run_command(cmd, return_output=True)
     if exitcode != 0:
         print('Failed to get the minion external IP. Exit code: {0}'.format(exitcode))
         sys.exit(exitcode)
@@ -330,7 +330,7 @@ def get_minion_python_executable(options):
     sync_minion(options)
 
     cmd = 'salt --out=json {0} grains.get pythonexecutable'.format(options.vm_name)
-    stdout, stderr, exitcode = run_command(cmd)
+    stdout, stderr, exitcode = run_command(cmd, return_output=True)
     if exitcode != 0:
         print('Failed to get the minion python executable. Exit code: {0}'.format(exitcode))
         sys.exit(exitcode)
@@ -381,7 +381,7 @@ def check_boostrapped_minion_version(options):
     print('Grabbing bootstrapped minion version information ... ')
     cmd = 'salt -t 100 {0} --out json test.version'.format(options.vm_name)
 
-    stdout, stderr, exitcode = run_command(cmd)
+    stdout, stderr, exitcode = run_command(cmd, return_output=True)
     if exitcode:
         print('Failed to get the bootstrapped minion version. Exit code: {0}'.format(exitcode))
         sys.exit(exitcode)
