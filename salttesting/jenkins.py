@@ -709,9 +709,6 @@ def main():
         check_boostrapped_minion_version(options)
         prepare_ssh_access(options)
 
-    if options.download_artifacts:
-        sys.exit(0)
-
     # Run preparation SLS
     for sls in options.test_prep_sls:
         exitcode = run_state_on_vm(options, sls, timeout=900)
