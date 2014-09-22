@@ -24,6 +24,9 @@ import subprocess
 # Import salt libs
 from salt.utils import vt, get_colors
 
+# Import salt-testing libs
+from salttesting.runtests import print_header
+
 # Import 3rd-party libs
 import yaml
 try:
@@ -150,10 +153,11 @@ def echo_parseable_environment(options):
     sys.stdout.flush()
 
 
-def run_command(cmd, sleep=0.025, return_output=False):
+def run_command(cmd, sleep=0.015, return_output=False):
     '''
     Run a command using VT
     '''
+    print_header(u'', sep='>', inline=True)
     if isinstance(cmd, list):
         cmd = ' '.join(cmd)
 
@@ -195,6 +199,7 @@ def run_command(cmd, sleep=0.025, return_output=False):
         print('\n\nAn error occurred while running command:\n')
         print(str(exc))
     finally:
+        print_header(u'', sep='<', inline=True)
         proc.close(terminate=True, kill=True)
 
 
