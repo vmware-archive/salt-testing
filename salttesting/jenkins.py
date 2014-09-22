@@ -434,6 +434,7 @@ def run_state_on_vm(options, state_name, timeout=100):
     Run a state on the VM
     '''
     cmd = [
+        'sudo',
         'salt-call',
         '--timeout={0}'.format(timeout),
         '--retcode-passthrough',
