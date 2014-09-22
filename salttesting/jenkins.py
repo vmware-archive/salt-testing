@@ -499,6 +499,8 @@ def run_ssh_command(options, remote_command):
             get_minion_external_address(options)
         )
     )
+    if isinstance(remote_command, (list, tuple)):
+        remote_command = ' '.join(remote_command)
     cmd.append(pipes.quote(remote_command))
     return run_command(cmd)
 
