@@ -216,8 +216,7 @@ def bootstrap_cloud_minion(options):
     '''
     Bootstrap a minion using salt-cloud
     '''
-    #cmd = ['salt-cloud', '-l', 'debug']
-    cmd = ['salt-cloud']
+    cmd = ['salt-cloud', '-l', 'info']
     script_args = ['-D']
     if options.no_color:
         script_args.append('-n')
