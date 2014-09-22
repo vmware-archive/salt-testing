@@ -139,8 +139,8 @@ def build_pillar_data(options):
         pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
     if options.bootstrap_salt_commit is not None:
         pillar['bootstrap_salt_commit'] = options.bootstrap_salt_commit
-    if options.pillar:
-        pillar.update(dict(options.pillar))
+    if options.test_pillar:
+        pillar.update(dict(options.test_pillar))
     return to_cli_yaml(pillar)
 
 
@@ -643,6 +643,13 @@ def main():
         '--test-git-commit',
         default=None,
         help='The testing git commit to track')
+    testing_source_options.add_argument(
+        '--test-pillar',
+        default=[],
+        metavar=('PILLAR_KEY', 'PILLAR_VALUE'),
+        help=('Additional pillar data use in the build. Pass a key and a value per '
+              '\'--test-pillar\' option. Example: --test-pillar foo_key foo_value')
+    )
     testing_source_options.add_argument(
         '--test-prep-sls',
         default=[],
