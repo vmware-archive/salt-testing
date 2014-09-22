@@ -178,8 +178,8 @@ def run_command(cmd, sleep=0.015, return_output=False):
         while True:
             stdout, stderr = proc.recv()
             if return_output is True:
-                stdout_buffer += stdout
-                stderr_buffer += stderr
+                stdout_buffer += stdout or ''
+                stderr_buffer += stderr or ''
 
             if proc_terminated:
                 break
