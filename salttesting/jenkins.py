@@ -488,7 +488,7 @@ def build_ssh_opts(options):
     return ssh_args
 
 
-def run_ssh_command(options, cmd):
+def run_ssh_command(options, remote_command):
     '''
     Run a command using SSH
     '''
@@ -499,7 +499,7 @@ def run_ssh_command(options, cmd):
             get_minion_external_address(options)
         )
     )
-    cmd.append(pipes.quote(cmd))
+    cmd.append(pipes.quote(remote_command))
     return run_command(cmd)
 
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
