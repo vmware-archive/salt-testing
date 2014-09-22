@@ -82,18 +82,20 @@ def generate_ssh_keypair(options):
     authorized key in the minion's root user account on the remote system.
     '''
     print('Generating temporary SSH Key')
+    ssh_key_path = os.path.join(options.workspace, 'jenkins_test_account_key')
+
+    if os.path.exists(ssh_key_path):
+        os.unlink(ssh_key_path)
+        os.unlink(ssh_key_path + '.pub')
+
     exitcode = run_command(
         'ssh-keygen -t ecdsa -b 521 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
-        '-f {0} -N \'\' -V -10m:+2h'.format(
-            os.path.join(options.workspace, 'jenkins_test_account_key')
-        )
+        '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path)
     )
     if exitcode != 0:
         exitcode = run_command(
             'ssh-keygen -t rsa -b 2048 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
-            '-f {0} -N \'\' -V -10m:+2h'.format(
-                os.path.join(options.workspace, 'jenkins_test_account_key')
-            )
+            '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path)
         )
         if exitcode != 0:
             print('Failed to generate temporary SSH ksys')
