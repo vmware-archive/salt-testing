@@ -171,6 +171,7 @@ def run_command(cmd, sleep=0.015, return_output=False):
         cmd = ' '.join(cmd)
 
     print('Running command: {0}'.format(cmd))
+    print_header(u'', sep='-', inline=True)
 
     if return_output is True:
         stdout_buffer = stderr_buffer = ''
@@ -198,13 +199,16 @@ def run_command(cmd, sleep=0.015, return_output=False):
 
             time.sleep(sleep)
         if proc.exitstatus != 0:
+            print_header(u'', sep='-', inline=True)
             print('Failed execute command. Exit code: {0}'.format(proc.exitstatus))
         else:
+            print_header(u'', sep='-', inline=True)
             print('Command execution succeeded. Exit code: {0}'.format(proc.exitstatus))
         if return_output is True:
             return stdout_buffer, stderr_buffer, proc.exitstatus
         return proc.exitstatus
     except vt.TerminalException as exc:
+        print_header(u'', sep='-', inline=True)
         print('\n\nAn error occurred while running command:\n')
         print(str(exc))
     finally:
