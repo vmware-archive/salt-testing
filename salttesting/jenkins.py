@@ -193,7 +193,7 @@ def run_command(cmd, sleep=0.015, return_output=False):
         else:
             print('Command execution succeeded. Exit code: {0}'.format(proc.exitstatus))
         if return_output is True:
-            return stdout, stderr, proc.exitstatus
+            return stdout_buffer, stderr_buffer, proc.exitstatus
         return proc.exitstatus
     except vt.TerminalException as exc:
         print('\n\nAn error occurred while running command:\n')
