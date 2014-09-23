@@ -25,7 +25,7 @@ from salt.utils import vt
 from salt.log.setup import SORTED_LEVEL_NAMES
 
 # Import salt-testing libs
-from salttesting.runtests import print_header
+from salttesting.runtests import print_header, SCREEN_COLS
 
 # Import 3rd-party libs
 import yaml
@@ -168,12 +168,12 @@ def run_command(cmd, sleep=0.015, return_output=False):
     '''
     Run a command using VT
     '''
-    print_header(u'', sep='>', inline=True)
+    print_header(u'', sep='>', inline=True, width=options.output_columns)
     if isinstance(cmd, list):
         cmd = ' '.join(cmd)
 
     print('Running command: {0}'.format(cmd))
-    print_header(u'', sep='-', inline=True)
+    print_header(u'', sep='-', inline=True, width=options.output_columns)
 
     if return_output is True:
         stdout_buffer = stderr_buffer = ''
@@ -201,20 +201,20 @@ def run_command(cmd, sleep=0.015, return_output=False):
 
             time.sleep(sleep)
         if proc.exitstatus != 0:
-            print_header(u'', sep='-', inline=True)
+            print_header(u'', sep='-', inline=True, width=options.output_columns)
             print('Failed execute command. Exit code: {0}'.format(proc.exitstatus))
         else:
-            print_header(u'', sep='-', inline=True)
+            print_header(u'', sep='-', inline=True, width=options.output_columns)
             print('Command execution succeeded. Exit code: {0}'.format(proc.exitstatus))
         if return_output is True:
             return stdout_buffer, stderr_buffer, proc.exitstatus
         return proc.exitstatus
     except vt.TerminalException as exc:
-        print_header(u'', sep='-', inline=True)
+        print_header(u'', sep='-', inline=True, width=options.output_columns)
         print('\n\nAn error occurred while running command:\n')
         print(str(exc))
     finally:
-        print_header(u'', sep='<', inline=True)
+        print_header(u'', sep='<', inline=True, width=options.output_columns)
         proc.close(terminate=True, kill=True)
 
 
@@ -597,6 +597,12 @@ def main():
 
     # Output Options
     output_group = parser.add_argument_group('Output Options')
+    output_group.add_argument(
+        '--output-columns',
+        default=SCREEN_COLS,
+        type=int,
+        help='Number of maximum columns to use on the output. Default: %(default)s'
+    )
     output_group.add_argument(
         '--no-color',
         '--no-colour',
