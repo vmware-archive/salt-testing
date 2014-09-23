@@ -818,7 +818,7 @@ def main():
             '--transport={transport}'.format(
                 python_exec=get_minion_python_executable(options),
                 no_color=options.no_color and ' --no-color' or '',
-                transport=options.transport
+                transport=options.test_transport
             )
         )
     if options.test_command:
