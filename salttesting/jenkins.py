@@ -483,10 +483,7 @@ def build_ssh_opts(options):
         # Also, specify the location of the key file
         '-oIdentityFile={0}'.format(
             os.path.join(options.workspace, 'jenkins_test_account_key')
-        ),
-        # Use double `-t` on the `ssh` command, it's necessary when `sudo` has
-        # `requiretty` enforced.
-        '-t', '-t',
+        )
     ]
     return ssh_args
 
@@ -497,6 +494,10 @@ def run_ssh_command(options, remote_command):
     '''
     test_ssh_root_login(options)
     cmd = ['ssh'] + build_ssh_opts(options)
+    # Use double `-t` on the `ssh` command, it's necessary when `sudo` has
+    # `requiretty` enforced.
+    cmd.extend(['-t', '-t'])
+
     cmd.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
