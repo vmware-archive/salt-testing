@@ -729,9 +729,9 @@ def main():
         '--test-default-command',
         action='store_true',
         help=('Run the default salt runtests command: '
-              '\'{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo '
-              '{no_color} --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
-              '--transport={transport}\'')
+              '\'\{python_executable\} /testing/tests/runtests.py -v --run-destructive --sysinfo '
+              '\{no_color\} --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
+              '--transport=\{transport\}\'')
     )
 
     packaging_options = parser.add_argument_group(
