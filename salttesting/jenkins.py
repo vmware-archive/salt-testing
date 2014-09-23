@@ -19,10 +19,10 @@ import random
 import shutil
 import hashlib
 import argparse
-import subprocess
 
 # Import salt libs
-from salt.utils import vt, get_colors
+from salt.utils import vt
+from salt.log.setup import SORTED_LEVEL_NAMES
 
 # Import salt-testing libs
 from salttesting.runtests import print_header
@@ -222,7 +222,6 @@ def bootstrap_cloud_minion(options):
     '''
     Bootstrap a minion using salt-cloud
     '''
-    cmd = ['salt-cloud', '-l', 'info']
     script_args = ['-D']
     if options.no_color:
         script_args.append('-n')
@@ -234,7 +233,7 @@ def bootstrap_cloud_minion(options):
 
     cmd = [
         'salt-cloud',
-        '-l', 'debug',
+        '-l', options.log_level,
         '--script-args="{0}"'.format(' '.join(script_args)),
         '-p', options.vm_source,
         options.vm_name
@@ -253,28 +252,6 @@ def bootstrap_lxc_minion(options):
     print('LXC support not implemented')
     sys.exit(1)
 
-    cmd = ['salt-cloud', '-l', 'debug']
-    script_args = ['-D']
-    if options.no_color:
-        script_args.append('-n')
-    if options.bootstrap_salt_url != SALT_GIT_URL:
-        script_args.extend([
-            '-g', options.bootstrap_salt_url
-        ])
-    script_args.extend(['git', options.bootstrap_salt_commit])
-
-    cmd = [
-        'salt-cloud',
-        '-l', 'debug',
-        '--script-args="{0}"'.format(' '.join(script_args)),
-        '-p', options.vm_source,
-        options.vm_name
-    ]
-    if options.no_color:
-        cmd.append('--no-color')
-
-    return run_command(cmd)
-
 
 def prepare_ssh_access(options):
     print('Prepare SSH Access to Bootstrapped VM')
@@ -282,6 +259,7 @@ def prepare_ssh_access(options):
 
     cmd = [
         'salt',
+        '-l', options.log_level,
         '-t', '100',
         options.vm_name,
         'state.sls',
@@ -305,7 +283,7 @@ def sync_minion(options):
     if 'salt_minion_synced' in options:
         return
 
-    cmd = ['salt', '-t', '100']
+    cmd = ['salt', '-t', '100', '-l', options.log_level]
     if options.no_color:
         cmd.append('--no-color')
     cmd.extend([
@@ -327,7 +305,17 @@ def get_minion_external_address(options):
     sync_minion(options)
 
     stdout_buffer = stderr_buffer = ''
-    cmd = 'salt --out=json {0} grains.get external_ip'.format(options.vm_name)
+    cmd = [
+        'salt',
+        '--out=json',
+        '-l', options.log_level
+    ]
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
+        options.vm_name,
+        'grains.get', 'external_ip'
+    ])
     stdout, stderr, exitcode = run_command(cmd, return_output=True)
     if exitcode != 0:
         print('Failed to get the minion external IP. Exit code: {0}'.format(exitcode))
@@ -356,7 +344,17 @@ def get_minion_python_executable(options):
 
     sync_minion(options)
 
-    cmd = 'salt --out=json {0} grains.get pythonexecutable'.format(options.vm_name)
+    cmd = [
+        'salt',
+        '--out=json',
+        '-l', options.log_level
+    ]
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
+        options.vm_name,
+        'grains.get', 'pythonexecutable'
+    ])
     stdout, stderr, exitcode = run_command(cmd, return_output=True)
     if exitcode != 0:
         print('Failed to get the minion python executable. Exit code: {0}'.format(exitcode))
@@ -381,7 +379,7 @@ def delete_cloud_vm(options):
     '''
     Delete a salt-cloud instance
     '''
-    cmd = ['salt-cloud', '-yd']
+    cmd = ['salt-cloud', '-l', options.log_level, '-yd']
     if options.no_color:
         cmd.append('--no-color')
     cmd.append(options.vm_name)
@@ -406,7 +404,19 @@ def check_boostrapped_minion_version(options):
     Confirm that the bootstrapped minion version matches the desired one
     '''
     print('Grabbing bootstrapped minion version information ... ')
-    cmd = 'salt -t 100 {0} --out json test.version'.format(options.vm_name)
+    cmd = [
+        'salt',
+        '-t', '100',
+        '--out=json',
+        '-l', options.log_level
+    ]
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
+        options.vm_name,
+        'test.version'
+    ])
+
 
     stdout, stderr, exitcode = run_command(cmd, return_output=True)
     if exitcode:
@@ -445,12 +455,17 @@ def run_state_on_vm(options, state_name, timeout=100):
     test_ssh_root_login(options)
     cmd = [
         'salt-call',
+        '-l', options.log_level,
         '--timeout={0}'.format(timeout),
-        '--retcode-passthrough',
+        '--retcode-passthrough'
+    ]
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
         'state.sls',
         state_name,
         'pillar="{0}"'.format(build_pillar_data(options))
-    ]
+    ])
     if options.require_sudo:
         cmd.insert(0, 'sudo')
     if options.no_color:
@@ -572,6 +587,12 @@ def main():
         default=os.path.abspath(os.environ.get('WORKSPACE', os.getcwd())),
         help=('Path to the execution workspace. Defaults to the \'WORKSPACE\' environment '
               'variable or the current directory.')
+    )
+    parser.add_argument(
+        '-l', '--log-level',
+        choices=list(SORTED_LEVEL_NAMES),
+        default='info',
+        help='Logging log level to pass to salt CLI tools.'
     )
 
     # Output Options
