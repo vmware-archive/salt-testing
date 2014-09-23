@@ -707,10 +707,19 @@ def main():
         action='append',
         help='Run a preparation SLS file. Pass one SLS per `--test-prep-sls` option argument'
     )
-    testing_source_options.add_argument(
+    testing_source_options_mutually_exclusive = testing_source_options.add_mutually_exclusive_group()
+    testing_source_options_mutually_exclusive.add_argument(
         '--test-command',
         default=None,
         help='The command to execute on the deployed VM to run tests'
+    )
+    testing_source_options_mutually_exclusive.add_argument(
+        '--test-default-command',
+        action='store_true',
+        help=('Run the default salt runtests command: '
+              '\'{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo '
+              '{no_color} --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
+              '--transport={transport}\'')
     )
 
     packaging_options = parser.add_argument_group(
@@ -797,6 +806,16 @@ def main():
             parser.exit(exitcode)
 
     # Run the main command using SSH for realtime output
+    if options.test_default_command:
+        options.test_command = (
+            '{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo'
+            '{no_color} --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
+            '--transport={transport}'.format(
+                python_exec=get_minion_python_executable(options),
+                no_color=options.no_color and ' --no-color' or '',
+                transport=options.transport
+            )
+        )
     if options.test_command:
         exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
