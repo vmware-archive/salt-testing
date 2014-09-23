@@ -305,7 +305,14 @@ def sync_minion(options):
     if 'salt_minion_synced' in options:
         return
 
-    exitcode = run_command('salt -t 100 {0} saltutil.sync_all'.format(options.vm_name))
+    cmd = ['salt', '-t', '100']
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
+        options.vm_name,
+        'saltutil.sync_all'
+    ])
+    exitcode = run_command(cmd)
     setattr(options, 'salt_minion_synced', 'yes')
     return exitcode
 
