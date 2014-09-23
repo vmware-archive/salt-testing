@@ -528,6 +528,7 @@ def test_ssh_root_login(options):
 
 
 def download_artifacts(options):
+    test_ssh_root_login(options)
     artifacts = []
     for remote_path, local_path in options.download_artifact:
         if not os.path.isdir(local_path):
