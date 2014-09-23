@@ -556,14 +556,6 @@ def test_ssh_root_login(options):
 
 def download_artifacts(options):
     test_ssh_root_login(options)
-    artifacts = []
-    for remote_path, local_path in options.download_artifact:
-        if not os.path.isdir(local_path):
-            os.makedirs(local_path)
-        artifacts.append((
-            remote_path,
-            os.path.join(local_path, os.path.basename(remote_path))
-        ))
     sftp_command = ['sftp'] + build_ssh_opts(options)
     sftp_command.append(
         '{0}@{1}'.format(
@@ -571,7 +563,9 @@ def download_artifacts(options):
             get_minion_external_address(options)
         )
     )
-    for remote_path, local_path in artifacts:
+    for remote_path, local_path in options.download_artifact:
+        if not os.path.isdir(local_path):
+            os.makedirs(local_path)
         run_command(
             'echo "get {0} {1}" | {2}'.format(
                 remote_path,
