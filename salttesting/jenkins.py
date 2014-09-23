@@ -526,6 +526,31 @@ def test_ssh_root_login(options):
     exitcode = run_command(cmd)
     setattr(options, 'require_sudo', exitcode != 0)
 
+
+def download_artifacts(options):
+    artifacts = []
+    for remote_path, local_path in options.download_artifact:
+        if not os.path.isdir(local_path):
+            os.makedirs(local_path)
+        artifacts.append((
+            remote_path,
+            os.path.join(local_path, os.path.basename(remote_path))
+        ))
+    sftp_command = ['sftp'] + build_ssh_opts
+    sftp_command.append(
+        '{0}@{1}'.format(
+            options.require_sudo and options.ssh_username or 'root',
+            get_minion_external_address(options)
+        )
+    )
+    for remote_path, local_path in artifacts:
+        run_command(
+            'echo "get {0} {1}" | {2}'.format(
+                remote_path,
+                local_path,
+                ' '.join(sftp_command)
+            )
+        )
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
 
 # ----- Parser Code ------------------------------------------------------------------------------------------------->
@@ -779,9 +804,7 @@ def main():
             parser.exit(exitcode)
 
     if options.download_artifact:
-        sys.exit(0)
-
-
+        download_artifacts(options)
 # <---- Parser Code --------------------------------------------------------------------------------------------------
 
 if __name__ == '__main__':
