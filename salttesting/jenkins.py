@@ -90,12 +90,14 @@ def generate_ssh_keypair(options):
 
     exitcode = run_command(
         'ssh-keygen -t ecdsa -b 521 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
-        '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path)
+        '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
+        options
     )
     if exitcode != 0:
         exitcode = run_command(
             'ssh-keygen -t rsa -b 2048 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
-            '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path)
+            '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
+            options
         )
         if exitcode != 0:
             print('Failed to generate temporary SSH ksys')
@@ -164,7 +166,7 @@ def echo_parseable_environment(options):
     sys.stdout.flush()
 
 
-def run_command(cmd, sleep=0.015, return_output=False):
+def run_command(cmd, options, sleep=0.015, return_output=False):
     '''
     Run a command using VT
     '''
@@ -241,7 +243,7 @@ def bootstrap_cloud_minion(options):
     if options.no_color:
         cmd.append('--no-color')
 
-    return run_command(cmd)
+    return run_command(cmd, options)
 
 
 def bootstrap_lxc_minion(options):
@@ -276,7 +278,7 @@ def prepare_ssh_access(options):
     if options.no_color:
         cmd.append('--no-color')
 
-    return run_command(cmd)
+    return run_command(cmd, options)
 
 
 def sync_minion(options):
@@ -290,7 +292,7 @@ def sync_minion(options):
         options.vm_name,
         'saltutil.sync_all'
     ])
-    exitcode = run_command(cmd)
+    exitcode = run_command(cmd, options)
     setattr(options, 'salt_minion_synced', 'yes')
     return exitcode
 
@@ -316,7 +318,7 @@ def get_minion_external_address(options):
         options.vm_name,
         'grains.get', 'external_ip'
     ])
-    stdout, stderr, exitcode = run_command(cmd, return_output=True)
+    stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
     if exitcode != 0:
         print('Failed to get the minion external IP. Exit code: {0}'.format(exitcode))
         sys.exit(exitcode)
@@ -355,7 +357,7 @@ def get_minion_python_executable(options):
         options.vm_name,
         'grains.get', 'pythonexecutable'
     ])
-    stdout, stderr, exitcode = run_command(cmd, return_output=True)
+    stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
     if exitcode != 0:
         print('Failed to get the minion python executable. Exit code: {0}'.format(exitcode))
         sys.exit(exitcode)
@@ -383,7 +385,7 @@ def delete_cloud_vm(options):
     if options.no_color:
         cmd.append('--no-color')
     cmd.append(options.vm_name)
-    return run_command(cmd)
+    return run_command(cmd, options)
 
 
 def delete_lxc_vm(options):
@@ -396,7 +398,7 @@ def delete_lxc_vm(options):
     cmd.append('lxc.purge')
     cmd.append(options.vm_name)
 
-    return run_command(cmd)
+    return run_command(cmd, options)
 
 
 def check_boostrapped_minion_version(options):
@@ -418,7 +420,7 @@ def check_boostrapped_minion_version(options):
     ])
 
 
-    stdout, stderr, exitcode = run_command(cmd, return_output=True)
+    stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
     if exitcode:
         print('Failed to get the bootstrapped minion version. Exit code: {0}'.format(exitcode))
         sys.exit(exitcode)
@@ -533,7 +535,7 @@ def run_ssh_command(options, remote_command):
     if options.require_sudo and not remote_command.startswith('sudo'):
         remote_command = 'sudo {0}'.format(remote_command)
     cmd.append(pipes.quote(remote_command))
-    return run_command(cmd)
+    return run_command(cmd, options)
 
 
 def test_ssh_root_login(options):
@@ -548,7 +550,7 @@ def test_ssh_root_login(options):
         'root@{0}'.format(get_minion_external_address(options)),
         pipes.quote('echo "root login possible"')
     ])
-    exitcode = run_command(cmd)
+    exitcode = run_command(cmd, options)
     setattr(options, 'require_sudo', exitcode != 0)
 
 
@@ -575,7 +577,8 @@ def download_artifacts(options):
                 remote_path,
                 local_path,
                 ' '.join(sftp_command)
-            )
+            ),
+            options
         )
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
 
