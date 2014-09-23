@@ -520,7 +520,7 @@ def test_ssh_root_login(options):
 
     cmd = ['ssh'] + build_ssh_opts(options)
     cmd.extend([
-        'root@{1}'.format(get_minion_external_address(options)),
+        'root@{0}'.format(get_minion_external_address(options)),
         'echo "root login possible"'
     ])
     exitcode = run_command(cmd)
