@@ -417,6 +417,8 @@ def check_boostrapped_minion_version(options):
             'SALT_MINION_BOOTSTRAP_RELEASE',
             options.bootstrap_salt_commit[:7]
         )
+        if bootstrap_minion_version.startswith('v'):
+            bootstrap_minion_version = bootstrap_minion_version[1:]
         if bootstrap_minion_version not in version_info[options.vm_name]:
             print('\n\nATTENTION!!!!\n')
             print('The boostrapped minion version commit does not contain the desired commit:')
