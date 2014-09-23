@@ -823,7 +823,7 @@ def main():
             '{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo'
             '{no_color} --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
             '--transport={transport}'.format(
-                python_exec=get_minion_python_executable(options),
+                python_executable=get_minion_python_executable(options),
                 no_color=options.no_color and ' --no-color' or '',
                 transport=options.test_transport
             )
