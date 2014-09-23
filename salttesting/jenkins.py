@@ -536,7 +536,7 @@ def download_artifacts(options):
             remote_path,
             os.path.join(local_path, os.path.basename(remote_path))
         ))
-    sftp_command = ['sftp'] + build_ssh_opts
+    sftp_command = ['sftp'] + build_ssh_opts(options)
     sftp_command.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
