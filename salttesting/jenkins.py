@@ -433,8 +433,8 @@ def run_state_on_vm(options, state_name, timeout=100):
     '''
     Run a state on the VM
     '''
+    test_ssh_root_login(options)
     cmd = [
-        'sudo',
         'salt-call',
         '--timeout={0}'.format(timeout),
         '--retcode-passthrough',
@@ -442,6 +442,8 @@ def run_state_on_vm(options, state_name, timeout=100):
         state_name,
         'pillar="{0}"'.format(build_pillar_data(options))
     ]
+    if options.require_sudo:
+        cmd.insert(0, 'sudo')
     if options.no_color:
         cmd.append('--no-color')
 
@@ -493,17 +495,36 @@ def run_ssh_command(options, remote_command):
     '''
     Run a command using SSH
     '''
+    test_ssh_root_login(options)
     cmd = ['ssh'] + build_ssh_opts(options)
     cmd.append(
         '{0}@{1}'.format(
-            options.ssh_username,
+            options.require_sudo and options.ssh_username or 'root',
             get_minion_external_address(options)
         )
     )
     if isinstance(remote_command, (list, tuple)):
         remote_command = ' '.join(remote_command)
+    if options.require_sudo and not remote_command.startswith('sudo'):
+        remote_command = 'sudo {0}'.format(remote_command)
     cmd.append(pipes.quote(remote_command))
     return run_command(cmd)
+
+
+def test_ssh_root_login(options):
+    '''
+    Test if we're able to login as root
+    '''
+    if 'require_sudo' in options:
+        return
+
+    cmd = ['ssh'] + build_ssh_opts(options)
+    cmd.extend([
+        'root@{1}'.format(get_minion_external_address(options)),
+        'echo "root login possible"'
+    ])
+    exitcode = run_command(cmd)
+    setattr(options, 'require_sudo', exitcode != 0)
 
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
 
