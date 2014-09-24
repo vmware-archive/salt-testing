@@ -838,7 +838,7 @@ def main():
     for sls in options.test_prep_sls:
         exitcode = run_state_on_vm(options, sls, timeout=900)
         if exitcode != 0:
-            print('The execution of the {0!r} SLS failed')
+            print('The execution of the {0!r} SLS failed'.format(sls))
             parser.exit(exitcode)
 
     # Run the main command using SSH for realtime output
