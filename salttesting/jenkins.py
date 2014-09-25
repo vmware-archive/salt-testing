@@ -855,7 +855,7 @@ def main():
     if options.test_command:
         exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
-            print('The execution of the {0!r} SLS failed')
+            print('The execution of the test command {0!r} failed'.format(options.test_command))
             parser.exit(exitcode)
 
     if options.download_artifact:
