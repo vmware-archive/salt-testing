@@ -83,6 +83,7 @@ def generate_ssh_keypair(options):
     authorized key in the minion's root user account on the remote system.
     '''
     print('Generating temporary SSH Key')
+    sys.stdout.flush()
     ssh_key_path = os.path.join(options.workspace, 'jenkins_test_account_key')
 
     if os.path.exists(ssh_key_path):
@@ -102,6 +103,7 @@ def generate_ssh_keypair(options):
         )
         if exitcode != 0:
             print('Failed to generate temporary SSH ksys')
+            sys.stdout.flush()
             sys.exit(1)
 
 def generate_vm_name(options):
@@ -177,6 +179,7 @@ def run_command(cmd, options, sleep=0.005, return_output=False):
 
     print('Running command: {0}'.format(cmd))
     print_header(u'', sep='-', inline=True, width=options.output_columns)
+    sys.stdout.flush()
 
     if return_output is True:
         stdout_buffer = stderr_buffer = ''
@@ -206,9 +209,11 @@ def run_command(cmd, options, sleep=0.005, return_output=False):
         if proc.exitstatus != 0:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
             print('Failed execute command. Exit code: {0}'.format(proc.exitstatus))
+            sys.stdout.flush()
         else:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
             print('Command execution succeeded. Exit code: {0}'.format(proc.exitstatus))
+            sys.stdout.flush()
         if return_output is True:
             return stdout_buffer, stderr_buffer, proc.exitstatus
         return proc.exitstatus
@@ -216,8 +221,10 @@ def run_command(cmd, options, sleep=0.005, return_output=False):
         print_header(u'', sep='-', inline=True, width=options.output_columns)
         print('\n\nAn error occurred while running command:\n')
         print(str(exc))
+        sys.stdout.flush()
     finally:
         print_header(u'', sep='<', inline=True, width=options.output_columns)
+        sys.stdout.flush()
         proc.close(terminate=True, kill=True)
 
 
@@ -253,11 +260,13 @@ def bootstrap_lxc_minion(options):
     '''
 
     print('LXC support not implemented')
+    sys.stdout.flush()
     sys.exit(1)
 
 
 def prepare_ssh_access(options):
     print('Prepare SSH Access to Bootstrapped VM')
+    sys.stdout.flush()
     generate_ssh_keypair(options)
 
     cmd = [
@@ -307,33 +316,47 @@ def get_minion_external_address(options):
 
     sync_minion(options)
 
-    stdout_buffer = stderr_buffer = ''
-    cmd = [
-        'salt',
-        '--out=json',
-        '-l', options.log_level
-    ]
-    if options.no_color:
-        cmd.append('--no-color')
-    cmd.extend([
-        options.vm_name,
-        'grains.get', 'external_ip'
-    ])
-    stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
-    if exitcode != 0:
-        print('Failed to get the minion external IP. Exit code: {0}'.format(exitcode))
-        sys.exit(exitcode)
+    attempts = 3
+    while attempts > 0:
+        stdout_buffer = stderr_buffer = ''
+        cmd = [
+            'salt',
+            '--out=json',
+            '-l', options.log_level
+        ]
+        if options.no_color:
+            cmd.append('--no-color')
+        cmd.extend([
+            options.vm_name,
+            'grains.get', 'external_ip'
+        ])
+        stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
+        if exitcode != 0:
+            if attempts == 1:
+                print('Failed to get the minion external IP. Exit code: {0}'.format(exitcode))
+                sys.stdout.flush()
+                sys.exit(exitcode)
+            attempts -= 1
+            continue
 
-    if not stdout.strip():
-        print('Failed to get the minion external IP(no output)')
-        sys.stdout.flush()
-        sys.exit(1)
+        if not stdout.strip():
+            if attempts == 1:
+                print('Failed to get the minion external IP(no output)')
+                sys.stdout.flush()
+                sys.exit(1)
+            attempts -= 1
+            continue
 
-    try:
-        external_ip_info = json.loads(stdout.strip())
-        external_ip = external_ip_info[options.vm_name]
-    except ValueError:
-        print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
+
+        try:
+            external_ip_info = json.loads(stdout.strip())
+            external_ip = external_ip_info[options.vm_name]
+            break
+        except ValueError:
+            print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
+            sys.stdout.flush()
+            attempts -= 1
+
     setattr(options, 'minion_external_ip', external_ip)
     return external_ip
 
@@ -826,15 +849,19 @@ def main():
         exitcode = bootstrap_cloud_minion(options)
         if exitcode != 0:
             print('Failed to bootstrap the cloud minion')
+            sys.stdout.flush()
             parser.exit(exitcode)
         print('Sleeping for 5 seconds to allow the minion to breathe a little')
+        sys.stdout.flush()
         time.sleep(5)
     elif options.lxc_deploy:
         exitcode = bootstrap_lxc_minion(options)
         if exitcode != 0:
             print('Failed to bootstrap the LXC minion')
+            sys.stdout.flush()
             parser.exit(exitcode)
         print('Sleeping for 5 seconds to allow the minion to breathe a little')
+        sys.stdout.flush()
         time.sleep(5)
 
     if options.cloud_deploy or options.lxc_deploy:
@@ -848,6 +875,7 @@ def main():
         exitcode = run_state_on_vm(options, sls, timeout=900)
         if exitcode != 0:
             print('The execution of the {0!r} SLS failed'.format(sls))
+            sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
 
@@ -866,6 +894,7 @@ def main():
         exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
             print('The execution of the test command {0!r} failed'.format(options.test_command))
+            sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
 
