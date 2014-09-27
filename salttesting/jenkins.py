@@ -447,7 +447,7 @@ def check_boostrapped_minion_version(options):
             sys.stdout.flush()
         else:
             print('matches!')
-        setattr(options, 'boostrapped_salt_minion_version', SaltStackVersion.parse(version_info))
+        setattr(options, 'boostrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
     except ValueError:
         print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
 
