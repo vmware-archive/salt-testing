@@ -110,12 +110,12 @@ class SaltTestingParser(optparse.OptionParser):
 
     def __init__(self, testsuite_directory, *args, **kwargs):
         # Make sure that the checked out Salt code comes first in sys.path
-        sys.path.insert(0, os.path.dirname(testsuite_directory))
-        python_path = os.environ.get('PYTHONPATH', None)
-        if python_path:
-            os.environ['PYTHONPATH'] = '{0}:{1}'.format(os.path.dirname(testsuite_directory), python_path)
-        else:
-            os.environ['PYTHONPATH'] = os.path.dirname(testsuite_directory)
+        #sys.path.insert(0, os.path.dirname(testsuite_directory))
+        #python_path = os.environ.get('PYTHONPATH', None)
+        #if python_path:
+        #    os.environ['PYTHONPATH'] = '{0}:{1}'.format(os.path.dirname(testsuite_directory), python_path)
+        #else:
+        #    os.environ['PYTHONPATH'] = os.path.dirname(testsuite_directory)
 
         if kwargs.pop('html_output_from_env', None) is not None or \
                 kwargs.pop('html_output_dir', None) is not None:

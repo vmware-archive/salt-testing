@@ -18,7 +18,6 @@ if 'USE_SETUPTOOLS' in os.environ:
             SETUP_KWARGS['install_requires'] = ['unittest2', 'argparse']
         SETUP_KWARGS['entry_points'] = {
             'console_scripts': [
-                'salt-runtests = salttesting.runtests:main',
                 'salt-jenkins-build = salttesting.jenkins:main'
             ]
         }
@@ -29,7 +28,6 @@ if 'USE_SETUPTOOLS' in os.environ:
 if USE_SETUPTOOLS is False:
     from distutils.core import setup
     SETUP_KWARGS['scripts'] = [
-        'scripts/salt-runtests',
         'scripts/salt-jenkins-build'
     ]
 
