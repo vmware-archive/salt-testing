@@ -22,6 +22,7 @@ import argparse
 
 # Import salt libs
 from salt.utils import vt
+from salt.version import SaltStackVersion
 from salt.log.setup import SORTED_LEVEL_NAMES
 
 # Import salt-testing libs
@@ -446,6 +447,7 @@ def check_boostrapped_minion_version(options):
             sys.stdout.flush()
         else:
             print('matches!')
+        setattr(options, 'boostrapped_salt_minion_version', SaltStackVersion.parse(version_info))
     except ValueError:
         print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
 
@@ -458,9 +460,10 @@ def run_state_on_vm(options, state_name, timeout=100):
     cmd = [
         'salt-call',
         '-l', options.log_level,
-        '--timeout={0}'.format(timeout),
         '--retcode-passthrough'
     ]
+    if options.boostrapped_salt_minion_version > (2014, 7):
+        cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
     cmd.extend([
