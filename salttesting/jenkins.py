@@ -317,7 +317,7 @@ def get_minion_external_address(options):
     sync_minion(options)
 
     attempts = 1
-    while attempts >= 3:
+    while attempts <= 3:
         print('Fetching the external IP of the minion. Attempt {0}/3'.format(attempts))
         sys.stdout.flush()
         stdout_buffer = stderr_buffer = ''
