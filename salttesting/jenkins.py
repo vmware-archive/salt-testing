@@ -316,8 +316,10 @@ def get_minion_external_address(options):
 
     sync_minion(options)
 
-    attempts = 3
-    while attempts > 0:
+    attempts = 1
+    while attempts >= 3:
+        print('Fetching the external IP of the minion. Attempt {0}/3'.format(attempts))
+        sys.stdout.flush()
         stdout_buffer = stderr_buffer = ''
         cmd = [
             'salt',
@@ -332,33 +334,30 @@ def get_minion_external_address(options):
         ])
         stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
         if exitcode != 0:
-            if attempts == 1:
+            if attempts == 3:
                 print('Failed to get the minion external IP. Exit code: {0}'.format(exitcode))
                 sys.stdout.flush()
                 sys.exit(exitcode)
-            attempts -= 1
+            attempts += 1
             continue
 
         if not stdout.strip():
-            if attempts == 1:
+            if attempts == 3:
                 print('Failed to get the minion external IP(no output)')
                 sys.stdout.flush()
                 sys.exit(1)
-            attempts -= 1
+            attempts += 1
             continue
-
 
         try:
             external_ip_info = json.loads(stdout.strip())
             external_ip = external_ip_info[options.vm_name]
-            break
+            setattr(options, 'minion_external_ip', external_ip)
+            return external_ip
         except ValueError:
             print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
             sys.stdout.flush()
-            attempts -= 1
-
-    setattr(options, 'minion_external_ip', external_ip)
-    return external_ip
+            attempts += 1
 
 
 def get_minion_python_executable(options):
