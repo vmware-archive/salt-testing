@@ -824,18 +824,21 @@ def main():
         if exitcode != 0:
             print('Failed to bootstrap the cloud minion')
             parser.exit(exitcode)
-        time.sleep(3)
+        print('Sleeping for 5 seconds to allow the minion to breathe a little')
+        time.sleep(5)
     elif options.lxc_deploy:
         exitcode = bootstrap_lxc_minion(options)
         if exitcode != 0:
             print('Failed to bootstrap the LXC minion')
             parser.exit(exitcode)
+        print('Sleeping for 5 seconds to allow the minion to breathe a little')
+        time.sleep(5)
 
     if options.cloud_deploy or options.lxc_deploy:
         check_boostrapped_minion_version(options)
-        time.sleep(3)
+        time.sleep(1)
         prepare_ssh_access(options)
-        time.sleep(3)
+        time.sleep(1)
 
     # Run preparation SLS
     for sls in options.test_prep_sls:
@@ -843,7 +846,7 @@ def main():
         if exitcode != 0:
             print('The execution of the {0!r} SLS failed'.format(sls))
             parser.exit(exitcode)
-        time.sleep(3)
+        time.sleep(1)
 
     # Run the main command using SSH for realtime output
     if options.test_default_command:
@@ -861,7 +864,7 @@ def main():
         if exitcode != 0:
             print('The execution of the test command {0!r} failed'.format(options.test_command))
             parser.exit(exitcode)
-        time.sleep(3)
+        time.sleep(1)
 
     if options.download_artifact:
         download_artifacts(options)
