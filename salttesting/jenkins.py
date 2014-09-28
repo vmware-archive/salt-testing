@@ -146,6 +146,15 @@ def build_pillar_data(options):
         pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
     if options.bootstrap_salt_commit is not None:
         pillar['bootstrap_salt_commit'] = options.bootstrap_salt_commit
+
+    # Build package pillar data
+    if options.package_source_dir:
+        pillar['package_source_dir'] = options.package_source_dir
+    if options.package_build_dir:
+        pillar['package_build_dir'] = options.package_build_dir
+    if options.package_artifact_dir:
+        pillar['package_artifact_dir'] = options.package_artifact_dir
+
     if options.test_pillar:
         pillar.update(dict(options.test_pillar))
     return to_cli_yaml(pillar)
@@ -896,6 +905,21 @@ def main():
             sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
+
+        # If we reached here it means the test command passed, let's build
+        # packages if the option is passed
+        if options.build_packages:
+            exitcode = run_state_on_vm(options, 'buildpackage')
+            if exitcode == 0:
+                for fglob in ('salt-*.rpm',
+                            'salt-*.deb',
+                            'salt-*.pkg.xz',
+                            'salt-buildpackage.log'):
+                    options.download_artifact.append(
+                        os.path.join(options.package_artifact_dir, fglob),
+                        os.path.join(options.workspace, 'artifacts', 'packages')
+                    )
+            time.sleep(1)
 
     if options.download_artifact:
         download_artifacts(options)
