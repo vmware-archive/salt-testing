@@ -914,17 +914,17 @@ def main():
             logs_dir = os.path.join(options.workspace, 'logs')
             if not os.path.isdir(logs_dir):
                 os.makedirs(logs_dir)
-            options.download_artifact.append(
+            options.download_artifact.append((
                 os.path.join(options.package_artifact_dir, 'salt-buildpackage.log'),
                 logs_dir
-            )
+            ))
             if exitcode == 0:
                 # If building packages didn't fail, download them
                 for fglob in ('salt-*.rpm', 'salt-*.deb', 'salt-*.pkg.xz'):
-                    options.download_artifact.append(
+                    options.download_artifact.append((
                         os.path.join(options.package_artifact_dir, fglob),
                         os.path.join(options.workspace, 'artifacts', 'packages')
-                    )
+                    ))
             time.sleep(1)
 
     if options.download_artifact:
