@@ -910,11 +910,17 @@ def main():
         # packages if the option is passed
         if options.build_packages:
             exitcode = run_state_on_vm(options, 'buildpackage')
+            # Let's download the logs, even if building the packages fails
+            logs_dir = os.path.join(options.workspace, 'logs')
+            if not os.path.isdir(logs_dir):
+                os.makedirs(logs_dir)
+            options.download_artifact.append(
+                os.path.join(options.package_artifact_dir, 'salt-buildpackage.log'),
+                logs_dir
+            )
             if exitcode == 0:
-                for fglob in ('salt-*.rpm',
-                            'salt-*.deb',
-                            'salt-*.pkg.xz',
-                            'salt-buildpackage.log'):
+                # If building packages didn't fail, download them
+                for fglob in ('salt-*.rpm', 'salt-*.deb', 'salt-*.pkg.xz'):
                     options.download_artifact.append(
                         os.path.join(options.package_artifact_dir, fglob),
                         os.path.join(options.workspace, 'artifacts', 'packages')
