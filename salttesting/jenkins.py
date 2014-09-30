@@ -229,7 +229,7 @@ def echo_parseable_environment(options):
     sys.stdout.flush()
 
 
-def run_command(cmd, options, sleep=0.005, return_output=False):
+def run_command(cmd, options, sleep=0.005, return_output=False, stream_stdout=True, stream_stderr=True):
     '''
     Run a command using VT
     '''
@@ -248,8 +248,8 @@ def run_command(cmd, options, sleep=0.005, return_output=False):
         proc = vt.Terminal(
             cmd,
             shell=True,
-            stream_stdout=True,
-            stream_stderr=True
+            stream_stdout=stream_stdout,
+            stream_stderr=stream_stderr
         )
 
         proc_terminated = False
@@ -395,7 +395,11 @@ def get_minion_external_address(options):
             options.vm_name,
             'grains.get', 'external_ip'
         ])
-        stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
+        stdout, stderr, exitcode = run_command(cmd,
+                                               options,
+                                               return_output=True,
+                                               stream_stdout=False,
+                                               stream_stderr=False)
         if exitcode != 0:
             if attempts == 3:
                 print_bulleted(
@@ -445,7 +449,11 @@ def get_minion_python_executable(options):
         options.vm_name,
         'grains.get', 'pythonexecutable'
     ])
-    stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
+    stdout, stderr, exitcode = run_command(cmd,
+                                           options,
+                                           return_output=True,
+                                           stream_stdout=False,
+                                           stream_stderr=False)
     if exitcode != 0:
         print_bulleted(
             options, 'Failed to get the minion python executable. Exit code: {0}'.format(exitcode), 'RED'
@@ -510,7 +518,11 @@ def check_boostrapped_minion_version(options):
     ])
 
 
-    stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
+    stdout, stderr, exitcode = run_command(cmd,
+                                           options,
+                                           return_output=True,
+                                           stream_stdout=False,
+                                           stream_stderr=False)
     if exitcode:
         print_bulleted(
             options, 'Failed to get the bootstrapped minion version. Exit code: {0}'.format(exitcode), 'RED'
