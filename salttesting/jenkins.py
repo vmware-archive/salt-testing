@@ -76,7 +76,52 @@ class GetPullRequestAction(argparse.Action):
         setattr(namespace, 'pull_request_git_commit', pr_details['head']['sha'])
 # <---- Argparse Custom Actions --------------------------------------------------------------------------------------
 
+
 # ----- Helper Functions -------------------------------------------------------------------------------------------->
+def save_state(options):
+    '''
+    Save some state data to be used between executions, minion external IP, minion states synced, etc...
+    '''
+    state_file = os.path.join(options.workspace, '.state.json')
+    if os.path.isfile(state_file):
+        try:
+            state = json.load(open(os.path.join(options.workspace, '.state.json'), 'w'))
+        except ValueError:
+            state = {}
+    else:
+        state = {}
+
+    for varname in ('require_sudo',
+                    'output_columns',
+                    'salt_minion_synced',
+                    'minion_external_ip',
+                    'minion_python_executable'):
+        if varname not in state and varname in options:
+            state[varname] = getattr(options, varname)
+
+    json.dump(state, open(state_file, 'w'))
+
+
+def load_state(options):
+    '''
+    Load some state data to be used between executions, minion external IP, minion states synced, etc...
+    '''
+    state_file = os.path.join(options.workspace, '.state.json')
+    allow_overwrite_variables = ('output_columns',)
+    if os.path.isfile(state_file):
+        try:
+            state = json.load(open(os.path.join(options.workspace, '.state.json'), 'w'))
+        except ValueError:
+            state = {}
+    else:
+        state = {}
+
+    for key, value in state.iteritems():
+        if key not in allow_overwrite_variables and key in options:
+            continue
+        setattr(options, key, value)
+
+
 def generate_ssh_keypair(options):
     '''
     Generate a temporary SSH key, valid for one hour, and set it as an
@@ -313,6 +358,7 @@ def sync_minion(options):
     ])
     exitcode = run_command(cmd, options)
     setattr(options, 'salt_minion_synced', 'yes')
+    save_state(options)
     return exitcode
 
 
@@ -362,6 +408,7 @@ def get_minion_external_address(options):
             external_ip_info = json.loads(stdout.strip())
             external_ip = external_ip_info[options.vm_name]
             setattr(options, 'minion_external_ip', external_ip)
+            save_state(options)
             return external_ip
         except ValueError:
             print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
@@ -402,11 +449,11 @@ def get_minion_python_executable(options):
     try:
         python_executable = json.loads(stdout.strip())
         python_executable = python_executable[options.vm_name]
+        setattr(options, 'minion_python_executable', python_executable)
+        save_state(options)
+        return python_executable
     except ValueError:
         print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
-
-    setattr(options, 'minion_python_executable', python_executable)
-    return python_executable
 
 
 def delete_cloud_vm(options):
@@ -586,6 +633,7 @@ def test_ssh_root_login(options):
     ])
     exitcode = run_command(cmd, options)
     setattr(options, 'require_sudo', exitcode != 0)
+    save_state(options)
 
 
 def download_artifacts(options):
@@ -822,6 +870,7 @@ def main():
     )
 
     options = parser.parse_args()
+    load_state(options)
 
     if options.lxc_deploy or options.lxc_host:
         parser.error('LXC support is not yet implemented')
