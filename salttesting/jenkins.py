@@ -21,7 +21,7 @@ import hashlib
 import argparse
 
 # Import salt libs
-from salt.utils import vt
+from salt.utils import get_colors, vt
 from salt.version import SaltStackVersion
 from salt.log.setup import SORTED_LEVEL_NAMES
 
@@ -78,6 +78,12 @@ class GetPullRequestAction(argparse.Action):
 
 
 # ----- Helper Functions -------------------------------------------------------------------------------------------->
+def print_bulleted(options, message, color='LIGHT_BLUE'):
+    colors = get_colors(options.no_color is False)
+    print(' {0}*{ENDC} {1}'.format(colors[color], message, **colors))
+    sys.stdout.flush()
+
+
 def save_state(options):
     '''
     Save some state data to be used between executions, minion external IP, minion states synced, etc...
@@ -127,7 +133,7 @@ def generate_ssh_keypair(options):
     Generate a temporary SSH key, valid for one hour, and set it as an
     authorized key in the minion's root user account on the remote system.
     '''
-    print('Generating temporary SSH Key')
+    print_bulleted(options, 'Generating temporary SSH Key')
     sys.stdout.flush()
     ssh_key_path = os.path.join(options.workspace, 'jenkins_test_account_key')
 
@@ -147,7 +153,7 @@ def generate_ssh_keypair(options):
             options
         )
         if exitcode != 0:
-            print('Failed to generate temporary SSH ksys')
+            print_bulleted(options, 'Failed to generate temporary SSH ksys', 'RED')
             sys.stdout.flush()
             sys.exit(1)
 
@@ -231,7 +237,7 @@ def run_command(cmd, options, sleep=0.005, return_output=False):
     if isinstance(cmd, list):
         cmd = ' '.join(cmd)
 
-    print('Running command: {0}'.format(cmd))
+    print_bulleted(options, 'Running command: {0}'.format(cmd))
     print_header(u'', sep='-', inline=True, width=options.output_columns)
     sys.stdout.flush()
 
@@ -262,18 +268,20 @@ def run_command(cmd, options, sleep=0.005, return_output=False):
             time.sleep(sleep)
         if proc.exitstatus != 0:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
-            print('Failed execute command. Exit code: {0}'.format(proc.exitstatus))
+            print_bulleted(options, 'Failed execute command. Exit code: {0}'.format(proc.exitstatus), 'RED')
             sys.stdout.flush()
         else:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
-            print('Command execution succeeded. Exit code: {0}'.format(proc.exitstatus))
+            print_bulleted(
+                options, 'Command execution succeeded. Exit code: {0}'.format(proc.exitstatus), 'LIGHT_GREEN'
+            )
             sys.stdout.flush()
         if return_output is True:
             return stdout_buffer, stderr_buffer, proc.exitstatus
         return proc.exitstatus
     except vt.TerminalException as exc:
         print_header(u'', sep='-', inline=True, width=options.output_columns)
-        print('\n\nAn error occurred while running command:\n')
+        print_bulleted(options, '\n\nAn error occurred while running command:\n', 'RED')
         print(str(exc))
         sys.stdout.flush()
     finally:
@@ -313,13 +321,13 @@ def bootstrap_lxc_minion(options):
     Bootstrap a minion using salt-cloud
     '''
 
-    print('LXC support not implemented')
+    print_bulleted(options, 'LXC support not implemented', 'RED')
     sys.stdout.flush()
     sys.exit(1)
 
 
 def prepare_ssh_access(options):
-    print('Prepare SSH Access to Bootstrapped VM')
+    print_bulleted(options, 'Prepare SSH Access to Bootstrapped VM')
     sys.stdout.flush()
     generate_ssh_keypair(options)
 
@@ -373,7 +381,7 @@ def get_minion_external_address(options):
 
     attempts = 1
     while attempts <= 3:
-        print('Fetching the external IP of the minion. Attempt {0}/3'.format(attempts))
+        print_bulleted(options, 'Fetching the external IP of the minion. Attempt {0}/3'.format(attempts))
         sys.stdout.flush()
         stdout_buffer = stderr_buffer = ''
         cmd = [
@@ -390,7 +398,8 @@ def get_minion_external_address(options):
         stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
         if exitcode != 0:
             if attempts == 3:
-                print('Failed to get the minion external IP. Exit code: {0}'.format(exitcode))
+                print_bulleted(
+                    options, 'Failed to get the minion external IP. Exit code: {0}'.format(exitcode), 'RED')
                 sys.stdout.flush()
                 sys.exit(exitcode)
             attempts += 1
@@ -398,7 +407,7 @@ def get_minion_external_address(options):
 
         if not stdout.strip():
             if attempts == 3:
-                print('Failed to get the minion external IP(no output)')
+                print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
                 sys.stdout.flush()
                 sys.exit(1)
             attempts += 1
@@ -411,7 +420,7 @@ def get_minion_external_address(options):
             save_state(options)
             return external_ip
         except ValueError:
-            print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
+            print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
             sys.stdout.flush()
             attempts += 1
 
@@ -438,11 +447,13 @@ def get_minion_python_executable(options):
     ])
     stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
     if exitcode != 0:
-        print('Failed to get the minion python executable. Exit code: {0}'.format(exitcode))
+        print_bulleted(
+            options, 'Failed to get the minion python executable. Exit code: {0}'.format(exitcode), 'RED'
+        )
         sys.exit(exitcode)
 
     if not stdout.strip():
-        print('Failed to get the minion external IP(no output)')
+        print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
         sys.stdout.flush()
         sys.exit(1)
 
@@ -453,7 +464,7 @@ def get_minion_python_executable(options):
         save_state(options)
         return python_executable
     except ValueError:
-        print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
+        print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
 
 def delete_cloud_vm(options):
@@ -484,7 +495,7 @@ def check_boostrapped_minion_version(options):
     '''
     Confirm that the bootstrapped minion version matches the desired one
     '''
-    print('Grabbing bootstrapped minion version information ... ')
+    print_bulleted(options, 'Grabbing bootstrapped minion version information ... ')
     cmd = [
         'salt',
         '-t', '100',
@@ -501,11 +512,13 @@ def check_boostrapped_minion_version(options):
 
     stdout, stderr, exitcode = run_command(cmd, options, return_output=True)
     if exitcode:
-        print('Failed to get the bootstrapped minion version. Exit code: {0}'.format(exitcode))
+        print_bulleted(
+            options, 'Failed to get the bootstrapped minion version. Exit code: {0}'.format(exitcode), 'RED'
+        )
         sys.exit(exitcode)
 
     if not stdout.strip():
-        print('Failed to get the bootstrapped minion version(no output).')
+        print_bulleted(options, 'Failed to get the bootstrapped minion version(no output).', 'RED')
         sys.stdout.flush()
         sys.exit(1)
 
@@ -518,16 +531,24 @@ def check_boostrapped_minion_version(options):
         if bootstrap_minion_version.startswith('v'):
             bootstrap_minion_version = bootstrap_minion_version[1:]
         if bootstrap_minion_version not in version_info[options.vm_name]:
-            print('\n\nATTENTION!!!!\n')
-            print('The boostrapped minion version commit does not contain the desired commit:')
-            print(' {0!r} does not contain {1!r}'.format(version_info[options.vm_name], bootstrap_minion_version))
+            print_bulleted(options, '\n\nATTENTION!!!!\n', 'YELLOW')
+            print_bulleted(
+                options,
+                'The boostrapped minion version commit does not contain the desired commit:',
+                'YELLOW'
+            )
+            print_bulleted(
+                options,
+                '{0!r} does not contain {1!r}'.format(version_info[options.vm_name], bootstrap_minion_version),
+                'YELLOW'
+            )
             print('\n\n')
             sys.stdout.flush()
         else:
-            print('matches!')
+            print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
         setattr(options, 'boostrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
     except ValueError:
-        print('Failed to load any JSON from {0!r}'.format(stdout.strip()))
+        print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
 
 def run_state_on_vm(options, state_name, timeout=100):
@@ -905,19 +926,19 @@ def main():
     if options.cloud_deploy:
         exitcode = bootstrap_cloud_minion(options)
         if exitcode != 0:
-            print('Failed to bootstrap the cloud minion')
+            print_bulleted(options, 'Failed to bootstrap the cloud minion', 'RED')
             sys.stdout.flush()
             parser.exit(exitcode)
-        print('Sleeping for 5 seconds to allow the minion to breathe a little')
+        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
         sys.stdout.flush()
         time.sleep(5)
     elif options.lxc_deploy:
         exitcode = bootstrap_lxc_minion(options)
         if exitcode != 0:
-            print('Failed to bootstrap the LXC minion')
+            print_bulleted(options, 'Failed to bootstrap the LXC minion', 'RED')
             sys.stdout.flush()
             parser.exit(exitcode)
-        print('Sleeping for 5 seconds to allow the minion to breathe a little')
+        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
         sys.stdout.flush()
         time.sleep(5)
 
@@ -931,7 +952,7 @@ def main():
     for sls in options.test_prep_sls:
         exitcode = run_state_on_vm(options, sls, timeout=900)
         if exitcode != 0:
-            print('The execution of the {0!r} SLS failed'.format(sls))
+            print_bulleted(options, 'The execution of the {0!r} SLS failed'.format(sls), 'RED')
             sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
@@ -951,7 +972,9 @@ def main():
     if options.test_command:
         exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
-            print('The execution of the test command {0!r} failed'.format(options.test_command))
+            print_bulleted(
+                options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
+            )
             sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
