@@ -920,10 +920,13 @@ def main():
             ))
             if exitcode == 0:
                 # If building packages didn't fail, download them
+                packages_dir = os.path.join(options.workspace, 'artifacts', 'packages')
+                if not os.path.isdir(packages_dir):
+                    os.makedirs(packages_dir)
                 for fglob in ('salt-*.rpm', 'salt-*.deb', 'salt-*.pkg.xz'):
                     options.download_artifact.append((
                         os.path.join(options.package_artifact_dir, fglob),
-                        os.path.join(options.workspace, 'artifacts', 'packages')
+                        packages_dir
                     ))
             time.sleep(1)
 
