@@ -85,7 +85,7 @@ def save_state(options):
     state_file = os.path.join(options.workspace, '.state.json')
     if os.path.isfile(state_file):
         try:
-            state = json.load(open(os.path.join(options.workspace, '.state.json'), 'w'))
+            state = json.load(open(os.path.join(options.workspace, '.state.json'), 'r'))
         except ValueError:
             state = {}
     else:
@@ -110,7 +110,7 @@ def load_state(options):
     allow_overwrite_variables = ('output_columns',)
     if os.path.isfile(state_file):
         try:
-            state = json.load(open(os.path.join(options.workspace, '.state.json'), 'w'))
+            state = json.load(open(os.path.join(options.workspace, '.state.json'), 'r'))
         except ValueError:
             state = {}
     else:
