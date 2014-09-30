@@ -590,18 +590,6 @@ def run_state_on_vm(options, state_name, timeout=100):
     return run_ssh_command(options, cmd)
 
 
-def download_unittest_reports(options):
-    print('Downloading remote unittest reports...')
-    sys.stdout.flush()
-
-    workspace = options.workspace
-    xml_reports_path = os.path.join(workspace, 'xml-test-reports')
-    if os.path.isdir(xml_reports_path):
-        shutil.rmtree(xml_reports_path)
-
-    os.makedirs(xml_reports_path)
-
-
 def build_ssh_opts(options):
     '''
     Return a list of SSH options
