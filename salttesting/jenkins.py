@@ -16,7 +16,6 @@ import json
 import time
 import pipes
 import random
-import shutil
 import hashlib
 import argparse
 
@@ -590,6 +589,60 @@ def run_state_on_vm(options, state_name, timeout=100):
     return run_ssh_command(options, cmd)
 
 
+def check_cloned_reposiory_commit(options):
+    '''
+    Confirm that the cloned repository commit matches the desired one
+    '''
+    print_bulleted(options, 'Grabbing the cloned repository commit information ...')
+    cmd = [
+        'salt',
+        '-t', '100',
+        '--out=json',
+        '-l', options.log_level
+    ]
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
+        options.vm_name,
+        'git.revision',
+        '/testing'
+    ])
+
+
+    stdout, stderr, exitcode = run_command(cmd,
+                                           options,
+                                           return_output=True,
+                                           stream_stdout=False,
+                                           stream_stderr=False)
+    if exitcode:
+        print_bulleted(
+            options, 'Failed to get the cloned repository revision. Exit code: {0}'.format(exitcode), 'RED'
+        )
+        sys.exit(exitcode)
+
+    if not stdout.strip():
+        print_bulleted(options, 'Failed to get the cloned repository revision(no output).', 'RED')
+        sys.stdout.flush()
+        sys.exit(1)
+
+    try:
+        revision_info = json.loads(stdout.strip())
+        if revision_info[options.vm_name][7:] != options.test_git_commit[7:]:
+            print_bulleted(options, '\n\nATTENTION!!!!\n', 'YELLOW')
+            print_bulleted(options, 'The cloned repository commit is not the desired one:', 'YELLOW')
+            print_bulleted(
+                options,
+                ' {0!r} != {1!r}'.format(revision_info[options.vm_name][:7], options.test_git_commit[:7]),
+                'YELLOW'
+            )
+            print('\n\n')
+            sys.stdout.flush()
+        else:
+            print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
+    except ValueError:
+        print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
+
+
 def build_ssh_opts(options):
     '''
     Return a list of SSH options
@@ -956,6 +1009,9 @@ def main():
             sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
+
+    if options.test_git_commit is not None:
+        check_cloned_reposiory_commit(options)
 
     # Run the main command using SSH for realtime output
     if options.test_default_command:
