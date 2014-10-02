@@ -889,6 +889,7 @@ def main():
         '--test-pillar',
         default=[],
         nargs=2,
+        action='append',
         metavar=('PILLAR_KEY', 'PILLAR_VALUE'),
         help=('Additional pillar data use in the build. Pass a key and a value per '
               '\'--test-pillar\' option. Example: --test-pillar foo_key foo_value')
