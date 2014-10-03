@@ -1019,15 +1019,18 @@ def main():
         options.test_command = (
             '{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo'
             '{no_color} --ssh --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
-            '--transport={transport} --output-columns={output_columns}'.format(
+            '--transport={transport} --output-columns={output_columns}'
+        )
+    if options.test_command:
+        exitcode = run_ssh_command(
+            options,
+            options.test_command.format(
                 python_executable=get_minion_python_executable(options),
                 no_color=options.no_color and ' --no-color' or '',
                 transport=options.test_transport,
                 output_columns=options.output_columns
             )
         )
-    if options.test_command:
-        exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
