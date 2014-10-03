@@ -558,7 +558,7 @@ def check_boostrapped_minion_version(options):
         else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
         setattr(options, 'boostrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
-    except ValueError:
+    except (ValueError, TypeError):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
 
@@ -639,7 +639,7 @@ def check_cloned_reposiory_commit(options):
             sys.stdout.flush()
         else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
-    except ValueError:
+    except (ValueError, TypeError):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
 
