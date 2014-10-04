@@ -96,7 +96,8 @@ def save_state(options):
     else:
         state = {}
 
-    for varname in ('require_sudo',
+    for varname in ('workspace',
+                    'require_sudo',
                     'output_columns',
                     'salt_minion_synced',
                     'minion_external_ip',
@@ -112,7 +113,7 @@ def load_state(options):
     Load some state data to be used between executions, minion external IP, minion states synced, etc...
     '''
     state_file = os.path.join(options.workspace, '.state.json')
-    allow_overwrite_variables = ('output_columns',)
+    allow_overwrite_variables = ('output_columns', 'workspace')
     if os.path.isfile(state_file):
         try:
             state = json.load(open(os.path.join(options.workspace, '.state.json'), 'r'))
@@ -975,6 +976,7 @@ def main():
         if not options.vm_source:
             parser.error('--vm-source is required in order to print out the required Jenkins variables')
         echo_parseable_environment(options)
+        save_state(options)
         parser.exit(0)
 
     if options.delete_vm:
