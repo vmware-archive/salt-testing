@@ -712,6 +712,12 @@ def test_ssh_root_login(options):
 
 def download_artifacts(options):
     test_ssh_root_login(options)
+
+    # Check if we're sudo'ing
+    using_sudo = 'SUDO_USER' in os.environ
+    sudo_uid = int(os.environ.get('SUDO_UID', os.getuid()))
+    sudo_gid = int(os.environ.get('SUDO_GID', os.getgid()))
+
     sftp_command = ['sftp'] + build_ssh_opts(options)
     sftp_command.append(
         '{0}@{1}'.format(
@@ -730,6 +736,18 @@ def download_artifacts(options):
             ),
             options
         )
+
+    if using_sudo:
+        print_bulleted(options, 'Updating file permissions for the sudo\'ed account')
+        for _, local_path in options.download_artifact:
+            if os.path.isdir(local_path):
+                for root, dirs, files in os.walk(local_path):
+                    for dname in dirs:
+                        os.chown(os.path.join(root, dname), sudo_uid, sudo_gid)
+                    for fname in files:
+                        os.chown(os.path.join(root, fname), sudo_uid, sudo_gid)
+            else:
+                os.chown(local_path, sudo_uid, sudo_gid)
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
 
 # ----- Parser Code ------------------------------------------------------------------------------------------------->
