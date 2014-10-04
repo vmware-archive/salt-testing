@@ -1040,15 +1040,13 @@ def main():
             '--transport={transport} --output-columns={output_columns}'
         )
     if options.test_command:
-        exitcode = run_ssh_command(
-            options,
-            options.test_command.format(
-                python_executable=get_minion_python_executable(options),
-                no_color=options.no_color and ' --no-color' or '',
-                transport=options.test_transport,
-                output_columns=options.output_columns
-            )
+        options.test_command = options.test_command.format(
+            python_executable=get_minion_python_executable(options),
+            no_color=options.no_color and ' --no-color' or '',
+            transport=options.test_transport,
+            output_columns=options.output_columns
         )
+        exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
