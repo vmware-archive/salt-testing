@@ -167,7 +167,7 @@ def generate_vm_name(options):
         random_part = hashlib.md5(
             str(random.randint(1, 100000000))).hexdigest()[:6]
 
-    return '{0}-{1}-{2}'.format(options.vm_prefix, (options.vm_source or 'UNKNOWN').split('_')[-1], random_part)
+    return '{0}-{1}-{2}'.format(options.vm_prefix, (options.vm_source or 'UNKNOWN').split('_', 1)[-1], random_part)
 
 
 def get_vm_name(options):
