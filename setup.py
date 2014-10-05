@@ -9,6 +9,18 @@ import sys
 SETUP_KWARGS = {}
 USE_SETUPTOOLS = False
 
+# Change to salt source's directory prior to running any command
+try:
+    SETUP_DIRNAME = os.path.dirname(__file__)
+except NameError:
+    # We're most likely being frozen and __file__ triggered this NameError
+    # Let's work around that
+    SETUP_DIRNAME = os.path.dirname(sys.argv[0])
+
+if SETUP_DIRNAME != '':
+    os.chdir(SETUP_DIRNAME)
+
+
 if 'USE_SETUPTOOLS' in os.environ:
     try:
         from setuptools import setup
@@ -33,7 +45,8 @@ if USE_SETUPTOOLS is False:
 
 exec(
     compile(
-        open('salttesting/version.py').read(), 'salttesting/version.py', 'exec'
+        open(os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py')).read(),
+             os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'), 'exec'
     )
 )
 
