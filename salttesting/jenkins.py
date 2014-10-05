@@ -262,7 +262,7 @@ def run_command(cmd, options, sleep=0.005, return_output=False, stream_stdout=Tr
             if proc_terminated:
                 break
 
-            if not proc.isalive():
+            if not proc.isalive() and not stdout and not stderr:
                 proc_terminated = True
 
             time.sleep(sleep)
