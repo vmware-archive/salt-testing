@@ -101,7 +101,8 @@ def save_state(options):
                     'output_columns',
                     'salt_minion_synced',
                     'minion_external_ip',
-                    'minion_python_executable'):
+                    'minion_python_executable',
+                    'salt_minion_bootstrapped'):
         if varname not in state and varname in options:
             state[varname] = getattr(options, varname)
 
@@ -313,7 +314,10 @@ def bootstrap_cloud_minion(options):
     if options.no_color:
         cmd.append('--no-color')
 
-    return run_command(cmd, options)
+    exitcode = run_command(cmd, options)
+    if exitcode = 0:
+        setattr(options, 'salt_minion_bootstrapped', 'yes')
+    return exitcode
 
 
 def bootstrap_lxc_minion(options):
@@ -354,6 +358,9 @@ def prepare_ssh_access(options):
 
 
 def sync_minion(options):
+    if 'salt_minion_bootstrapped' not in options:
+        print_bulleted(options, 'Minion not boostrapped. Not syncing minion.', 'RED')
+        sys.exit(1)
     if 'salt_minion_synced' in options:
         return
 
@@ -374,6 +381,9 @@ def get_minion_external_address(options):
     '''
     Get and store the remote minion external IP
     '''
+    if 'salt_minion_bootstrapped' not in options:
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing external IP.', 'RED')
+        sys.exit(1)
     if 'minion_external_ip' in options:
         return options.minion_external_ip
 
@@ -433,6 +443,9 @@ def get_minion_python_executable(options):
     '''
     Get and store the remote minion python executable
     '''
+    if 'salt_minion_bootstrapped' not in options:
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'RED')
+        sys.exit(1)
     if 'minion_python_executable' in options:
         return options.minion_python_executable
 
@@ -503,6 +516,10 @@ def check_boostrapped_minion_version(options):
     '''
     Confirm that the bootstrapped minion version matches the desired one
     '''
+    if 'salt_minion_bootstrapped' not in options:
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing minion version information.', 'RED')
+        sys.exit(1)
+
     print_bulleted(options, 'Grabbing bootstrapped minion version information ... ')
     cmd = [
         'salt',
