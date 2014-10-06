@@ -315,7 +315,7 @@ def bootstrap_cloud_minion(options):
         cmd.append('--no-color')
 
     exitcode = run_command(cmd, options)
-    if exitcode = 0:
+    if exitcode == 0:
         setattr(options, 'salt_minion_bootstrapped', 'yes')
     return exitcode
 
