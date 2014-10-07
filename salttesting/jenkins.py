@@ -230,7 +230,7 @@ def echo_parseable_environment(options):
     sys.stdout.flush()
 
 
-def run_command(cmd, options, sleep=0.005, return_output=False, stream_stdout=True, stream_stderr=True):
+def run_command(cmd, options, sleep=0.000001, return_output=False, stream_stdout=True, stream_stderr=True):
     '''
     Run a command using VT
     '''
@@ -255,7 +255,7 @@ def run_command(cmd, options, sleep=0.005, return_output=False, stream_stdout=Tr
 
         proc_terminated = False
         while True:
-            stdout, stderr = proc.recv()
+            stdout, stderr = proc.recv(4096)
             if return_output is True:
                 stdout_buffer += stdout or ''
                 stderr_buffer += stderr or ''
