@@ -30,7 +30,10 @@ if sys.version_info < (2, 7):
             TestResult as _TestResult,
             TextTestResult as __TextTestResult
         )
-        from unittest2.case import _id
+        from unittest2.case import (
+            _id,
+            _UnexpectedSuccess as unexpectedSuccess
+        )
 
         class NewStyleClassMixin(object):
             '''
@@ -59,7 +62,6 @@ if sys.version_info < (2, 7):
         class _TextTestResult(__TextTestResult, NewStyleClassMixin):
             pass
 
-
     except ImportError:
         raise SystemExit('You need to install unittest2 to run the salt tests')
 else:
@@ -74,7 +76,10 @@ else:
         TestResult,
         TextTestResult as _TextTestResult
     )
-    from unittest.case import _id
+    from unittest.case import (
+        _id,
+        _UnexpectedSuccess as unexpectedSuccess
+    )
 
 
 class TestCase(_TestCase):
