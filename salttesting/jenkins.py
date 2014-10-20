@@ -295,7 +295,7 @@ def bootstrap_cloud_minion(options):
     '''
     Bootstrap a minion using salt-cloud
     '''
-    script_args = ['-D']
+    script_args = ['-ZD']
     if options.no_color:
         script_args.append('-n')
     if options.bootstrap_salt_url != SALT_GIT_URL:
