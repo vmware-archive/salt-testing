@@ -17,7 +17,7 @@ import warnings
 import subprocess
 
 # Import Salt Testing Libs
-from salttesting.runtests import RUNTIME_VARS
+from salttesting.runtests import RUNTIME_CONFIGS, RUNTIME_VARS
 
 log = logging.getLogger(__name__)
 
@@ -274,8 +274,9 @@ class AdaptedConfigurationTestCaseMixIn(object):
         '''
         Return the options used for the sub-minion
         '''
-        # Late import
+        # Late imports
         import salt.config
+        from salt.utils.immutabletypes import freeze
 
         warnings.warn(
             'Please stop using the \'sub_minion_opts\' attribute in \'{0}.{1}\' and instead '
@@ -290,6 +291,46 @@ class AdaptedConfigurationTestCaseMixIn(object):
         return salt.config.minion_config(
             self.get_config_file_path('sub_minion')
         )
+
+    def get_config(self, config_for, from_scratch=False):
+        # Late import
+        import salt.config
+
+        if from_scratch:
+            if config_for in ('master', 'syndic_master'):
+                return salt.config.master_config(self.get_config_file_path(config_for))
+            elif config_for in ('minion', 'sub_minion'):
+                return salt.config.minion_config(self.get_config_file_path(config_for))
+            elif config_for in ('syndic',):
+                return salt.config.syndic_config(
+                    self.get_config_file_path(config_for),
+                    self.get_config_file_path('minion')
+                )
+            elif config_for == 'client_config':
+                return salt.config.client_config(self.get_config_file_path('master'))
+
+        if config_for not in RUNTIME_CONFIGS:
+            if config_for in ('master', 'syndic_master'):
+                RUNTIME_CONFIGS[config_for] = freeze(
+                    salt.config.master_config(self.get_config_file_path(config_for))
+                )
+            elif config_for in ('minion', 'sub_minion'):
+                RUNTIME_CONFIGS[config_for] = freeze(
+                    salt.config.minion_config(self.get_config_file_path(config_for))
+                )
+            elif config_for in ('syndic',):
+                RUNTIME_CONFIGS[config_for] = freeze(
+                    salt.config.syndic_config(
+                        self.get_config_file_path(config_for),
+                        self.get_config_file_path('minion')
+                    )
+                )
+            elif config_for == 'client_config':
+                RUNTIME_CONFIGS[config_for] = freeze(
+                    salt.config.client_config(self.get_config_file_path('master'))
+                )
+        return RUNTIME_CONFIGS[config_for]
+
 
 
 
@@ -324,11 +365,13 @@ class SaltClientTestCaseMixIn(AdaptedConfigurationTestCaseMixIn):
 
     @property
     def client(self):
-        # Late import
-        import salt.client
-        return salt.client.get_local_client(
-            self.get_config_file_path(self._salt_client_config_file_name_)
-        )
+        if 'runtime_client' not in RUNTIME_CONFIGS:
+            # Late import
+            import salt.client
+            RUNTIME_CONFIGS['runtime_client'] = salt.client.get_local_client(
+                mopts=self.get_config(self._salt_client_config_file_name_, from_scratch=True)
+            )
+        return RUNTIME_CONFIGS['runtime_client']
 
 
 class ShellCaseCommonTestsMixIn(CheckShellBinaryNameAndVersionMixIn):

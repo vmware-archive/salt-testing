@@ -560,7 +560,7 @@ XML_OUTPUT_DIR = os.environ.get('SALT_XML_TEST_REPORTS_DIR', os.path.join(__TMP,
 
 
 # ----- Tests Runtime Variables ------------------------------------------------------------------------------------->
-
+RUNTIME_CONFIGS = {}
 RUNTIME_VARS = RuntimeVars(
     TMP=__TMP,
     TMP_CONF_DIR=os.path.join(__TMP, 'conf'),
@@ -1828,6 +1828,7 @@ class TestDaemon(object):
         # Late import
         import salt.config
         from salt.utils.verify import verify_env
+        from salt.utils.immutabletypes import freeze
         try:
             from salt.utils.process import ProcessManager  # pylint: disable=no-name-in-module
             self.process_manager = ProcessManager()
@@ -1839,15 +1840,23 @@ class TestDaemon(object):
 
         running_tests_user = pwd.getpwuid(os.getuid()).pw_name
         self.master_opts = salt.config.master_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'master'))
+        RUNTIME_CONFIGS['master'] = freeze(self.master_opts)
+
         minion_config_path = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'minion')
         self.minion_opts = salt.config.minion_config(minion_config_path)
+        RUNTIME_CONFIGS['minion'] = freeze(self.minion_opts)
 
         self.syndic_opts = salt.config.syndic_config(
             os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'syndic'),
             minion_config_path
         )
+        RUNTIME_CONFIGS['syndic'] = freeze(self.syndic_opts)
+
         self.sub_minion_opts = salt.config.minion_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'sub_minion'))
+        RUNTIME_CONFIGS['sub_minion'] = freeze(self.sub_minion_opts)
+
         self.syndic_master_opts = salt.config.master_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'syndic_master'))
+        RUNTIME_CONFIGS['syndic_master'] = freeze(self.syndic_master_opts)
 
         verify_env_entries = [
             os.path.join(self.master_opts['pki_dir'], 'minions'),
@@ -2102,8 +2111,12 @@ class TestDaemon(object):
         previously was, it would not receive the master events.
         '''
         # Late import
-        import salt.client
-        return salt.client.LocalClient(mopts=self.master_opts)
+        if 'runtime_client' not in RUNTIME_CONFIGS:
+            import salt.client
+            RUNTIME_CONFIGS['runtime_client'] = salt.client.get_local_client(
+                mopts=self.master_opts
+            )
+        return RUNTIME_CONFIGS['runtime_client']
 
     def __exit__(self, type, value, traceback):
         '''
