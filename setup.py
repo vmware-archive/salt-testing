@@ -41,7 +41,8 @@ if 'USE_SETUPTOOLS' in os.environ:
 if USE_SETUPTOOLS is False:
     from distutils.core import setup
     SETUP_KWARGS['scripts'] = [
-        'scripts/salt-jenkins-build'
+        'scripts/salt-jenkins-build',
+        'scripts/salt-runtests'
     ]
 
 exec(
