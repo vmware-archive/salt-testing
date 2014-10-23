@@ -1878,6 +1878,7 @@ class TestDaemon(object):
             os.path.join(self.sub_minion_opts['pki_dir'], 'rejected'),
             os.path.join(self.sub_minion_opts['pki_dir'], 'pending'),
             os.path.dirname(self.master_opts['log_file']),
+            self.master_opts['token_dir'],
             self.master_opts['extension_modules'],
             self.syndic_opts['extension_modules'],
             self.syndic_master_opts['extension_modules'],
