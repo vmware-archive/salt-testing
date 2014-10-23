@@ -276,7 +276,6 @@ class AdaptedConfigurationTestCaseMixIn(object):
         '''
         # Late imports
         import salt.config
-        from salt.utils.immutabletypes import freeze
 
         warnings.warn(
             'Please stop using the \'sub_minion_opts\' attribute in \'{0}.{1}\' and instead '
@@ -295,6 +294,7 @@ class AdaptedConfigurationTestCaseMixIn(object):
     def get_config(self, config_for, from_scratch=False):
         # Late import
         import salt.config
+        from salt.utils.immutabletypes import freeze
 
         if from_scratch:
             if config_for in ('master', 'syndic_master'):
