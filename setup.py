@@ -30,7 +30,8 @@ if 'USE_SETUPTOOLS' in os.environ:
             SETUP_KWARGS['install_requires'] = ['unittest2', 'argparse']
         SETUP_KWARGS['entry_points'] = {
             'console_scripts': [
-                'salt-jenkins-build = salttesting.jenkins:main'
+                'salt-jenkins-build = salttesting.jenkins:main',
+                'salt-runtests = salttesting.runtests:main'
             ]
         }
     except ImportError:
