@@ -41,7 +41,7 @@ external_auth:
       - '@wheel'
       - '@runner'
       - test.*
-  '*':
+    '*':
       - '@wheel'
       - '@runner'
       - test.*
