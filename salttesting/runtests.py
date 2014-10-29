@@ -316,6 +316,7 @@ import fnmatch
 import logging
 import argparse
 import tempfile
+import subprocess
 import multiprocessing
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -408,6 +409,7 @@ if sys.version_info < (2, 7):
 
     logging.NullHandler = NullHandler
 
+
 class TemporaryLoggingHandler(logging.NullHandler):
     '''
     Copied from ``salt.log.handlers``
@@ -453,7 +455,7 @@ logging.root.addHandler(LOGGING_TEMP_HANDLER)
 
 log = logging.getLogger(__name__)
 
-# ----- Helper Methods ---------------------------------------------------------------------------------------------->
+# ----- Helper Methods ---------------------------------------------------------------------------------------------->def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=False, width=SCREEN_COLS):
 def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=False, width=SCREEN_COLS):
     '''
     Allows some pretty printing of headers on the console, either with a
@@ -806,6 +808,11 @@ class SaltRuntests(argparse.ArgumentParser):
             help='Path to the salt checkout directory in case salt is not installed'
         )
         self.operational_options_group.add_argument(
+            '--prep-ssh',
+            action='store_true',
+            help='Run the preparation routines to test salt-ssh'
+        )
+        self.operational_options_group.add_argument(
             '--no-salt-daemons',
             action='store_true',
             help='Don\'t start the Salt testing daemons. Tests requiring them WILL fail'
@@ -1152,9 +1159,9 @@ class SaltRuntests(argparse.ArgumentParser):
 
         # ----- Return defined metadata ----------------------------------------------------------------------------->
         metadata = argparse.Namespace(
-            #display_name=getattr(mod, '__display_name__', u' '.join([
-            #    part.capitalize() for part in os.path.basename(root).split('_')
-            #])),
+            # display_name=getattr(mod, '__display_name__', u' '.join([
+            #     part.capitalize() for part in os.path.basename(root).split('_')
+            # ])),
             test_module_pattern=getattr(mod, '__test_module_pattern__', self.options.test_module_pattern),
             needs_daemons=getattr(mod, '__needs_daemons__', True),
             top_level_dir=getattr(mod, '__suite_root__', os.path.dirname(root))
@@ -1316,7 +1323,6 @@ class SaltRuntests(argparse.ArgumentParser):
         self.__coverage_instance__ = coverage.coverage(**coverage_options)
         self.__coverage_instance__.start()
 
-
     def __stop_coverage__(self):
         # Clean up environment
         print_header(u'', inline=True, width=self.options.output_columns)
@@ -1349,7 +1355,6 @@ class SaltRuntests(argparse.ArgumentParser):
                 directory=self.options.coverage_html_output
             )
         print_header(u'', inline=True, width=self.options.output_columns)
-
 
     # <---- Coverage Support Methods ----------------------------------------
     def print_bulleted(self, message, color='LIGHT_BLUE'):
@@ -1417,7 +1422,6 @@ class SaltRuntests(argparse.ArgumentParser):
         if self.options.coverage_source is None:
             self.options.coverage_source = self.options.workspace
         # <---- Coverage Checks --------------------------------------------------------------------------------------
-
 
         # ----- Setup File Logging ---------------------------------------------------------------------------------->
         log.info('Logging tests on {0}'.format(options.tests_logfile))
@@ -1576,7 +1580,7 @@ class SaltRuntests(argparse.ArgumentParser):
             minion_opts['raet_port'] = 64510
             sub_minion_opts['transport'] = 'raet'
             sub_minion_opts['raet_port'] = 64520
-            #syndic_master_opts['transport'] = 'raet'
+            # syndic_master_opts['transport'] = 'raet'
 
         # Set up config options that require internal data
         master_opts['pillar_roots'] = self.__pillar_roots__.merge({
@@ -1939,8 +1943,8 @@ class TestDaemon(object):
         for func in self.parser.__test_daemon_enter__:
             func(self)
 
-        #if self.parser.options.ssh:
-        #    self.prep_ssh()
+        if self.parser.options.prep_ssh:
+            self.prep_ssh()
 
         if self.start_daemons and self.parser.options.sysinfo:
             try:
@@ -2055,9 +2059,9 @@ class TestDaemon(object):
         # Wait for the daemons to all spin up
         time.sleep(5)
 
-        #smaster = salt.daemons.flo.IofloMaster(self.syndic_master_opts)
-        #self.smaster_process = multiprocessing.Process(target=smaster.start)
-        #self.smaster_process.start()
+        # smaster = salt.daemons.flo.IofloMaster(self.syndic_master_opts)
+        # self.smaster_process = multiprocessing.Process(target=smaster.start)
+        # self.smaster_process.start()
 
         # no raet syndic daemon yet
 
@@ -2065,41 +2069,161 @@ class TestDaemon(object):
         '''
         Generate keys and start an ssh daemon on an alternate port
         '''
-        '''
+        self.parser.print_bulleted('Preparing SSH for salt-ssh tests')
+
+        # Late import
+        import salt.utils
         keygen = salt.utils.which('ssh-keygen')
         sshd = salt.utils.which('sshd')
 
-        if not (keygen and sshd):
-            print('WARNING: Could not initialize SSH subsystem. Tests for salt-ssh may break!')
+        if not keygen and not sshd:
+            self.parser.print_bulleted(
+                'WARNING: Could not initialize SSH subsystem. Tests for salt-ssh may break!', 'RED'
+            )
             return
-        if not os.path.exists(RUNTIME_VARS.TMP_CONF_DIR):
-            os.makedirs(RUNTIME_VARS.TMP_CONF_DIR)
 
+        # Generate client key
+        pub_key_test_file = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'key_test.pub')
+        priv_key_test_file = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'key_test')
+        if os.path.exists(pub_key_test_file):
+            os.remove(pub_key_test_file)
+        if os.path.exists(priv_key_test_file):
+            os.remove(priv_key_test_file)
         keygen_process = subprocess.Popen(
-                [keygen, '-t', 'ecdsa', '-b', '521', '-C', '"$(whoami)@$(hostname)-$(date -I)"', '-f', 'key_test',
-                 '-P', 'INSECURE_TEMPORARY_KEY_PASSWORD'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                close_fds=True,
-                cwd=RUNTIME_VARS.TMP_CONF_DIR
+            [
+                keygen,
+                '-t',
+                'ecdsa',
+                '-b',
+                '521',
+                '-C',
+                '"$(whoami)@$(hostname)-$(date -I)"',
+                '-f',
+                'key_test',
+                '-P',
+                ''
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+            cwd=RUNTIME_VARS.TMP_CONF_DIR
         )
-        out, err = keygen_process.communicate()
-        if err:
-            print('ssh-keygen had errors: {0}'.format(err))
-        sshd_config_path = os.path.join(FILES, 'files/ext-conf/sshd_config')
+        _, keygen_err = keygen_process.communicate()
+        if keygen_err or keygen_process.returncode != 0:
+            self.parser.print_bulleted('ssh-keygen had errors: {0}'.format(keygen_err), 'RED')
+        sshd_config_path = os.path.join(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
+                                        'conf', '_ssh', 'sshd_config')
         shutil.copy(sshd_config_path, RUNTIME_VARS.TMP_CONF_DIR)
         auth_key_file = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'key_test.pub')
-        with open(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'sshd_config'), 'a') as ssh_config:
-            ssh_config.write('AuthorizedKeysFile {0}\n'.format(auth_key_file))
-        sshd_process = subprocess.Popen(
-                [sshd, '-f', 'sshd_config'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                close_fds=True,
-                cwd=RUNTIME_VARS.TMP_CONF_DIR
+
+        # Generate server key
+        server_key_dir = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'server')
+        if not os.path.exists(server_key_dir):
+            os.makedirs(server_key_dir)
+        server_dsa_priv_key_file = os.path.join(server_key_dir, 'ssh_host_dsa_key')
+        server_dsa_pub_key_file = os.path.join(server_key_dir, 'ssh_host_dsa_key.pub')
+        server_ecdsa_priv_key_file = os.path.join(server_key_dir, 'ssh_host_ecdsa_key')
+        server_ecdsa_pub_key_file = os.path.join(server_key_dir, 'ssh_host_ecdsa_key.pub')
+        server_ed25519_priv_key_file = os.path.join(server_key_dir, 'ssh_host_ed25519_key')
+        server_ed25519_pub_key_file = os.path.join(server_key_dir, 'ssh_host.ed25519_key.pub')
+
+        for server_key_file in (server_dsa_priv_key_file,
+                                server_dsa_pub_key_file,
+                                server_ecdsa_priv_key_file,
+                                server_ecdsa_pub_key_file,
+                                server_ed25519_priv_key_file,
+                                server_ed25519_pub_key_file):
+            if os.path.exists(server_key_file):
+                os.remove(server_key_file)
+
+        keygen_process_dsa = subprocess.Popen(
+            [
+                keygen,
+                '-t',
+                'dsa',
+                '-b',
+                '1024',
+                '-C',
+                '"$(whoami)@$(hostname)-$(date -I)"',
+                '-f',
+                'ssh_host_dsa_key',
+                '-P',
+                ''
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+            cwd=server_key_dir
         )
-        shutil.copy(os.path.join(FILES, 'conf/roster'), RUNTIME_VARS.TMP_CONF_DIR)
-        '''
+        _, keygen_dsa_err = keygen_process_dsa.communicate()
+        if keygen_dsa_err or keygen_process_dsa.returncode != 0:
+            self.parser.print_bulleted('ssh-keygen had errors: {0}'.format(keygen_dsa_err), 'RED')
+
+        keygen_process_ecdsa = subprocess.Popen(
+            [
+                keygen, '-t',
+                'ecdsa',
+                '-b',
+                '521',
+                '-C',
+                '"$(whoami)@$(hostname)-$(date -I)"',
+                '-f',
+                'ssh_host_ecdsa_key',
+                '-P',
+                ''
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+            cwd=server_key_dir
+        )
+        _, keygen_escda_err = keygen_process_ecdsa.communicate()
+        if keygen_escda_err or keygen_process_ecdsa.returncode != 0:
+            self.parser.print_bulleted('ssh-keygen had errors: {0}'.format(keygen_escda_err), 'RED')
+
+        keygen_process_ed25519 = subprocess.Popen(
+            [
+                keygen, '-t',
+                'ed25519',
+                '-b',
+                '521',
+                '-C',
+                '"$(whoami)@$(hostname)-$(date -I)"',
+                '-f',
+                'ssh_host_ed25519_key',
+                '-P',
+                ''
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+            cwd=server_key_dir
+        )
+        _, keygen_ed25519_err = keygen_process_ed25519.communicate()
+        if keygen_ed25519_err or keygen_process_ed25519.returncode != 0:
+            self.parser.print_bulleted('ssh-keygen had errors: {0}'.format(keygen_ed25519_err), 'RED')
+
+        with salt.utils.fopen(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'sshd_config'), 'a') as ssh_config:
+            ssh_config.write('AuthorizedKeysFile {0}\n'.format(auth_key_file))
+            ssh_config.write('HostKey {0}\n'.format(server_dsa_priv_key_file))
+            ssh_config.write('HostKey {0}\n'.format(server_ecdsa_priv_key_file))
+            ssh_config.write('HostKey {0}\n'.format(server_ed25519_priv_key_file))
+
+        self.sshd_process = subprocess.Popen(
+            [sshd, '-f', 'sshd_config'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+            cwd=RUNTIME_VARS.TMP_CONF_DIR
+        )
+        _, sshd_err = self.sshd_process.communicate()
+        if sshd_err or self.sshd_process.returncode != 0:
+            self.parser.print_bulleted('sshd had errors on startup: {0}'.format(sshd_err), 'RED')
+
+        roster_path = os.path.join(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES, 'conf', '_ssh', 'roster')
+        shutil.copy(roster_path, RUNTIME_VARS.TMP_CONF_DIR)
+        with salt.utils.fopen(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'roster'), 'a') as roster:
+            roster.write('  priv: {0}/{1}'.format(RUNTIME_VARS.TMP_CONF_DIR, 'key_test'))
 
     @property
     def client(self):
@@ -2142,6 +2266,9 @@ class TestDaemon(object):
                     self.syndic_process.join()
                     salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
                     self.smaster_process.join()
+
+        if hasattr(self, 'sshd_process'):
+            self.sshd_process.kill()
 
         self._exit_mockbin()
         for func in self.parser.__test_daemon_exit__:
