@@ -218,6 +218,7 @@ class PEP8Whitespace(_PEP8BaseChecker):
 
     msgs_map = {
         'E8222': 'C0326',
+        'E8225': 'C0326',
         'E8251': 'C0326'
     }
 
