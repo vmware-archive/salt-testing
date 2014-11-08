@@ -111,7 +111,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         arg_str = '-c {0} {1}'.format(self.get_config_dir(), arg_str)
         return self.run_script('salt', arg_str, with_retcode=with_retcode, catch_stderr=catch_stderr)
 
-    def run_ssh(self, arg_str, with_retcode=False, catch_stderr=False):
+    def run_ssh(self, arg_str, with_retcode=False, catch_stderr=False, timeout=None):
         '''
         Execute salt-ssh
         '''
@@ -121,7 +121,12 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
             os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'roster'),
             arg_str
         )
-        return self.run_script('salt-ssh', arg_str, with_retcode=with_retcode, catch_stderr=catch_stderr, raw=True)
+        return self.run_script('salt-ssh',
+                               arg_str,
+                               with_retcode=with_retcode,
+                               catch_stderr=catch_stderr,
+                               timeout=timeout,
+                               raw=True)
 
     def run_run(self, arg_str, with_retcode=False, catch_stderr=False):
         '''
@@ -459,14 +464,25 @@ class SSHCase(ShellTestCase):
     '''
     Execute a command via salt-ssh
     '''
-    def _arg_str(self, function, arg):
-        return '{0} {1}'.format(function, ' '.join(arg))
-
-    def run_function(self, function, arg=(), timeout=25, **kwargs):
-        ret = self.run_ssh(self._arg_str(function, arg))
+    def run_function(self,
+                     function,
+                     arg=(),
+                     timeout=25,
+                     with_retcode=False,
+                     catch_stderr=False):
+        ret = self.run_ssh(
+            '{0} {1}'.format(function, ' '.join(arg)),
+            timeout=timeout,
+            with_retcode=with_retcode,
+            catch_stderr=catch_stderr
+        )
         try:
             return json.loads(ret)['localhost']
-        except Exception:
+        except ValueError:
+            log.error('Failed to load JSON from: {0!r}'.format(ret))
+            return ret
+        except KeyError:
+            log.error('Unable to load the \'localhost\' key from: {0!r}'.format(json.loads(ret)))
             return ret
 
 

@@ -1692,6 +1692,7 @@ class SaltRuntests(argparse.ArgumentParser):
                 verbosity=self.options.verbosity)
         results = runner.run(suite)
         self.__testsuite_results__.append(results)
+        self.__testsuite_status__.append(results.wasSuccessful())
         return results.wasSuccessful()
 
     def print_overall_testsuite_report(self):
