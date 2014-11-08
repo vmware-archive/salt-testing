@@ -299,16 +299,14 @@ class SaltTestingParser(optparse.OptionParser):
                 from salttesting.runtests import SaltRuntests
                 salt_runtests = SaltRuntests()
 
-                salt_runtests.print_bulleted(
-                    'Swapping runtests.py script for salt-runtests', 'YELLOW'
+                print(
+                    ' * Swapping runtests.py script for salt-runtests'
                 )
-                salt_runtests.print_bulleted(
-                    'ATTENTION: Only some of the options of runtests.py are directy '
-                    'supported by salt-runtests', 'YELLOW'
+                print(
+                    ' * ATTENTION: Only some of the options of runtests.py are directy '
+                    'supported by salt-runtests'
                 )
-                salt_runtests.print_bulleted(
-                    'Please use the salt-runtests script directly', 'YELLOW'
-                )
+                print(' * Please use the salt-runtests script directly')
                 for idx, arg in enumerate(sys.argv[:]):
                     if '--coverage-xml' in arg:
                         sys.argv[idx] = arg.replace('--coverage-xml', '--coverage-xml-output')
