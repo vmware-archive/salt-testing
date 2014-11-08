@@ -311,6 +311,7 @@ import imp
 import sys
 import json
 import time
+import signal
 import shutil
 import fnmatch
 import logging
@@ -455,7 +456,7 @@ logging.root.addHandler(LOGGING_TEMP_HANDLER)
 
 log = logging.getLogger(__name__)
 
-# ----- Helper Methods ---------------------------------------------------------------------------------------------->def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=False, width=SCREEN_COLS):
+# ----- Helper Methods ---------------------------------------------------------------------------------------------->
 def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=False, width=SCREEN_COLS):
     '''
     Allows some pretty printing of headers on the console, either with a
@@ -1556,7 +1557,10 @@ class SaltRuntests(argparse.ArgumentParser):
         running_tests_user = pwd.getpwuid(os.getuid()).pw_name
         master_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'master'))
         master_opts['user'] = running_tests_user
-
+        tests_know_hosts_file = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'salt_ssh_known_hosts')
+        with salt.utils.fopen(tests_know_hosts_file, 'w') as known_hosts:
+            known_hosts.write('')
+        master_opts['known_hosts_file'] = tests_know_hosts_file
         minion_config_path = os.path.join(CONF_DIR, 'minion')
         minion_opts = salt.config._read_conf_file(minion_config_path)
         minion_opts['user'] = running_tests_user
@@ -2209,8 +2213,11 @@ class TestDaemon(object):
             ssh_config.write('HostKey {0}\n'.format(server_ecdsa_priv_key_file))
             ssh_config.write('HostKey {0}\n'.format(server_ed25519_priv_key_file))
 
+        self.sshd_pidfile = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'sshd.pid')
         self.sshd_process = subprocess.Popen(
-            [sshd, '-f', 'sshd_config'],
+            [sshd,
+             '-f', os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'sshd_config'),
+             '-oPidFile={0}'.format(self.sshd_pidfile)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             close_fds=True,
@@ -2268,7 +2275,16 @@ class TestDaemon(object):
                     self.smaster_process.join()
 
         if hasattr(self, 'sshd_process'):
-            self.sshd_process.kill()
+            try:
+                self.sshd_process.kill()
+            except OSError as exc:
+                if exc.errno != 3:
+                    raise
+            try:
+                os.kill(int(open(self.sshd_pidfile).read()), signal.SIGKILL)
+            except OSError as exc:
+                if exc.errno != 3:
+                    raise
 
         self._exit_mockbin()
         for func in self.parser.__test_daemon_exit__:
