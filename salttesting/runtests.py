@@ -456,6 +456,7 @@ logging.root.addHandler(LOGGING_TEMP_HANDLER)
 
 log = logging.getLogger(__name__)
 
+
 # ----- Helper Methods ---------------------------------------------------------------------------------------------->
 def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=False, width=SCREEN_COLS):
     '''
@@ -762,6 +763,10 @@ class SaltRuntests(argparse.ArgumentParser):
         # ----- Coverage Support Attributes ------------------------------------------------------------------------->
         self.__coverage_instance__ = None
         # <---- Coverage Support Attributes --------------------------------------------------------------------------
+
+        # ----- Store the current username -------------------------------------------------------------------------->
+        self.__runtime_username__ = pwd.getpwuid(os.getuid()).pw_name
+        # <---- Store the current username ---------------------------------------------------------------------------
 
         # ----- Let's not use argparse's help action ---------------------------------------------------------------->
         # We need some additional processing ( double parse_args() )
@@ -1554,27 +1559,26 @@ class SaltRuntests(argparse.ArgumentParser):
             if 'CONF' in name and not os.path.isdir(path):
                 os.makedirs(path)
         self.print_bulleted('Transplanting configuration files to {0!r}'.format(RUNTIME_VARS.TMP_CONF_DIR))
-        running_tests_user = pwd.getpwuid(os.getuid()).pw_name
         master_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'master'))
-        master_opts['user'] = running_tests_user
+        master_opts['user'] = self.__runtime_username__
         tests_know_hosts_file = os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'salt_ssh_known_hosts')
         with salt.utils.fopen(tests_know_hosts_file, 'w') as known_hosts:
             known_hosts.write('')
         master_opts['known_hosts_file'] = tests_know_hosts_file
         minion_config_path = os.path.join(CONF_DIR, 'minion')
         minion_opts = salt.config._read_conf_file(minion_config_path)
-        minion_opts['user'] = running_tests_user
+        minion_opts['user'] = self.__runtime_username__
         minion_opts['root_dir'] = master_opts['root_dir'] = os.path.join(RUNTIME_VARS.TMP, 'master-minion-root')
 
         syndic_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'syndic'))
-        syndic_opts['user'] = running_tests_user
+        syndic_opts['user'] = self.__runtime_username__
 
         sub_minion_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'sub_minion'))
         sub_minion_opts['root_dir'] = os.path.join(RUNTIME_VARS.TMP, 'sub-minion-root')
-        sub_minion_opts['user'] = running_tests_user
+        sub_minion_opts['user'] = self.__runtime_username__
 
         syndic_master_opts = salt.config._read_conf_file(os.path.join(CONF_DIR, 'syndic_master'))
-        syndic_master_opts['user'] = running_tests_user
+        syndic_master_opts['user'] = self.__runtime_username__
         syndic_master_opts['root_dir'] = os.path.join(RUNTIME_VARS.TMP, 'syndic-master-root')
 
         if self.options.transport == 'raet':
@@ -1846,7 +1850,6 @@ class TestDaemon(object):
         self.parser.print_bulleted('Setting up Salt daemons to execute tests')
         print_header(u'', inline=True, width=self.parser.options.output_columns)
 
-        running_tests_user = pwd.getpwuid(os.getuid()).pw_name
         self.master_opts = salt.config.master_config(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'master'))
         RUNTIME_CONFIGS['master'] = freeze(self.master_opts)
 
@@ -1915,7 +1918,7 @@ class TestDaemon(object):
                 os.path.join(self.syndic_master_opts['cachedir'], 'jobs'),
             ])
 
-        verify_env(verify_env_entries, running_tests_user)
+        verify_env(verify_env_entries, self.parser.__runtime_username__)
 
         # Copy any provided extension modules to the proper path
         for extension_modules_dest in set([self.master_opts['extension_modules'],
@@ -2230,6 +2233,7 @@ class TestDaemon(object):
         roster_path = os.path.join(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES, 'conf', '_ssh', 'roster')
         shutil.copy(roster_path, RUNTIME_VARS.TMP_CONF_DIR)
         with salt.utils.fopen(os.path.join(RUNTIME_VARS.TMP_CONF_DIR, 'roster'), 'a') as roster:
+            roster.write('  user: {0}\n'.format(self.parser.__runtime_username__))
             roster.write('  priv: {0}/{1}'.format(RUNTIME_VARS.TMP_CONF_DIR, 'key_test'))
 
     @property
