@@ -1658,6 +1658,9 @@ class SaltRuntests(argparse.ArgumentParser):
         # Do some house cleaning
         self.__cleanup__()
 
+        # Make sure no tests are deleting any files from the integration files directory
+        self.__confirm_intact_integration_files__()
+
         if self.__testsuite_status__.count(False) > 0:
             self.finalize(1)
         self.finalize(0)
@@ -1802,6 +1805,59 @@ class SaltRuntests(argparse.ArgumentParser):
         shutil.copytree(salt_integration_files_dir,
                         RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
                         symlinks=True)
+
+    def __confirm_intact_integration_files__(self):
+        '''
+        Compare the integration files from Salt's source with the ones copied to
+        ``RUNTIME_VARS.RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES`` in order to issue
+        a warning if there are missing files. Test cases SHOULD NOT delete any files
+        not created by it.
+        '''
+        # Late import
+        import salt
+
+        salt_integration_files_dir = os.path.join(
+            os.path.dirname(os.path.dirname(salt.__file__)), 'tests', 'integration', 'files'
+        )
+        removed_directories = []
+        for root, dirs, files in os.walk(salt_integration_files_dir):
+            for directory in dirs:
+                relative_path = os.path.relpath(
+                    os.path.join(root, directory),
+                    salt_integration_files_dir
+                )
+                transplanted_path = os.path.join(
+                    RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
+                    relative_path
+                )
+                if not os.path.isdir(transplanted_path):
+                    removed_directories.append('{0}/'.format(relative_path))
+                    self.print_bulleted(
+                        'The transplanted directory {0!r} was removed during '
+                        'the tests suite execution'.format(
+                            transplanted_path
+                        ),
+                        'YELLOW'
+                    )
+            for filename in files:
+                relative_path = os.path.relpath(
+                    os.path.join(root, filename),
+                    salt_integration_files_dir
+                )
+                transplanted_path = os.path.join(
+                    RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
+                    relative_path
+                )
+                if relative_path.startswith(tuple(removed_directories)):
+                    # The directory was removed so, any files removed under it
+                    # don't need to be logged
+                    continue
+                if not os.path.isfile(transplanted_path):
+                    self.print_bulleted(
+                        'The transplanted file {0!r} was removed during '
+                        'the tests suite execution'.format(transplanted_path),
+                        'YELLOW'
+                    )
 
     def __cleanup__(self):
         if self.options.no_clean:
