@@ -811,7 +811,6 @@ class SaltRuntests(argparse.ArgumentParser):
         self.__testsuite_status__ = []
         self.__testsuite_results__ = []
         self.__testsuite_searched_paths__ = set()
-        self.__testsuite_integration_files_ro_mount__ = False
         # <---- Tests Suite Attributes -------------------------------------------------------------------------------
 
         # ----- Coverage Support Attributes ------------------------------------------------------------------------->
@@ -1481,36 +1480,8 @@ class SaltRuntests(argparse.ArgumentParser):
                 directory=self.options.coverage_html_output
             )
         print_header(u'', inline=True, width=self.options.output_columns)
+
     # <---- Coverage Support Methods ----------------------------------------
-
-    def __cleanup__(self):
-        if self.__testsuite_integration_files_ro_mount__ is True:
-            # Let's un-mount the read-only bind
-            try:
-                subprocess.check_call(
-                    ['umount', '-f', RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES],
-                    shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
-            except subprocess.CalledProcessError:
-                # Let's try again using sudo.
-                try:
-                    subprocess.check_call(
-                        ['sudo', '-n', 'umount', '-f', RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES],
-                        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
-                except subprocess.CalledProcessError:
-                    self.print_bulleted(
-                        'Failed to un-mount Salt\'s integration files read-only bind', 'YELLOW'
-                    )
-
-        if self.options.no_clean is False:
-            for dirname in (RUNTIME_VARS.TMP,
-                            RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
-                            RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
-                            RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
-                if os.path.isdir(dirname):
-                    shutil.rmtree(dirname)
-
     def print_bulleted(self, message, color='LIGHT_BLUE'):
         print(' {0}*{ENDC} {1}'.format(self.colors[color], message, **self.colors))
 
@@ -1684,9 +1655,6 @@ class SaltRuntests(argparse.ArgumentParser):
         if self.options.coverage is True:
             self.__stop_coverage__()
 
-        # Run any required clean up actions
-        self.__cleanup__()
-
         if self.__testsuite_status__.count(False) > 0:
             self.finalize(1)
         self.finalize(0)
@@ -1814,7 +1782,12 @@ class SaltRuntests(argparse.ArgumentParser):
         salt_integration_files_dir = os.path.join(
             os.path.dirname(os.path.dirname(salt.__file__)), 'tests', 'integration', 'files'
         )
-
+        self.print_bulleted(
+            'Transplanting Salt\'s test suite integration files from {0} to {1}'.format(
+                salt_integration_files_dir,
+                RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES
+            )
+        )
         if not os.path.isdir(salt_integration_files_dir):
             self.error(
                 'The calculated path to salt\'s testing integration files({0}) does not exist. '
@@ -1822,77 +1795,6 @@ class SaltRuntests(argparse.ArgumentParser):
                 'installation and not from a salt source code tree. Please point --salt-checkout '
                 'to the directory where the salt code resides'
             )
-
-        self.print_bulleted(
-            'Mounting Salt\'s test suite integration files from {0} as a read-only '
-            'bind to {1}'.format(salt_integration_files_dir,
-                                 RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES)
-        )
-
-        if not os.path.isdir(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
-            os.makedirs(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES)
-
-        try:
-            # Initial mount, which does not set the mount as RO
-            subprocess.check_call(
-                'mount -o bind {0} {1}'.format(
-                    salt_integration_files_dir,
-                    RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES
-                    ),
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            # Remount in order to make it RO
-            subprocess.check_call(
-                'mount -o remount,bind,ro {0}'.format(
-                    RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES
-                    ),
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            self.__testsuite_integration_files_ro_mount__ = True
-            return
-        except subprocess.CalledProcessError:
-            # Let's try again using sudo. This needs not to ask a password
-            try:
-                # Initial mount, which does not set the mount as RO
-                subprocess.check_call(
-                    'sudo -n mount -o bind {0} {1}'.format(
-                        salt_integration_files_dir,
-                        RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES
-                        ),
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
-                # Remount in order to make it RO
-                subprocess.check_call(
-                    'sudo -n mount -o remount,bind,ro {0}'.format(
-                        RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES
-                        ),
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
-                self.__testsuite_integration_files_ro_mount__ = True
-                return
-            except subprocess.CalledProcessError:
-                self.print_bulleted(
-                    'Failed to mount Salt\'s integration files as a read-only bind', 'YELLOW'
-                )
-                # Let's allow the shutil copy bellow to start from scratch
-                if os.path.isdir(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
-                    shutil.rmtree(RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES)
-
-        # Failed to mount the RO bind, let's copy the whole integration test files
-        self.print_bulleted(
-            'Transplanting Salt\'s test suite integration files from {0} to {1}'.format(
-                salt_integration_files_dir,
-                RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES
-            )
-        )
 
         shutil.copytree(salt_integration_files_dir,
                         RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
@@ -2602,6 +2504,13 @@ class TestDaemon(object):
             shutil.rmtree(self.master_opts['root_dir'])
         if os.path.isdir(self.syndic_master_opts['root_dir']):
             shutil.rmtree(self.syndic_master_opts['root_dir'])
+
+        for dirname in (RUNTIME_VARS.TMP,
+                        RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
+                        RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
+                        RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
+            if os.path.isdir(dirname):
+                shutil.rmtree(dirname)
 
     def wait_for_jid(self, targets, jid, timeout=120):
         time.sleep(1)  # Allow some time for minions to accept jobs
