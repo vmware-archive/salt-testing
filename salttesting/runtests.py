@@ -311,6 +311,7 @@ import imp
 import sys
 import json
 import time
+import types
 import signal
 import shutil
 import fnmatch
@@ -480,21 +481,6 @@ def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=
         print(sep * width)
 
 
-class RootsDict(dict):
-    def merge(self, data):
-        for key, values in data.iteritems():
-            if key not in self:
-                self[key] = values
-                continue
-            for value in values:
-                if value not in self[key]:
-                    self[key].append(value)
-        return self
-
-    def to_dict(self):
-        return dict(self)
-
-
 def recursive_copytree(source, destination, overwrite=False):
     for root, dirs, files in os.walk(source):
         for item in dirs:
@@ -554,6 +540,73 @@ class RuntimeVars(object):
             return
         self._vars[name] = value
 # <---- Helper Methods -----------------------------------------------------------------------------------------------
+
+
+# ----- Custom Exceptions ------------------------------------------------------------------------------------------->
+class InvalidMetadataFormat(Exception):
+    '''
+    This exception will be raised whenever a metadata entry is not properly formatted
+    '''
+    def __init__(self, module):
+        if isinstance(module, types.ModuleType):
+            module = module.__file__
+        self.module = module.replace('.pyc', '.py').replace('.pyo', '.py')
+
+
+class InvalidExtPillarFormat(InvalidMetadataFormat):
+    '''
+    Exception raise in improperly formatted ``__ext_pillar__`` attributes.
+    '''
+
+    @property
+    def message(self):
+        return (
+            'The \'__ext_pillar__\' variable provided in {0!r} is not '
+            'formed correctly. The right format is a list of tuples '
+            'where the tuple\'s first value is the external pillar name '
+            'and the second the external pillar filename:\n'
+            '    __ext_pillar__ = [\n'
+            '        (ext_pillar_name, external_pillar_filename)\n'
+            '    ]'.format(self.module)
+        )
+
+
+class InvalidFileRootsFormat(InvalidMetadataFormat):
+    '''
+    Exception raise in improperly formatted ``__file_roots__`` attributes.
+    '''
+
+    @property
+    def message(self):
+        return (
+            'The \'__file_roots__\' variable provided in {0!r} is not '
+            'formed correctly. The right format is a list of tuples '
+            'where the tuple\'s first value is the environment name '
+            'and the second a list of paths:\n'
+            '    __file_roots__ = [\n'
+            '        (env_name, [list, of, paths])\n'
+            '    ]'.format(self.module)
+        )
+
+
+class InvalidPillarRootsFormat(InvalidMetadataFormat):
+    '''
+    Exception raise in improperly formatted ``__pillar_roots__`` attributes.
+    '''
+
+    @property
+    def message(self):
+        return (
+            'The \'__pillar_roots__\' variable provided in {0!r} is not '
+            'formed correctly. The right format is a list of tuples '
+            'where the tuple\'s first value is the environment name '
+            'and the second a list of paths:\n'
+            '    __pillar_roots__ = [\n'
+            '        (env_name, [list, of, paths])\n'
+            '    ]'.format(self.module)
+        )
+# <---- Custom Exceptions --------------------------------------------------------------------------------------------
+
 
 # ----- Global Variables -------------------------------------------------------------------------------------------->
 CONF_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), '_saltconf')
@@ -1103,9 +1156,9 @@ class SaltRuntests(argparse.ArgumentParser):
 
         # ----- Tests discovery search path ------------------------------------------------------------------------->
         # TestDaemon context manager extension attributes
-        self.__ext_pillar__ = []
-        self.__file_roots__ = RootsDict()
-        self.__pillar_roots__ = RootsDict()
+        self.__ext_pillar__ = {}
+        self.__file_roots__ = {'base': [], 'prod': []}
+        self.__pillar_roots__ = {'base': [], 'prod': []}
         self.__extension_modules__ = []
         self.__mockbin_paths__ = []
         self.__pre_test_daemon_enter__ = []
@@ -1141,26 +1194,90 @@ class SaltRuntests(argparse.ArgumentParser):
         # <---- Allow the discovered salt tests to tweak the parser --------------------------------------
 
         # ----- Setup Daemons Directories --------------------------------------------------------------->
-        self.__ext_pillar__.extend(getattr(mod, '__ext_pillar__', []))
-        self.__mockbin_paths__.extend(getattr(mod, '__mockbin_paths__', []))
+        ext_pillar = getattr(mod, '__ext_pillar__', [])
+        if ext_pillar:
+            if not isinstance(ext_pillar, list):
+                raise InvalidExtPillarFormat(mod)
+            for entry in ext_pillar:
+                if not isinstance(entry, tuple):
+                    raise InvalidExtPillarFormat(mod)
+
+                if len(entry) != 2:
+                    raise InvalidExtPillarFormat(mod)
+
+                name, path = entry
+                if name not in self.__ext_pillar__:
+                    self.__ext_pillar__[name] = path
+
+        mockbin_paths = getattr(mod, '__mockbin_paths__', [])
+        for path in mockbin_paths:
+            if path not in self.__mockbin_paths__:
+                self.__mockbin_paths__.append(path)
 
         for entry in ('__pre_test_daemon_enter__', '__test_daemon_enter__',
                       '__test_daemon_exit__', '__post_test_daemon_exit__'):
             entry_instance = getattr(mod, entry, None)
             if entry_instance is not None:
-                if callable(entry_instance):
-                    getattr(self, entry).append(entry_instance)
-                else:
-                    getattr(self, entry).extend(entry_instance)
+                dest_obj = getattr(self, entry)
 
-        self.__file_roots__.merge(getattr(mod, '__file_roots__', {}))
-        self.__pillar_roots__.merge(getattr(mod, '__pillar_roots__', {}))
+                if callable(entry_instance):
+                    entry_instance = [entry_instance]
+
+                for instance in entry_instance:
+                    if instance not in dest_obj:
+                        dest_obj.append(instance)
+
+        file_roots = getattr(mod, '__file_roots__', [])
+        if file_roots:
+            if not isinstance(file_roots, list):
+                raise InvalidFileRootsFormat(mod)
+            for entry in file_roots:
+                if not isinstance(entry, tuple):
+                    raise InvalidFileRootsFormat(mod)
+
+                if len(entry) != 2:
+                    raise InvalidFileRootsFormat(mod)
+
+                name, paths = entry
+                if not isinstance(paths, list):
+                    paths = [paths]
+
+                if name not in self.__file_roots__:
+                    self.__file_roots__[name] = []
+
+                for path in paths:
+                    if path not in self.__file_roots__[name]:
+                        self.__file_roots__[name].append(path)
+
+        pillar_roots = getattr(mod, '__pillar_roots__', [])
+        if pillar_roots:
+            if not isinstance(pillar_roots, list):
+                raise InvalidPillarRootsFormat(mod)
+            for entry in pillar_roots:
+                if not isinstance(entry, tuple):
+                    raise InvalidPillarRootsFormat(mod)
+
+                if len(entry) != 2:
+                    raise InvalidPillarRootsFormat(mod)
+
+                name, paths = entry
+                if not isinstance(paths, list):
+                    paths = [paths]
+
+                if name not in self.__pillar_roots__:
+                    self.__pillar_roots__[name] = []
+
+                for path in paths:
+                    if path not in self.__pillar_roots__[name]:
+                        self.__pillar_roots__[name].append(path)
+
         extension_modules = getattr(mod, '__extension_modules_paths__', None)
         if extension_modules is not None:
-            if isinstance(extension_modules, (list, tuple)):
-                self.__extension_modules__.extend(list(extension_modules))
-            else:
-                self.__extension_modules__.append(extension_modules)
+            if not isinstance(extension_modules, (list, tuple)):
+                extension_modules = [extension_modules]
+
+            for extension_module in extension_modules:
+                self.__extension_modules__.append(extension_module)
         # <---- Setup Daemons Directories ----------------------------------------------------------------
 
         # ----- Return defined metadata ----------------------------------------------------------------------------->
@@ -1307,6 +1424,8 @@ class SaltRuntests(argparse.ArgumentParser):
                     continue
                 try:
                     self.__load_tests__(self.__find_meta__(top_level_dir), start_dir=top_level_dir)
+                except InvalidMetadataFormat as exc:
+                    self.error(exc.message)
                 except ImportError:
                     continue
 
@@ -1591,26 +1710,40 @@ class SaltRuntests(argparse.ArgumentParser):
             # syndic_master_opts['transport'] = 'raet'
 
         # Set up config options that require internal data
-        master_opts['pillar_roots'] = self.__pillar_roots__.merge({
-            'base': [
+        if RUNTIME_VARS.TMP_BASEENV_PILLAR_TREE not in self.__pillar_roots__['base']:
+            self.__pillar_roots__['base'].append(
                 RUNTIME_VARS.TMP_BASEENV_PILLAR_TREE
-            ],
-            'prod': [
+            )
+
+        if RUNTIME_VARS.TMP_PRODENV_PILLAR_TREE not in self.__pillar_roots__['prod']:
+            # Alternate root to test __env__ choices
+            self.__pillar_roots__['prod'].append(
                 RUNTIME_VARS.TMP_PRODENV_PILLAR_TREE
-            ],
-        }).to_dict()
-        master_opts['file_roots'] = self.__file_roots__.merge({
-            'base': [
+            )
+
+        master_opts['pillar_roots'] = self.__pillar_roots__
+
+        if RUNTIME_VARS.TMP_BASEENV_STATE_TREE not in self.__file_roots__['base']:
+            self.__file_roots__['base'].append(
                 # Let's support runtime created files that can be used like:
                 #   salt://my-temp-file.txt
                 RUNTIME_VARS.TMP_BASEENV_STATE_TREE
-            ],
+            )
+
+        if RUNTIME_VARS.TMP_PRODENV_STATE_TREE not in self.__file_roots__['prod']:
             # Alternate root to test __env__ choices
-            'prod': [
+            self.__file_roots__['prod'].append(
                 RUNTIME_VARS.TMP_PRODENV_STATE_TREE
-            ]
-        }).to_dict()
-        master_opts['ext_pillar'].extend(self.__ext_pillar__)
+            )
+
+        master_opts['file_roots'] = self.__file_roots__
+
+        # We need to do some format conversion for external pillars
+        if 'ext_pillar' not in master_opts:
+            master_opts['ext_pillar'] = []
+
+        for key, value in self.__ext_pillar__.items():
+            master_opts['ext_pillar'].append({key: value})
 
         # Point the config values to the correct temporary paths
         for name in ('hosts', 'aliases'):
