@@ -1655,6 +1655,9 @@ class SaltRuntests(argparse.ArgumentParser):
         if self.options.coverage is True:
             self.__stop_coverage__()
 
+        # Do some house cleaning
+        self.__cleanup__()
+
         if self.__testsuite_status__.count(False) > 0:
             self.finalize(1)
         self.finalize(0)
@@ -1799,6 +1802,17 @@ class SaltRuntests(argparse.ArgumentParser):
         shutil.copytree(salt_integration_files_dir,
                         RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES,
                         symlinks=True)
+
+    def __cleanup__(self):
+        if self.options.no_clean:
+            return
+        for dirname in (RUNTIME_VARS.TMP,
+                        RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
+                        RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
+                        RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
+            if os.path.isdir(dirname):
+                shutil.rmtree(dirname)
+
 
     def run_collected_tests(self):
         self.run_suite(
@@ -2504,13 +2518,6 @@ class TestDaemon(object):
             shutil.rmtree(self.master_opts['root_dir'])
         if os.path.isdir(self.syndic_master_opts['root_dir']):
             shutil.rmtree(self.syndic_master_opts['root_dir'])
-
-        for dirname in (RUNTIME_VARS.TMP,
-                        RUNTIME_VARS.TMP_BASEENV_STATE_TREE,
-                        RUNTIME_VARS.TMP_PRODENV_STATE_TREE,
-                        RUNTIME_VARS.TMP_SALT_INTEGRATION_FILES):
-            if os.path.isdir(dirname):
-                shutil.rmtree(dirname)
 
     def wait_for_jid(self, targets, jid, timeout=120):
         time.sleep(1)  # Allow some time for minions to accept jobs
