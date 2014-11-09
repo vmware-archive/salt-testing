@@ -303,6 +303,9 @@
     .. _`nose`: https://nose.readthedocs.org
     '''
 
+# pylint: disable=superfluous-parens,attribute-defined-outside-init,protected-access,too-few-public-methods
+# pylint: disable=too-many-instance-attributes,too-many-branches,too-many-public-methods,invalid-name
+
 # Import Python modules
 from __future__ import absolute_import
 import os
@@ -358,7 +361,7 @@ try:
         coverage_object.stop()
         coverage_object.save()
 
-    def multiprocessing_start(obj):
+    def multiprocessing_start(obj):  # pylint: disable=unused-argument
         coverage_options = json.loads(os.environ.get('SALT_RUNTESTS_COVERAGE_OPTIONS', '{}'))
         if not coverage_options:
             return
@@ -548,6 +551,7 @@ class InvalidMetadataFormat(Exception):
     This exception will be raised whenever a metadata entry is not properly formatted
     '''
     def __init__(self, module):
+        super(InvalidMetadataFormat, self).__init__()
         if isinstance(module, types.ModuleType):
             module = module.__file__
         self.module = module.replace('.pyc', '.py').replace('.pyo', '.py')
@@ -701,11 +705,9 @@ class VerbosityAction(argparse._CountAction):
         if verbosity > 3:
             getattr(namespace, 'consolehandler',
                     getattr(parser, '__console_logging_handler__', None)).setLevel(
-                handled_levels.get(
-                    verbosity,
-                    verbosity > 5 and 5 or 3
-                )
-            )
+                        handled_levels.get(verbosity,
+                                           verbosity > 5 and 5 or 3)
+                    )
 
 
 class SaltCheckoutPathAction(argparse.Action):
@@ -740,14 +742,14 @@ class CoverageAction(argparse._StoreTrueAction):
             )
 
         # Force forked multiprocessing processes to be measured as well
-        def multiprocessing_stop(coverage_object):
+        def coverage_multiprocessing_stop(coverage_object):
             '''
             Save the multiprocessing process coverage object
             '''
             coverage_object.stop()
             coverage_object.save()
 
-        def multiprocessing_start(obj):
+        def coverage_multiprocessing_start(obj):  # pylint: disable=unused-argument
             coverage_options = json.loads(os.environ.get('SALT_RUNTESTS_COVERAGE_OPTIONS', '{}'))
             if not coverage_options:
                 return
@@ -760,13 +762,13 @@ class CoverageAction(argparse._StoreTrueAction):
 
             multiprocessing.util.Finalize(
                 None,
-                multiprocessing_stop,
+                coverage_multiprocessing_stop,
                 args=(coverage_object,),
                 exitpriority=1000
             )
 
         multiprocessing.util.register_after_fork(
-            multiprocessing_start,
+            coverage_multiprocessing_start,
             multiprocessing_start
         )
 
@@ -1375,7 +1377,7 @@ class SaltRuntests(argparse.ArgumentParser):
         except ImportError as exc:
             log.warn('Import failure occurred while loading tests: {0}'.format(exc))
             raise
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             log.error(
                 'A failure occurred while discovering tests: {0}'.format(exc),
                 exc_info=True
@@ -1419,7 +1421,7 @@ class SaltRuntests(argparse.ArgumentParser):
 
         for root in [start_discovery_in] + self.__search_paths__:
             log.info('Searching for tests under {0}'.format(root))
-            for top_level_dir, start_dirs, filenames in os.walk(root):
+            for top_level_dir, start_dirs, filenames in os.walk(root):  # pylint: disable=unused-variable
                 if not fnmatch.filter(filenames, '*.py*'):
                     continue
                 try:
@@ -1566,7 +1568,7 @@ class SaltRuntests(argparse.ArgumentParser):
         logging.root.addHandler(filehandler)
         logging.root.setLevel(logging.DEBUG)
 
-        global LOGGING_TEMP_HANDLER
+        global LOGGING_TEMP_HANDLER  # pylint: disable=global-statement
         # Sync in memory log messages to the log file
         LOGGING_TEMP_HANDLER.sync_with_handlers((filehandler,))
         # Remove and reset the temporary logging handler
@@ -1671,7 +1673,7 @@ class SaltRuntests(argparse.ArgumentParser):
     def __testsuite_needs_daemons_running__(self):
         if self.options.no_salt_daemons:
             return False
-        for test, needs_daemons in self.__testsuite__.itervalues():
+        for test, needs_daemons in self.__testsuite__.itervalues():  # pylint: disable=unused-variable
             if needs_daemons:
                 return True
         return False
@@ -1869,11 +1871,10 @@ class SaltRuntests(argparse.ArgumentParser):
             if os.path.isdir(dirname):
                 shutil.rmtree(dirname)
 
-
     def run_collected_tests(self):
         self.run_suite(
             TestSuite(
-                sorted([test for (test, needs_daemon) in self.__testsuite__.values()],
+                sorted([test for (test, needs_daemon) in self.__testsuite__.values()],  # pylint: disable=unused-variable
                        key=lambda x: x.id())
             )
         )
@@ -1952,7 +1953,7 @@ class SaltRuntests(argparse.ArgumentParser):
                     for line in reason.rstrip().splitlines():
                         print('       {0}'.format(line.rstrip()))
                     print_header(u'   ', sep=u'.', inline=True,
-                                width=self.options.output_columns)
+                                 width=self.options.output_columns)
                 print_header(u' ', sep='-', inline=True,
                              width=self.options.output_columns)
 
@@ -1970,7 +1971,7 @@ class SaltRuntests(argparse.ArgumentParser):
                     for line in reason.rstrip().splitlines():
                         print('       {0}'.format(line.rstrip()))
                     print_header(u'   ', sep=u'.', inline=True,
-                                width=self.options.output_columns)
+                                 width=self.options.output_columns)
                 print_header(u' ', sep='-', inline=True,
                              width=self.options.output_columns)
 
@@ -2030,7 +2031,7 @@ class TestDaemon(object):
     def __enter__(self):
         try:
             return self.__real_enter__()
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             log.error(
                 'Failed to __enter__ the TestDaemon: {0}'.format(exc),
                 exc_info=log.isEnabledFor(logging.DEBUG)
@@ -2458,7 +2459,7 @@ class TestDaemon(object):
             )
         return RUNTIME_CONFIGS['runtime_client']
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type_, value, traceback):
         '''
         Kill the minion and master processes
         '''
@@ -2469,17 +2470,17 @@ class TestDaemon(object):
             if self.process_manager:
                 self.process_manager.kill_children()
             else:
-                salt.master.clean_proc(self.sub_minion_process, wait_for_kill=50)
+                salt.master.clean_proc(self.sub_minion_process, wait_for_kill=50)  # pylint: disable=no-member
                 self.sub_minion_process.join()
-                salt.master.clean_proc(self.minion_process, wait_for_kill=50)
+                salt.master.clean_proc(self.minion_process, wait_for_kill=50)  # pylint: disable=no-member
                 self.minion_process.join()
-                salt.master.clean_proc(self.master_process, wait_for_kill=50)
+                salt.master.clean_proc(self.master_process, wait_for_kill=50)  # pylint: disable=no-member
                 self.master_process.join()
 
                 if self.parser.options.transport == 'zeromq':
-                    salt.master.clean_proc(self.syndic_process, wait_for_kill=50)
+                    salt.master.clean_proc(self.syndic_process, wait_for_kill=50)  # pylint: disable=no-member
                     self.syndic_process.join()
-                    salt.master.clean_proc(self.smaster_process, wait_for_kill=50)
+                    salt.master.clean_proc(self.smaster_process, wait_for_kill=50)  # pylint: disable=no-member
                     self.smaster_process.join()
 
         if hasattr(self, 'sshd_process'):
@@ -2514,11 +2515,7 @@ class TestDaemon(object):
         wait_minion_connections.join()
         wait_minion_connections.terminate()
         if wait_minion_connections.exitcode > 0:
-            print(
-                '\n {RED_BOLD}*{ENDC} ERROR: Minions failed to connect'.format(
-                **self.colors
-                )
-            )
+            print('\n {RED_BOLD}*{ENDC} ERROR: Minions failed to connect'.format(**self.colors))
             return False
 
         del wait_minion_connections
