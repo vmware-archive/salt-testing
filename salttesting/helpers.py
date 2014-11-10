@@ -994,20 +994,28 @@ def skip_if_binaries_missing(*binaries, **kwargs):
         )
     if check_all:
         for binary in binaries:
-            if salt.utils.which(binary) is None:
+            found_binary = salt.utils.which(binary)
+            if found_binary is None or '{0}shims{0}'.format(os.sep) in found_binary:
+                # PyEnv has, for example, a virtualenv shim script which is what's returned
+                # if virtualenv is not installed
                 return skip(
                     '{0}The {1!r} binary was not found'.format(
                         message and '{0}. '.format(message) or '',
                         binary
                     )
                 )
-    elif salt.utils.which_bin(binaries) is None:
-        return skip(
-            '{0}None of the following binaries was found: {1}'.format(
-                message and '{0}. '.format(message) or '',
-                ', '.join(binaries)
+    else:
+        found_binary = salt.utils.which(binary)
+        if found_binary is None or '{0}shims{0}'.format(os.sep) in found_binary:
+            # PyEnv has, for example, a virtualenv shim script which is what's returned
+            # if virtualenv is not installed
+
+            return skip(
+                '{0}None of the following binaries was found: {1}'.format(
+                    message and '{0}. '.format(message) or '',
+                    ', '.join(binaries)
+                )
             )
-        )
     return _id
 
 
