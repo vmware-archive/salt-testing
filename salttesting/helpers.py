@@ -946,11 +946,16 @@ def requires_salt_modules(*names):
                     )
 
                 for name in names:
-                    if not hasattr(self, '__salt_sys_docs__'):
-                        # cache salts documentation
-                        self.__salt_sys_docs__ = self.run_function('sys.doc')
-                    if name not in self.__salt_sys_docs__:
+                    if not hasattr(requires_salt_modules, '__salt_sys_docs__'):
+                        # cache salt's documentation modules
+                        module_doc_keys = self.run_function('sys.doc').keys()
+                        module_doc_keys.extend(
+                            [part.split('.')[0] for part in module_doc_keys[:]]
+                        )
+                        setattr(requires_salt_modules, '__salt_sys_docs__', set(module_doc_keys))
+                    if name not in requires_salt_modules.__salt_sys_docs__:  # pylint: disable=no-member
                         self.skipTest('Salt module {0!r} is not available'.format(name))
+                        break
             caller.setUp = setUp
             return caller
 
@@ -967,12 +972,16 @@ def requires_salt_modules(*names):
                 )
 
             for name in names:
-                if name not in cls.run_function('sys.doc'):
-                    cls.skipTest(
-                        'Salt module {0!r} is not available'.format(name)
+                if not hasattr(requires_salt_modules, '__salt_sys_docs__'):
+                    # cache salt's documentation modules
+                    module_doc_keys = cls.run_function('sys.doc').keys()
+                    module_doc_keys.extend(
+                        [part.split('.')[0] for part in module_doc_keys[:]]
                     )
+                    setattr(requires_salt_modules, '__salt_sys_docs__', set(module_doc_keys))
+                if name not in requires_salt_modules.__salt_sys_docs__:  # pylint: disable=no-member
+                    cls.skipTest('Salt module {0!r} is not available'.format(name))
                     break
-
             return caller(cls)
         return wrapper
     return decorator
