@@ -389,14 +389,24 @@ class ShellCaseCommonTestsMixIn(CheckShellBinaryNameAndVersionMixIn):
             self.skipTest('The git binary is not available')
 
         # Let's get the output of git describe
+        # Let's get the output of git describe
         process = subprocess.Popen(
-            [git, 'describe', '--tags', '--match', 'v[0-9]*'],
+            [git, 'describe', '--tags', '--first-parent', '--match', 'v[0-9]*'],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             close_fds=True,
-            cwd=os.path.dirname(salt.__file__),
+            cwd=CODE_DIR
         )
         out, err = process.communicate()
+        if process.returncode != 0:
+            process = subprocess.Popen(
+                [git, 'describe', '--tags', '--match', 'v[0-9]*'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+                cwd=CODE_DIR
+            )
+            out, err = process.communicate()
         if not out:
             self.skipTest(
                 'Failed to get the output of \'git describe\'. '
