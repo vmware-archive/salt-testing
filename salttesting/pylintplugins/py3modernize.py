@@ -5,10 +5,13 @@ from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
 
 from lib2to3 import refactor
-from libmodernize.fixes import lib2to3_fix_names, six_fix_names
+from libmodernize.fixes import lib2to3_fix_names, opt_in_fix_names, six_fix_names
 
+FIXES = lib2to3_fix_names
+FIXES.update(opt_in_fix_names)
+FIXES.update(six_fix_names)
 
-def diff_texts(old, new, f):
+def diff_texts(old, new):
     diffs = []
 
     if not isinstance(old, list):
@@ -38,14 +41,11 @@ def diff_texts(old, new, f):
 
 
 class PyLintRefactoringTool(refactor.MultiprocessRefactoringTool):
-    diff = None
+
+    diff = ()
 
     def print_output(self, old, new, filename, equal):
-        if equal:
-            print 333
-            self.diff = None
-        else:
-            self.diff = diff_texts(old, new, filename)
+        self.diff = () if equal else diff_texts(old, new)
 
 
 class Py3Modernize(BaseChecker):
@@ -62,7 +62,30 @@ class Py3Modernize(BaseChecker):
             }
 
     priority = -1
-    options = ()
+
+    options = (('py3modernize-nofix',
+                {'default': '', 'type': 'multiple_choice', 'metavar': '<comma-separated-list>',
+                 'choices': sorted(FIXES),
+                 'help': 'Comma separated list of fixer names not to fix.'}
+                ),
+                ('py3modernize-six-unicode',
+                 {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
+                  'help': 'Wrap unicode literals in six.u().'}
+                 ),
+                ('py3modernize-future-unicode',
+                 {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
+                  'help': 'Use \'from __future__ import unicode_literals\' (only '
+                          'useful for Python 2.6+).'}
+                 ),
+                ('py3modernize-no-six',
+                 {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
+                  'help': 'Exclude fixes that depend on the six package.'}
+                 ),
+                ('py3modernize-print-function',
+                 {'default': 1, 'type': 'yn', 'metavar': '<y_or_n>',
+                  'help': 'Modify the grammar so that print() is a function.'}
+                 ),
+              )
 
     def process_module(self, node):
         '''
@@ -71,16 +94,34 @@ class Py3Modernize(BaseChecker):
         the module's content is accessible via node.file_stream object
         '''
 
-        avail_fixes = lib2to3_fix_names
-        avail_fixes.update(six_fix_names)
+        flags = {}
 
-        rt = PyLintRefactoringTool(
-            sorted(avail_fixes), {'print_function': True},
-        )
-        rt.refactor_file(node.file, write=False)
-        if rt.diff:
-            for lineno, diff in rt.diff:
-                self.add_message('W7001', line=lineno, args=diff)
+        if self.config.py3modernize_print_function:
+            flags['print_function'] = True
+
+        avail_fixes = set(refactor.get_fixers_from_package('libmodernize.fixes'))
+        avail_fixes.update(lib2to3_fix_names)
+
+        default_fixes = avail_fixes.difference(opt_in_fix_names)
+        unwanted_fixes = set(self.config.py3modernize_nofix)
+        if self.config.py3modernize_six_unicode:
+            unwanted_fixes.add('libmodernize.fixes.fix_unicode_future')
+        elif self.config.py3modernize_future_unicode:
+            unwanted_fixes.add('libmodernize.fixes.fix_unicode')
+        else:
+            unwanted_fixes.add('libmodernize.fixes.fix_unicode_future')
+            unwanted_fixes.add('libmodernize.fixes.fix_unicode')
+
+        if self.config.py3modernize_no_six:
+            unwanted_fixes.update(six_fix_names)
+
+        requested = default_fixes
+        fixer_names = requested.difference(unwanted_fixes)
+
+        rft = PyLintRefactoringTool(sorted(fixer_names), flags)
+        rft.refactor_file(node.file, write=False)
+        for lineno, diff in rft.diff:
+            self.add_message('W7001', line=lineno, args=diff)
 
 
 def register(linter):
