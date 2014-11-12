@@ -11,6 +11,7 @@ FIXES = lib2to3_fix_names
 FIXES.update(opt_in_fix_names)
 FIXES.update(six_fix_names)
 
+
 def diff_texts(old, new):
     diffs = []
 
@@ -63,28 +64,37 @@ class Py3Modernize(BaseChecker):
 
     priority = -1
 
-    options = (('py3modernize-nofix',
+    options = (('modernize-doctests-only',
+               {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
+                'help': 'Fix up doctests only'}
+               ),
+               ('modernize-fix',
+                {'default': (), 'type': 'csv', 'metavar': '<comma-separated-list>',
+                 'help': 'Each FIX specifies a transformation; "default" includes '
+                         'default fixes.'}
+               ),
+               ('modernize-nofix',
                 {'default': '', 'type': 'multiple_choice', 'metavar': '<comma-separated-list>',
                  'choices': sorted(FIXES),
                  'help': 'Comma separated list of fixer names not to fix.'}
-                ),
-                ('py3modernize-six-unicode',
-                 {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
-                  'help': 'Wrap unicode literals in six.u().'}
-                 ),
-                ('py3modernize-future-unicode',
-                 {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
-                  'help': 'Use \'from __future__ import unicode_literals\' (only '
-                          'useful for Python 2.6+).'}
-                 ),
-                ('py3modernize-no-six',
-                 {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
-                  'help': 'Exclude fixes that depend on the six package.'}
-                 ),
-                ('py3modernize-print-function',
-                 {'default': 1, 'type': 'yn', 'metavar': '<y_or_n>',
-                  'help': 'Modify the grammar so that print() is a function.'}
-                 ),
+               ),
+               ('modernize-print-function',
+                {'default': 1, 'type': 'yn', 'metavar': '<y_or_n>',
+                 'help': 'Modify the grammar so that print() is a function.'}
+               ),
+               ('modernize-six-unicode',
+                {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
+                 'help': 'Wrap unicode literals in six.u().'}
+               ),
+               ('modernize-future-unicode',
+                {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
+                 'help': 'Use \'from __future__ import unicode_literals\' (only '
+                         'useful for Python 2.6+).'}
+               ),
+               ('modernize-no-six',
+                {'default': 0, 'type': 'yn', 'metavar': '<y_or_n>',
+                 'help': 'Exclude fixes that depend on the six package.'}
+               )
               )
 
     def process_module(self, node):
@@ -96,32 +106,50 @@ class Py3Modernize(BaseChecker):
 
         flags = {}
 
-        if self.config.py3modernize_print_function:
+        if self.config.modernize_print_function:
             flags['print_function'] = True
 
         avail_fixes = set(refactor.get_fixers_from_package('libmodernize.fixes'))
         avail_fixes.update(lib2to3_fix_names)
 
         default_fixes = avail_fixes.difference(opt_in_fix_names)
-        unwanted_fixes = set(self.config.py3modernize_nofix)
-        if self.config.py3modernize_six_unicode:
+        unwanted_fixes = set(self.config.modernize_nofix)
+        if self.config.modernize_six_unicode:
             unwanted_fixes.add('libmodernize.fixes.fix_unicode_future')
-        elif self.config.py3modernize_future_unicode:
+        elif self.config.modernize_future_unicode:
             unwanted_fixes.add('libmodernize.fixes.fix_unicode')
         else:
             unwanted_fixes.add('libmodernize.fixes.fix_unicode_future')
             unwanted_fixes.add('libmodernize.fixes.fix_unicode')
 
-        if self.config.py3modernize_no_six:
+        if self.config.modernize_no_six:
             unwanted_fixes.update(six_fix_names)
+
+        explicit = set()
+
+        if self.config.modernize_fix:
+            default_present = False
+            for fix in self.config.modernize_fix:
+                if fix == 'default':
+                    default_present = True
+                else:
+                    explicit.add(fix)
+
+            requested = default_fixes.union(explicit) if default_present else explicit
+        else:
+            requested = default_fixes
 
         requested = default_fixes
         fixer_names = requested.difference(unwanted_fixes)
 
-        rft = PyLintRefactoringTool(sorted(fixer_names), flags)
-        rft.refactor_file(node.file, write=False)
+        rft = PyLintRefactoringTool(sorted(fixer_names), flags, sorted(explicit))
+        rft.refactor_file(node.file,
+                          write=False,
+                          doctests_only=self.config.modernize_doctests_only)
+
         for lineno, diff in rft.diff:
-            self.add_message('W7001', line=lineno, args=diff)
+            # Since PyLint's python3 checker uses <Type>16<int><int>, we'll also use that range
+            self.add_message('W1699', line=lineno, args=diff)
 
 
 def register(linter):
