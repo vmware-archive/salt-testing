@@ -1,15 +1,28 @@
 # -*- coding: utf-8 -*-
 
 import difflib
+import warnings
 from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
 
-from lib2to3 import refactor
-from libmodernize.fixes import lib2to3_fix_names, opt_in_fix_names, six_fix_names
+try:
+    from lib2to3 import refactor
+    from libmodernize.fixes import lib2to3_fix_names, opt_in_fix_names, six_fix_names
+    HAS_REQUIRED_LIBS = True
+except ImportError:
+    HAS_REQUIRED_LIBS = False
+    warnings.warn(
+        'The modernize pylint plugin will not be available. Either '
+        '\'lib2to3\', unlikely, or \'libmodernize\' was not importable.',
+        RuntimeWarning
+    )
 
-FIXES = lib2to3_fix_names
-FIXES.update(opt_in_fix_names)
-FIXES.update(six_fix_names)
+if HAS_REQUIRED_LIBS:
+    FIXES = lib2to3_fix_names
+    FIXES.update(opt_in_fix_names)
+    FIXES.update(six_fix_names)
+else:
+    FIXES = ()
 
 
 def diff_texts(old, new):
@@ -156,4 +169,5 @@ def register(linter):
     '''
     required method to auto register this checker
     '''
-    linter.register_checker(Py3Modernize(linter))
+    if HAS_REQUIRED_LIBS:
+        linter.register_checker(Py3Modernize(linter))
