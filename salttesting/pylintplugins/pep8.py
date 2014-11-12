@@ -19,6 +19,7 @@
 from __future__ import absolute_import
 import sys
 import logging
+import warnings
 
 # Import PyLint libs
 from pylint.interfaces import IRawChecker
@@ -30,12 +31,11 @@ try:
     from pep8 import StyleGuide, BaseReport
     HAS_PEP8 = True
 except ImportError:
-    HAS_PEP8 = False
-    msg = 'No pep8 library could be imported. No PEP8 check\'s will be done'
-    if logging.root.handlers:
-        logging.getLogger(__name__).warning(msg)
-    else:
-        sys.stderr.write('{0}\n'.format(msg))
+    HAS_PEP8 = False 
+    warnings.warn(
+        'No pep8 library could be imported. No PEP8 check\'s will be done',
+        RuntimeWarning
+    )
 
 
 _PROCESSED_NODES = {}
