@@ -70,7 +70,7 @@ class Py3Modernize(BaseChecker):
     __implements__ = IRawChecker
 
     name = 'modernize'
-    msgs = {'W7001': ('Incompatible Python 3 code found. Proposed fix:\n%s',
+    msgs = {'W1699': ('Incompatible Python 3 code found. Proposed fix:\n%s',
                       'incompatible-py3-code',
                       ('Incompatible Python 3 code found')),
             }
