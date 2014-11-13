@@ -25,7 +25,7 @@ else:
     FIXES = ()
 
 
-def diff_texts(old, new):
+def diff_texts(old, new, diff_context_lines=3):
     diffs = []
 
     if not isinstance(old, list):
@@ -34,12 +34,12 @@ def diff_texts(old, new):
     if not isinstance(new, list):
         new = new.splitlines()
 
-    for group in difflib.SequenceMatcher(None, old, new).get_grouped_opcodes(3):
+    for group in difflib.SequenceMatcher(None, old, new).get_grouped_opcodes(diff_context_lines):
         start_line = None
         diff = []
         for tag, i1, i2, j1, j2 in group:
             if start_line is None:
-                start_line = i1
+                start_line = i1 + diff_context_lines + 1
             if tag == 'equal':
                 for line in old[i1:i2]:
                     diff.append(' ' + line)
