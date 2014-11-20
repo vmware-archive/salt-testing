@@ -82,6 +82,8 @@ setup(
         'salttesting/parser',
         'salttesting/cherrypytest',
         'salttesting/pylintplugins',
+        'salttesting/pylintplugins/py3modernize',
+        'salttesting/pylintplugins/py3modernize/fixes',
     ],
     **SETUP_KWARGS
 )

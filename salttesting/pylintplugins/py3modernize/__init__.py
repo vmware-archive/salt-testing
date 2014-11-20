@@ -6,7 +6,7 @@ from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
 
 try:
-    from lib2to3 import refactor
+    from lib2to3 import fixer_util, refactor
     from libmodernize.fixes import lib2to3_fix_names, opt_in_fix_names, six_fix_names
     HAS_REQUIRED_LIBS = True
 except ImportError:
@@ -21,6 +21,22 @@ if HAS_REQUIRED_LIBS:
     FIXES = lib2to3_fix_names
     FIXES.update(opt_in_fix_names)
     FIXES.update(six_fix_names)
+
+    # Let's patch lib2to3.fixer_util.touch_import so we can make it import six from salt.ext
+    # Keep a ref of the original function
+    fixer_util_touch_import = fixer_util.touch_import
+
+    # Define our override
+    def salt_lib2to3_touch_import(package, name, node):
+        if 'six' in name:
+            name = 'salt.ext.{0}'.format(name)
+
+        if package and 'six' in package:
+            package = 'salt.ext.{0}'.format(package)
+        fixer_util_touch_import(package, name, node)
+
+    # Patch lib2to3.fixer_util.touch_import!
+    fixer_util.touch_import = salt_lib2to3_touch_import
 else:
     FIXES = ()
 
@@ -122,8 +138,14 @@ class Py3Modernize(BaseChecker):
         if self.config.modernize_print_function:
             flags['print_function'] = True
 
+        salt_avail_fixes = set(
+            refactor.get_fixers_from_package(
+                'salttesting.pylintplugins.py3modernize.fixes'
+            )
+        )
         avail_fixes = set(refactor.get_fixers_from_package('libmodernize.fixes'))
         avail_fixes.update(lib2to3_fix_names)
+        avail_fixes.update(salt_avail_fixes)
 
         default_fixes = avail_fixes.difference(opt_in_fix_names)
         unwanted_fixes = set(self.config.modernize_nofix)
@@ -137,6 +159,10 @@ class Py3Modernize(BaseChecker):
 
         if self.config.modernize_no_six:
             unwanted_fixes.update(six_fix_names)
+        else:
+            # We explicitly will remove fix_imports_six from libmodernize and will add
+            # our own fix_imports_six
+            unwanted_fixes.add('libmodernize.fixes.fix_imports_six')
 
         explicit = set()
 
@@ -154,6 +180,8 @@ class Py3Modernize(BaseChecker):
 
         requested = default_fixes
         fixer_names = requested.difference(unwanted_fixes)
+
+        print 333, fixer_names
 
         rft = PyLintRefactoringTool(sorted(fixer_names), flags, sorted(explicit))
         rft.refactor_file(node.file,
