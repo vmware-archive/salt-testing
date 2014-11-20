@@ -22,21 +22,25 @@ if HAS_REQUIRED_LIBS:
     FIXES.update(opt_in_fix_names)
     FIXES.update(six_fix_names)
 
-    # Let's patch lib2to3.fixer_util.touch_import so we can make it import six from salt.ext
+    # Let's patch lib2to3.fixer_util.touch_import so we can make it import
+    # six from salt.ext
+
     # Keep a ref of the original function
-    fixer_util_touch_import = fixer_util.touch_import
+    FIXER_UTIL_TOUCH_IMPORT = fixer_util.touch_import
 
     # Define our override
     def salt_lib2to3_touch_import(package, name, node):
-        if 'six' in name:
+        if package is None and name == 'six':
+            # from salt.ext import six
+            package = 'salt.ext'
+        elif package is None and 'six' in name:
+            # import six
             name = 'salt.ext.{0}'.format(name)
-
-        if package and 'six' in package:
+        elif package and 'six' in package:
+            # from six import <blah>
             package = 'salt.ext.{0}'.format(package)
-        fixer_util_touch_import(package, name, node)
+        FIXER_UTIL_TOUCH_IMPORT(package, name, node)
 
-    # Patch lib2to3.fixer_util.touch_import!
-    fixer_util.touch_import = salt_lib2to3_touch_import
 else:
     FIXES = ()
 
@@ -133,6 +137,9 @@ class Py3Modernize(BaseChecker):
         the module's content is accessible via node.file_stream object
         '''
 
+        # Patch lib2to3.fixer_util.touch_import!
+        fixer_util.touch_import = salt_lib2to3_touch_import
+
         flags = {}
 
         if self.config.modernize_print_function:
@@ -181,8 +188,6 @@ class Py3Modernize(BaseChecker):
         requested = default_fixes
         fixer_names = requested.difference(unwanted_fixes)
 
-        print 333, fixer_names
-
         rft = PyLintRefactoringTool(sorted(fixer_names), flags, sorted(explicit))
         rft.refactor_file(node.file,
                           write=False,
@@ -191,6 +196,9 @@ class Py3Modernize(BaseChecker):
         for lineno, diff in rft.diff:
             # Since PyLint's python3 checker uses <Type>16<int><int>, we'll also use that range
             self.add_message('W1699', line=lineno, args=diff)
+
+        # Restore lib2to3.fixer_util.touch_import!
+        fixer_util.touch_import = FIXER_UTIL_TOUCH_IMPORT
 
 
 def register(linter):
