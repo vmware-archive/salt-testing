@@ -168,10 +168,18 @@ class Py3Modernize(BaseChecker):
 
         if self.config.modernize_no_six:
             unwanted_fixes.update(six_fix_names)
+            unwanted_fixes.update(salt_avail_fixes)
         else:
             # We explicitly will remove fix_imports_six from libmodernize and will add
             # our own fix_imports_six
             unwanted_fixes.add('libmodernize.fixes.fix_imports_six')
+            # Remove a bunch of libmodernize.fixes since we need to properly skip them
+            # and we provide the proper skip rule
+            unwanted_fixes.add('libmodernize.fixes.fix_input_six')
+            unwanted_fixes.add('libmodernize.fixes.fix_filter')
+            unwanted_fixes.add('libmodernize.fixes.fix_map')
+            unwanted_fixes.add('libmodernize.fixes.fix_xrange_six')
+            unwanted_fixes.add('libmodernize.fixes.fix_zip')
 
         explicit = set()
 
