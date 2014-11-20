@@ -6,7 +6,8 @@ from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
 
 try:
-    from lib2to3 import fixer_util, refactor
+    from lib2to3 import fixer_util, refactor, pgen2
+    from lib2to3.pgen2.parse import ParseError
     from libmodernize.fixes import lib2to3_fix_names, opt_in_fix_names, six_fix_names
     HAS_REQUIRED_LIBS = True
 except ImportError:
@@ -90,7 +91,10 @@ class Py3Modernize(BaseChecker):
     __implements__ = IRawChecker
 
     name = 'modernize'
-    msgs = {'W1699': ('Incompatible Python 3 code found. Proposed fix:\n%s',
+    msgs = {'W1698': ('Unable to run modernize. Parse Error: %s',
+                      'modernize-parse-error',
+                      ('Incompatible Python 3 code found')),
+            'W1699': ('Incompatible Python 3 code found. Proposed fix:\n%s',
                       'incompatible-py3-code',
                       ('Incompatible Python 3 code found')),
             }
@@ -133,8 +137,6 @@ class Py3Modernize(BaseChecker):
     def process_module(self, node):
         '''
         process a module
-
-        the module's content is accessible via node.file_stream object
         '''
 
         # Patch lib2to3.fixer_util.touch_import!
@@ -189,9 +191,19 @@ class Py3Modernize(BaseChecker):
         fixer_names = requested.difference(unwanted_fixes)
 
         rft = PyLintRefactoringTool(sorted(fixer_names), flags, sorted(explicit))
-        rft.refactor_file(node.file,
-                          write=False,
-                          doctests_only=self.config.modernize_doctests_only)
+        try:
+            rft.refactor_file(node.file,
+                              write=False,
+                              doctests_only=self.config.modernize_doctests_only)
+        except ParseError as exc:
+            # Unable to refactor, let's not make PyLint crash
+            try:
+                lineno = exc.context[1][0]
+                line_contents = node.file_stream.readlines()[lineno-1].rstrip()
+                self.add_message('W1698', line=lineno, args=line_contents)
+            except Exception:
+                self.add_message('W1698', line=1, args=exc)
+            return
 
         for lineno, diff in rft.diff:
             # Since PyLint's python3 checker uses <Type>16<int><int>, we'll also use that range
