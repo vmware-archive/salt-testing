@@ -212,6 +212,9 @@ class Py3Modernize(BaseChecker):
             except Exception:
                 self.add_message('W1698', line=1, args=exc)
             return
+        except AssertionError as exc:
+            self.add_message('W1698', line=1, args=exc)
+            return
 
         for lineno, diff in rft.diff:
             # Since PyLint's python3 checker uses <Type>16<int><int>, we'll also use that range
