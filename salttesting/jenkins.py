@@ -372,13 +372,10 @@ def start_secondary_sshd(options):
         '-p', '65522',
         '2>&1', '>', '/tmp/sshd_debug.log'
     ]
-    exitcode = run_function_on_vm(
+    return run_function_on_vm(
         options,
         'cmd.run_all', '\'{0}\' python_shell=True'.format(' '.join(cmd))
     )
-    if exitcode == 0:
-        setattr(options, 'secondary_sshd_started', 'yes')
-    return exitcode
 
 
 def sync_minion(options):
@@ -749,7 +746,7 @@ def run_ssh_command(options, remote_command):
     # `requiretty` enforced.
     cmd.extend(['-t', '-t'])
 
-    if options.secondary_sshd and 'secondary_sshd_started' in options:
+    if options.secondary_sshd:
         cmd.extend(['-p', '65522'])
 
     cmd.append(
