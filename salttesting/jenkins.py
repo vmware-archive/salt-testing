@@ -372,10 +372,7 @@ def start_secondary_sshd(options):
         '-p', '65522',
         '2>&1', '>', '/tmp/sshd_debug.log'
     ]
-    return run_function_on_vm(
-        options,
-        'cmd.run_all', '\'{0}\' python_shell=True'.format(' '.join(cmd))
-    )
+    return run_command(cmd, options)
 
 
 def sync_minion(options):
@@ -598,36 +595,6 @@ def check_boostrapped_minion_version(options):
         setattr(options, 'boostrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
     except (ValueError, TypeError):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
-
-
-def run_function_on_vm(options, function, args=None, timeout=100):
-    '''
-    Run a state on the VM
-    '''
-    test_ssh_root_login(options)
-    cmd = [
-        'salt-call',
-        '-l', options.log_level,
-        '--retcode-passthrough'
-    ]
-    if options.boostrapped_salt_minion_version > (2014, 7):
-        cmd.append('--timeout={0}'.format(timeout))
-    if options.no_color:
-        cmd.append('--no-color')
-
-    cmd.append(function)
-
-    if args:
-        cmd.append(args)
-
-    cmd.append('pillar="{0}"'.format(build_pillar_data(options)))
-
-    if options.require_sudo:
-        cmd.insert(0, 'sudo')
-    if options.no_color:
-        cmd.append('--no-color')
-
-    return run_ssh_command(options, cmd)
 
 
 def run_state_on_vm(options, state_name, timeout=100):
@@ -1100,16 +1067,12 @@ def main():
         time.sleep(1)
 
     if options.secondary_sshd:
-        exitcode = start_secondary_sshd(options)
-        if exitcode != 0:
-            # Unable to start the secondary SSHD server, use the regular SSHD server
-            options.secondary_sshd = False
-        else:
-            # Let's download the sshd debug log
-            logs_dir = os.path.join(options.workspace, 'logs')
-            if not os.path.isdir(logs_dir):
-                os.makedirs(logs_dir)
-            options.download_artifact.append(('/tmp/sshd_debug.log', logs_dir))
+        start_secondary_sshd(options)
+        # Let's download the sshd debug log
+        logs_dir = os.path.join(options.workspace, 'logs')
+        if not os.path.isdir(logs_dir):
+            os.makedirs(logs_dir)
+        options.download_artifact.append(('/tmp/sshd_debug.log', logs_dir))
 
     # Run preparation SLS
     for sls in options.test_prep_sls:
