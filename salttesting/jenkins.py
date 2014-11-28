@@ -10,6 +10,7 @@
 '''
 
 # Import python libs
+from __future__ import print_function
 import os
 import sys
 import json
@@ -157,6 +158,7 @@ def generate_ssh_keypair(options):
             print_bulleted(options, 'Failed to generate temporary SSH ksys', 'RED')
             sys.stdout.flush()
             sys.exit(1)
+
 
 def generate_vm_name(options):
     '''
@@ -550,7 +552,6 @@ def check_boostrapped_minion_version(options):
         'test.version'
     ])
 
-
     stdout, stderr, exitcode = run_command(cmd,
                                            options,
                                            return_output=True,
@@ -641,7 +642,6 @@ def check_cloned_reposiory_commit(options):
         'git.revision',
         '/testing'
     ])
-
 
     stdout, stderr, exitcode = run_command(cmd,
                                            options,
