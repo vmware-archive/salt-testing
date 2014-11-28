@@ -359,22 +359,6 @@ def prepare_ssh_access(options):
     return run_command(cmd, options)
 
 
-def start_secondary_sshd(options):
-    '''
-    Start a secondary SSHD server on an alternate port with debug logging
-    enabled and redirected to a file in order to track down any possible
-    disconnections.
-    '''
-    cmd = [
-        '/usr/sbin/sshd',
-        '-ddd',
-        '-e',
-        '-p', '65522',
-        '2>&1', '>', '/tmp/sshd_debug.log'
-    ]
-    return run_command(cmd, options)
-
-
 def sync_minion(options):
     if 'salt_minion_bootstrapped' not in options:
         print_bulleted(options, 'Minion not boostrapped. Not syncing minion.', 'RED')
@@ -713,9 +697,6 @@ def run_ssh_command(options, remote_command):
     # `requiretty` enforced.
     cmd.extend(['-t', '-t'])
 
-    if options.secondary_sshd:
-        cmd.extend(['-p', '65522'])
-
     cmd.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
@@ -787,7 +768,6 @@ def download_artifacts(options):
                 os.chown(local_path, sudo_uid, sudo_gid)
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
 
-
 # ----- Parser Code ------------------------------------------------------------------------------------------------->
 def main():
     parser = argparse.ArgumentParser(description='Jenkins execution helper')
@@ -838,13 +818,6 @@ def main():
         'SSH Option(s)',
         'These SSH option(s) are used on all SSH related communications'
         '(except when initially bootstrapping the minion)'
-    )
-    ssh_options_group.add_argument(
-        '--secondary-sshd',
-        default=False,
-        action='store_true',
-        help=('Run commands through a secondary SSHD daemon with debug logging'
-              'enabled')
     )
     ssh_options_group.add_argument(
         '--ssh-username',
@@ -1065,14 +1038,6 @@ def main():
         time.sleep(1)
         prepare_ssh_access(options)
         time.sleep(1)
-
-    if options.secondary_sshd:
-        start_secondary_sshd(options)
-        # Let's download the sshd debug log
-        logs_dir = os.path.join(options.workspace, 'logs')
-        if not os.path.isdir(logs_dir):
-            os.makedirs(logs_dir)
-        options.download_artifact.append(('/tmp/sshd_debug.log', logs_dir))
 
     # Run preparation SLS
     for sls in options.test_prep_sls:
