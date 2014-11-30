@@ -16,7 +16,8 @@ import sys
 import logging
 
 try:
-    import xmlrunner
+    import xmlrunner.runner
+    import xmlrunner.result
     HAS_XMLRUNNER = True
 
     #class _DelegateIO(xmlrunner._DelegateIO):
@@ -26,22 +27,22 @@ try:
     #        except AttributeError:
     #            return getattr(self.delegate, attr)
 
-    class _XMLTestResult(xmlrunner._XMLTestResult):
+    class _XMLTestResult(xmlrunner.result._XMLTestResult):
         def startTest(self, test):
             logging.getLogger(__name__).debug(
                 '>>>>> START >>>>> {0}'.format(test.id())
             )
             # xmlrunner classes are NOT new-style classes
-            return xmlrunner._XMLTestResult.startTest(self, test)
+            return xmlrunner.result.XMLTestResult.startTest(self, test)
 
         def stopTest(self, test):
             logging.getLogger(__name__).debug(
                 '<<<<< END <<<<<<< {0}'.format(test.id())
             )
             # xmlrunner classes are NOT new-style classes
-            return xmlrunner._XMLTestResult.stopTest(self, test)
+            return xmlrunner.result._XMLTestResult.stopTest(self, test)
 
-    class XMLTestRunner(xmlrunner.XMLTestRunner):
+    class XMLTestRunner(xmlrunner.runner.XMLTestRunner):
         def _make_result(self):
             return _XMLTestResult(
                 self.stream,
@@ -51,7 +52,7 @@ try:
             )
 
         def run(self, test):
-            result = xmlrunner.XMLTestRunner.run(self, test)
+            result = xmlrunner.runner.XMLTestRunner.run(self, test)
             self.stream.writeln('Finished generating XML reports')
             return result
 
