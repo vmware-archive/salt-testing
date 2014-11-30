@@ -33,7 +33,7 @@ try:
                 '>>>>> START >>>>> {0}'.format(test.id())
             )
             # xmlrunner classes are NOT new-style classes
-            return xmlrunner.result.XMLTestResult.startTest(self, test)
+            return xmlrunner.result._XMLTestResult.startTest(self, test)
 
         def stopTest(self, test):
             logging.getLogger(__name__).debug(
