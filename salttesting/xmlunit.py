@@ -20,12 +20,26 @@ try:
     import xmlrunner.result
     HAS_XMLRUNNER = True
 
-    #class _DelegateIO(xmlrunner._DelegateIO):
-    #    def __getattr__(self, attr):
-    #        try:
-    #            return getattr(self._captured, attr)
-    #        except AttributeError:
-    #            return getattr(self.delegate, attr)
+    class _DelegateIO(object):
+        '''
+        This class defines an object that captures whatever is written to
+        a stream or file.
+        '''
+
+        def __init__(self, delegate):
+            self._captured = xmlrunner.result.StringIO()
+            self.delegate = delegate
+
+        def write(self, text):
+            self._captured.write(text)
+            self.delegate.write(text)
+
+        def __getattr__(self, attr):
+            try:
+                return getattr(self._captured, attr)
+            except AttributeError:
+                return getattr(self.delegate, attr)
+
 
     class _XMLTestResult(xmlrunner.result._XMLTestResult):
         def startTest(self, test):
@@ -33,7 +47,14 @@ try:
                 '>>>>> START >>>>> {0}'.format(test.id())
             )
             # xmlrunner classes are NOT new-style classes
-            return xmlrunner.result._XMLTestResult.startTest(self, test)
+            xmlrunner.result._XMLTestResult.startTest(self, test)
+            if self.buffer:
+                # Let's override the values of self._stdXXX_buffer
+                # We want a similar sys.stdXXX file like behaviour
+                self._stderr_buffer = _DelegateIO(sys.stderr)
+                self._stdout_buffer = _DelegateIO(sys.stdout)
+                sys.stderr = self._stderr_buffer
+                sys.stdout = self._stdout_buffer
 
         def stopTest(self, test):
             logging.getLogger(__name__).debug(
@@ -55,14 +76,6 @@ try:
             result = xmlrunner.runner.XMLTestRunner.run(self, test)
             self.stream.writeln('Finished generating XML reports')
             return result
-
-        #def _patch_standard_output(self):
-        #    '''
-        #    Replaces stdout and stderr streams with string-based streams
-        #    in order to capture the tests' output.
-        #    '''
-        #    sys.stdout = _DelegateIO(sys.stdout)
-        #    sys.stderr = _DelegateIO(sys.stderr)
 
 except ImportError:
     HAS_XMLRUNNER = False
