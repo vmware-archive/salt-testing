@@ -51,8 +51,8 @@ try:
             if self.buffer:
                 # Let's override the values of self._stdXXX_buffer
                 # We want a similar sys.stdXXX file like behaviour
-                self._stderr_buffer = _DelegateIO(sys.stderr)
-                self._stdout_buffer = _DelegateIO(sys.stdout)
+                self._stderr_buffer = _DelegateIO(self._original_stderr)
+                self._stdout_buffer = _DelegateIO(self._original_stdout)
                 sys.stderr = self._stderr_buffer
                 sys.stdout = self._stdout_buffer
 
