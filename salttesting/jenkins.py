@@ -74,6 +74,9 @@ class GetPullRequestAction(argparse.Action):
         pr_details = http_req.json()
         setattr(namespace, 'pull_request_git_url', pr_details['head']['repo']['clone_url'])
         setattr(namespace, 'pull_request_git_commit', pr_details['head']['sha'])
+        setattr(namespace, 'pull_request_git_branch', pr_details['head']['ref'])
+        setattr(namespace, 'pull_request_git_base_branch', pr_details['base']['ref'])
+
 # <---- Argparse Custom Actions --------------------------------------------------------------------------------------
 
 
@@ -222,11 +225,14 @@ def echo_parseable_environment(options):
         'JENKINS_VM_NAME={0}'.format(options.vm_name),
         'JENKINS_VM_SOURCE={0}'.format(options.vm_source),
     ]
-    if 'pull_request_git_url' in options and 'pull_request_git_commit' in options:
-        output.extend([
-            'SALT_PR_GIT_URL={0}'.format(options.pull_request_git_url),
-            'SALT_PR_GIT_COMMIT={0}'.format(options.pull_request_git_commit)
-        ])
+    if 'pull_request_git_url' in options:
+        output.append('SALT_PR_GIT_URL={0}'.format(options.pull_request_git_url))
+    if 'pull_request_git_commit' in options:
+        output.append('SALT_PR_GIT_COMMIT={0}'.format(options.pull_request_git_commit))
+    if 'pull_request_git_branch' in options:
+        output.append('SALT_PR_GIT_BRANCH={0}'.format(options.pull_request_git_branch))
+    if 'pull_request_git_base_branch' in options:
+        output.append('SALT_PR_GIT_BASE_BRANCH={0}'.format(options.pull_request_git_base_branch))
 
     sys.stdout.write('\n\n{0}\n\n'.format('\n'.join(output)))
     sys.stdout.flush()
