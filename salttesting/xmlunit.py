@@ -14,6 +14,7 @@
 # Import python libs
 import sys
 import logging
+from StringIO import StringIO
 
 try:
     import xmlrunner.runner
@@ -27,7 +28,7 @@ try:
         '''
 
         def __init__(self, delegate):
-            self._captured = xmlrunner.result.StringIO()
+            self._captured = StringIO()
             self.delegate = delegate
 
         def write(self, text):
@@ -51,8 +52,8 @@ try:
             if self.buffer:
                 # Let's override the values of self._stdXXX_buffer
                 # We want a similar sys.stdXXX file like behaviour
-                self._stderr_buffer = _DelegateIO(self._original_stderr)
-                self._stdout_buffer = _DelegateIO(self._original_stdout)
+                self._stderr_buffer = _DelegateIO(sys.__stderr__)
+                self._stdout_buffer = _DelegateIO(sys.__stdout__)
                 sys.stderr = self._stderr_buffer
                 sys.stdout = self._stdout_buffer
 
