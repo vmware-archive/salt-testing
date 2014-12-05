@@ -31,7 +31,31 @@ try:
             self._captured = StringIO()
             self.delegate = delegate
 
+        def _get_encodings(self):
+            if hasattr(self, '_encodings'):
+                return self._encodings
+            encodings = []
+            loc_enc = locale.getdefaultlocale()[-1]
+            if loc_enc:
+                encodings.append(loc_enc)
+            def_enc = sys.getdefaultencoding()
+            if def_enc not in encodings:
+                encodings.append(def_enc)
+            if 'utf-8' not in encodings:
+                encodings.append('utf-8')
+            self._encodings = encodings
+            return encodings
+
         def write(self, text):
+            if not isinstance(text, unicode):
+                for enc in self._get_encodings():
+                    try:
+                        text = text.decode(enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+            if isinstance(text, unicode):
+                text = text.encode('utf-8')
             self._captured.write(text)
             self.delegate.write(text)
 
@@ -40,7 +64,6 @@ try:
                 return getattr(self._captured, attr)
             except AttributeError:
                 return getattr(self.delegate, attr)
-
 
     class _XMLTestResult(xmlrunner.result._XMLTestResult):
         def startTest(self, test):
