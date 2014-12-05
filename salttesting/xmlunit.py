@@ -13,6 +13,7 @@
 
 # Import python libs
 import sys
+import locale
 import logging
 from StringIO import StringIO
 
