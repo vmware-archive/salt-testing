@@ -49,14 +49,15 @@ try:
 
         def write(self, text):
             if not isinstance(text, unicode):
+                log.debug('Converting non unicode text into unicde')
                 for enc in self._get_encodings():
                     try:
                         text = text.decode(enc)
                         break
                     except UnicodeDecodeError:
                         continue
-            if isinstance(text, unicode):
-                text = text.encode('utf-8')
+            #if isinstance(text, unicode):
+            #    text = text.encode('utf-8')
             self._captured.write(text)
             self.delegate.write(text)
 
