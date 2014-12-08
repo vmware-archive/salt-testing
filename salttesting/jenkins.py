@@ -1074,7 +1074,7 @@ def main():
             '--output-columns={output_columns}'
         )
         if options.test_without_coverage is False:
-            options.test_command + = ' --coverage-xml=/tmp/coverage.xml'
+            options.test_command += ' --coverage-xml=/tmp/coverage.xml'
 
     if options.test_command:
         options.test_command = options.test_command.format(
