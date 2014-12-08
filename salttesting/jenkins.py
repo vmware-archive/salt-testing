@@ -1070,9 +1070,13 @@ def main():
     if options.test_default_command:
         options.test_command = (
             '{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo'
-            '{no_color} --ssh --xml=/tmp/xml-unitests-output --transport={transport} '
+            '{no_color} --xml=/tmp/xml-unitests-output --transport={transport} '
             '--output-columns={output_columns}'
         )
+        pillar = build_pillar_data(options)
+        git_branch = pillar.get('git_branch', None)
+        if git_branch is not None and git_branch not in('2014.1',):
+            options.test_command += ' --ssh'
         if options.test_without_coverage is False:
             options.test_command += ' --coverage-xml=/tmp/coverage.xml'
 
