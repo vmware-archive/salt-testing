@@ -17,6 +17,9 @@ import locale
 import logging
 from StringIO import StringIO
 
+log = logging.getLogger(__name__)
+
+
 try:
     import xmlrunner.runner
     import xmlrunner.result
