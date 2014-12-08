@@ -194,7 +194,10 @@ def build_pillar_data(options):
     '''
     Build a YAML formatted string to properly pass pillar data
     '''
-    pillar = {'test_transport': options.test_transport}
+    pillar = {
+        'test_transport': options.test_transport,
+        'with_coverage': options.test_without_coverage == False
+    }
     if options.test_git_commit is not None:
         pillar['test_git_commit'] = options.test_git_commit
     if options.test_git_url is not None:
@@ -937,6 +940,12 @@ def main():
               '\'--test-pillar\' option. Example: --test-pillar foo_key foo_value')
     )
     testing_source_options.add_argument(
+        '--test-without-coverage',
+        default=False,
+        action='store_true',
+        help='When running the tests default command, remove the coverage related flags.'
+    )
+    testing_source_options.add_argument(
         '--test-prep-sls',
         default=[],
         action='append',
@@ -1061,9 +1070,12 @@ def main():
     if options.test_default_command:
         options.test_command = (
             '{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo'
-            '{no_color} --ssh --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
-            '--transport={transport} --output-columns={output_columns}'
+            '{no_color} --ssh --xml=/tmp/xml-unitests-output --transport={transport} '
+            '--output-columns={output_columns}'
         )
+        if not options.test_without_coverage:
+            options.test_command + = ' --coverage-xml=/tmp/coverage.xml'
+
     if options.test_command:
         options.test_command = options.test_command.format(
             python_executable=get_minion_python_executable(options),
