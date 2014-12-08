@@ -59,8 +59,8 @@ try:
                         break
                     except UnicodeDecodeError:
                         continue
-            #if isinstance(text, unicode):
-            #    text = text.encode('utf-8')
+            if isinstance(text, unicode):
+                text = text.encode('utf-8')
             self._captured.write(text)
             self.delegate.write(text)
 
