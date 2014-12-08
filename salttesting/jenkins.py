@@ -190,7 +190,7 @@ def to_cli_yaml(data):
     return yaml.dump(data, default_flow_style=True, indent=0, width=sys.maxint).rstrip()
 
 
-def build_pillar_data(options):
+def build_pillar_data(options, convert_to_yaml=True):
     '''
     Build a YAML formatted string to properly pass pillar data
     '''
@@ -217,7 +217,10 @@ def build_pillar_data(options):
 
     if options.test_pillar:
         pillar.update(dict(options.test_pillar))
-    return to_cli_yaml(pillar)
+
+    if convert_to_yaml is True:
+        return to_cli_yaml(pillar)
+    return pillar
 
 
 def echo_parseable_environment(options):
@@ -1073,7 +1076,7 @@ def main():
             '{no_color} --xml=/tmp/xml-unitests-output --transport={transport} '
             '--output-columns={output_columns}'
         )
-        pillar = build_pillar_data(options)
+        pillar = build_pillar_data(options, convert_to_yaml=False)
         git_branch = pillar.get('git_branch', None)
         if git_branch is not None and git_branch not in('2014.1',):
             options.test_command += ' --ssh'
