@@ -196,7 +196,7 @@ def build_pillar_data(options):
     '''
     pillar = {
         'test_transport': options.test_transport,
-        'with_coverage': options.test_without_coverage == False
+        'with_coverage': options.test_without_coverage is False
     }
     if options.test_git_commit is not None:
         pillar['test_git_commit'] = options.test_git_commit
@@ -1073,7 +1073,7 @@ def main():
             '{no_color} --ssh --xml=/tmp/xml-unitests-output --transport={transport} '
             '--output-columns={output_columns}'
         )
-        if not options.test_without_coverage:
+        if options.test_without_coverage is False:
             options.test_command + = ' --coverage-xml=/tmp/coverage.xml'
 
     if options.test_command:
