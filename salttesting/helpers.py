@@ -96,6 +96,39 @@ def expensiveTest(caller):
     return wrap
 
 
+def requires_sshd_server(caller):
+    '''
+    Mark a test as requiring the tests SSH daemon running.
+
+    .. code-block:: python
+
+        class MyTestCase(TestCase):
+
+            @requiresSshdServer
+            def test_create_user(self):
+                pass
+    '''
+    if inspect.isclass(caller):
+        # We're decorating a class
+        old_setUp = getattr(caller, 'setUp', None)
+
+        def setUp(self, *args, **kwargs):
+            if os.environ.get('SSH_DAEMON_RUNNING', 'False').lower() == 'false':
+                self.skipTest('SSH tests are disabled')
+            if old_setUp is not None:
+                old_setUp(self, *args, **kwargs)
+        caller.setUp = setUp
+        return caller
+
+    # We're simply decorating functions
+    @wraps(caller)
+    def wrap(cls):
+        if os.environ.get('SSH_DAEMON_RUNNING', 'False').lower() == 'false':
+            self.skipTest('SSH tests are disabled')
+        return caller(cls)
+    return wrap
+
+
 class RedirectStdStreams(object):
     '''
     Temporarily redirect system output to file like objects.
