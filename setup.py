@@ -25,12 +25,14 @@ if 'USE_SETUPTOOLS' in os.environ:
     try:
         from setuptools import setup
         USE_SETUPTOOLS = True
+        SETUP_KWARGS['install_requires'] = ['requests']
 
         if sys.version_info < (2, 7):
-            SETUP_KWARGS['install_requires'] = ['unittest2', 'argparse']
+            SETUP_KWARGS['install_requires'].extend(['unittest2', 'argparse'])
         SETUP_KWARGS['entry_points'] = {
             'console_scripts': [
-                'salt-jenkins-build = salttesting.jenkins:main'
+                'salt-jenkins-build = salttesting.jenkins:main',
+                'github-commit-status = salttesting.github:main'
             ]
         }
     except ImportError:
@@ -40,7 +42,8 @@ if 'USE_SETUPTOOLS' in os.environ:
 if USE_SETUPTOOLS is False:
     from distutils.core import setup
     SETUP_KWARGS['scripts'] = [
-        'scripts/salt-jenkins-build'
+        'scripts/salt-jenkins-build',
+        'scripts/github-commit-status'
     ]
 
 exec(
