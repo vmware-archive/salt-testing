@@ -26,18 +26,6 @@ GH_COMMIT_STATUS_ENDPOINT = 'https://api.github.com/repos/{repo}/statuses/{sha}'
 # <---- GitHub Endpoints ---------------------------------------------------------------------------------------------
 
 
-# ----- GitHub Commit Status States --------------------------------------------------------------------------------->
-class StatusStates(object):
-    PENDING = 'pending'
-    SUCCESS = 'success'
-    FAILURE = 'failure'
-    ERROR = 'error'
-
-    def __iter__(self):
-        return iter([self.PENDING, self.SUCCESS, self.FAILURE, self.ERROR])
-# <---- GitHub Commit Status States ----------------------------------------------------------------------------------
-
-
 # ----- GitHub API Requests ----------------------------------------------------------------------------------------->
 def api_request(parser, endpoint, params, method='GET', expected_http_status=(200,)):
     if HAS_REQUESTS is False:
@@ -105,12 +93,6 @@ def main():
         help='The GitHub repository for this commit status. Default: {default}'
     )
     parser.add_argument(
-        '--state',
-        choices=list(StatusStates()),
-        help='The commit state to set',
-        required=True
-    )
-    parser.add_argument(
         '--target-url',
         help='The URL link to a full report about the commit status',
         required=True
@@ -123,20 +105,25 @@ def main():
     parser.options = options = parser.parse_args()
 
     jenkins_build_data = get_jenkins_build_data(parser, options.target_url)
-    import pprint
-    pprint.pprint(jenkins_build_data)
 
     description = u'{0} \u2014 '.format(jenkins_build_data['fullDisplayName'])
     if jenkins_build_data['building']:
         description += 'RUNNING'
+        state = 'pending'
     else:
         description += jenkins_build_data['result']
+        if jenkins_build_data['result'] == 'SUCCESS':
+            state = 'success'
+        elif jenkins_build_data['result'] == 'ABORTED':
+            state = 'error'
+        else:
+            state = 'failure'
 
     api_request(
         parser,
         GH_COMMIT_STATUS_ENDPOINT,
         params={
-            'state': options.state,
+            'state': state,
             'target_url': options.target_url,
             'description': description,
             'context': options.context
