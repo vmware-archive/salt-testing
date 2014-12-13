@@ -27,7 +27,7 @@ GH_COMMIT_STATUS_ENDPOINT = 'https://api.github.com/repos/{repo}/statuses/{sha}'
 
 
 # ----- GitHub API Requests ----------------------------------------------------------------------------------------->
-def api_request(parser, endpoint, params, method='GET', expected_http_status=(200,)):
+def set_commit_status(parser, params, expected_http_status=(200,)):
     if HAS_REQUESTS is False:
         parser.error(
             'The python \'requests\' library needs to be installed'
@@ -46,16 +46,14 @@ def api_request(parser, endpoint, params, method='GET', expected_http_status=(20
             )
         }
 
-    endpoint = endpoint.format(repo=parser.options.repo, sha=parser.options.sha)
+    endpoint = GH_COMMIT_STATUS_ENDPOINT.format(repo=parser.options.repo, sha=parser.options.sha)
 
-    if method == 'GET':
-        http_req = requests.get(endpoint, headers=headers, params=params)
-    elif method == 'POST':
-        http_req = requests.post(endpoint, headers=headers, json=params)
+    http_req = requests.post(endpoint, headers=headers, json=params)
 
     if http_req.status_code not in expected_http_status:
         parser.error(
-            'API requests returned the wrong HTTP status code ({0}): {1[message]}'.format(
+            'API request to {0!r} returned the wrong HTTP status code ({1}): {2[message]}'.format(
+                endpoint,
                 http_req.status_code,
                 http_req.json()
             )
@@ -63,6 +61,7 @@ def api_request(parser, endpoint, params, method='GET', expected_http_status=(20
 
     return http_req.json()
 # <---- GitHub API Requests ------------------------------------------------------------------------------------------
+
 
 # ----- Jenkins API Requests ---------------------------------------------------------------------------------------->
 def get_jenkins_build_data(parser, build_url):
@@ -119,16 +118,14 @@ def main():
         else:
             state = 'failure'
 
-    api_request(
+    set_commit_status(
         parser,
-        GH_COMMIT_STATUS_ENDPOINT,
         params={
             'state': state,
             'target_url': options.target_url,
             'description': description,
             'context': options.context
         },
-        method='POST',
         expected_http_status=(201,)
     )
 
