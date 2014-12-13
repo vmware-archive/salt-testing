@@ -116,10 +116,9 @@ def main():
     jenkins_build_data = get_jenkins_build_data(parser, options.target_url)
 
     description = u'{0} \u2014 '.format(jenkins_build_data['fullDisplayName'])
-    if jenkins_build_data['building']:
+    if jenkins_build_data['building'] and jenkins_build_data.get('result', None) is None:
         description += 'RUNNING'
         state = 'pending'
-        print 333, jenkins_build_data.get('result', None)
     else:
         description += jenkins_build_data['result']
         if jenkins_build_data['result'] == 'SUCCESS':
