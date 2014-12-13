@@ -35,14 +35,18 @@ def set_commit_status(parser, params, expected_http_status=(200,)):
 
     headers = {}
 
-    github_access_token_path = os.path.join(
-        os.environ.get('JENKINS_HOME', os.path.expanduser('~')),
-        '.github_token'
-    )
-    if os.path.isfile(github_access_token_path):
+    if parser.options.github_auth_token is None:
+        github_access_token_path = os.path.join(
+            os.environ.get('JENKINS_HOME', os.path.expanduser('~')),
+            '.github_token'
+        )
+        if os.path.isfile(github_access_token_path):
+            parser.options.github_auth_token = open(github_access_token_path).read().strip()
+
+    if parser.options.github_auth_token is not None:
         headers = {
             'Authorization': 'token {0}'.format(
-                open(github_access_token_path).read().strip()
+                parser.options.github_auth_token
             )
         }
 
@@ -86,6 +90,12 @@ def get_jenkins_build_data(parser, build_url):
 def main():
     parser = argparse.ArgumentParser(description='GitHub Commit Status Notifications')
     parser.add_argument('sha', metavar='COMMIT_SHA')
+    parser.add_argument(
+        '--auth-token',
+        default=None,
+        dest='github_auth_token',
+        help='The GitHub API authentication token'
+    )
     parser.add_argument(
         '--repo',
         default='saltstack/salt',
