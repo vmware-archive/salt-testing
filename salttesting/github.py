@@ -119,6 +119,7 @@ def main():
     if jenkins_build_data['building']:
         description += 'RUNNING'
         state = 'pending'
+        print 333, jenkins_build_data.get('result', None)
     else:
         description += jenkins_build_data['result']
         if jenkins_build_data['result'] == 'SUCCESS':
