@@ -965,7 +965,7 @@ def main():
         action='store_true',
         help=('Run the default salt runtests command: '
               '\'\{python_executable\} /testing/tests/runtests.py -v --run-destructive --sysinfo '
-              '\{no_color\} --xml=/tmp/xml-unitests-output --coverage-xml=/tmp/coverage.xml '
+              '\{no_color\} --xml=/tmp/xml-unittests-output --coverage-xml=/tmp/coverage.xml '
               '--transport=\{transport\}\'')
     )
 
@@ -1077,8 +1077,8 @@ def main():
             '--output-columns={output_columns}'
         )
         pillar = build_pillar_data(options, convert_to_yaml=False)
-        git_branch = pillar.get('git_branch', None)
-        if git_branch is not None and git_branch not in('2014.1',):
+        git_branch = pillar.get('git_branch', 'develop')
+        if git_branch and git_branch not in('2014.1',):
             options.test_command += ' --ssh'
         if options.test_without_coverage is False:
             options.test_command += ' --coverage-xml=/tmp/coverage.xml'
