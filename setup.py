@@ -25,7 +25,7 @@ if 'USE_SETUPTOOLS' in os.environ:
     try:
         from setuptools import setup
         USE_SETUPTOOLS = True
-        SETUP_KWARGS['install_requires'] = ['requests']
+        SETUP_KWARGS['install_requires'] = ['requests>=2.4.2']
 
         if sys.version_info < (2, 7):
             SETUP_KWARGS['install_requires'].extend(['unittest2', 'argparse'])
