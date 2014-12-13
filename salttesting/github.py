@@ -65,7 +65,6 @@ def api_request(parser, endpoint, params, method='GET', expected_http_status=(20
     elif method == 'POST':
         http_req = requests.post(endpoint, headers=headers, json=params)
 
-    print http_req.text
     if http_req.status_code not in expected_http_status:
         parser.error(
             'API requests returned the wrong HTTP status code ({0}): {1[message]}'.format(
@@ -76,6 +75,24 @@ def api_request(parser, endpoint, params, method='GET', expected_http_status=(20
 
     return http_req.json()
 # <---- GitHub API Requests ------------------------------------------------------------------------------------------
+
+# ----- Jenkins API Requests ---------------------------------------------------------------------------------------->
+def get_jenkins_build_data(parser, build_url):
+    if HAS_REQUESTS is False:
+        parser.error(
+            'The python \'requests\' library needs to be installed'
+        )
+
+    http_req = requests.get('{0}/api/json'.format(build_url))
+    if http_req.status_code != 200:
+        parser.error(
+            'Jenkins API request returned the wrong HTTP status code ({0}): {1}'.format(
+                http_req.status_code,
+                http_req.text
+            )
+        )
+    return http_req.json()
+# <---- Jenkins API Requests -----------------------------------------------------------------------------------------
 
 
 # ----- Argument Parsing Code --------------------------------------------------------------------------------------->
@@ -95,11 +112,7 @@ def main():
     )
     parser.add_argument(
         '--target-url',
-        help='The URL link to a full report about the commit status'
-    )
-    parser.add_argument(
-        '--description',
-        help='Short description about the status',
+        help='The URL link to a full report about the commit status',
         required=True
     )
     parser.add_argument(
@@ -109,13 +122,23 @@ def main():
     )
     parser.options = options = parser.parse_args()
 
+    jenkins_build_data = get_jenkins_build_data(parser, options.target_url)
+    import pprint
+    pprint.pprint(jenkins_build_data)
+
+    description = u'{0} \u2014 '.format(jenkins_build_data['fullDisplayName'])
+    if jenkins_build_data['building']:
+        description += 'RUNNING'
+    else:
+        description += jenkins_build_data['result']
+
     api_request(
         parser,
         GH_COMMIT_STATUS_ENDPOINT,
         params={
             'state': options.state,
             'target_url': options.target_url,
-            'description': options.description,
+            'description': description,
             'context': options.context
         },
         method='POST',
