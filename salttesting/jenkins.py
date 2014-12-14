@@ -1073,7 +1073,7 @@ def main():
     if options.test_default_command:
         options.test_command = (
             '{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo'
-            '{no_color} --xml=/tmp/xml-unitests-output --transport={transport} '
+            '{no_color} --xml=/tmp/xml-unittests-output --transport={transport} '
             '--output-columns={output_columns}'
         )
         pillar = build_pillar_data(options, convert_to_yaml=False)
