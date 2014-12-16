@@ -22,11 +22,11 @@ class FilePermsChecker(BaseChecker):
 
     priority = -1
 
-    options = (('fileperms_default',
+    options = (('fileperms-default',
                 {'default': '0644', 'type': 'string', 'metavar': 'ZERO_PADDED_PERM',
                  'help': 'Desired file permissons. Default: 0644'}
                ),
-               ('fileperms_ignore_paths',
+               ('fileperms-ignore-paths',
                 {'default': (), 'type': 'csv', 'metavar': '<comma-separated-list>',
                  'help': 'File paths to ignore file permission. Glob patterns allowed.'}
                )
@@ -37,8 +37,8 @@ class FilePermsChecker(BaseChecker):
         process a module
         '''
 
-        for listing in glob.glob(self.config.fileperms_ignore_paths):
-            if node.file.split('{0}/'.format(os.getcwd()))[-1] in listing:
+        for listing in self.config.fileperms_ignore_paths:
+            if node.file.split('{0}/'.format(os.getcwd()))[-1] in glob.glob(listing):
                 # File is ignored, no checking should be done
                 return
 
