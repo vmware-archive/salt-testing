@@ -447,7 +447,7 @@ def get_minion_external_address(options):
             setattr(options, 'minion_external_ip', external_ip)
             save_state(options)
             return external_ip
-        except ValueError:
+        except (ValueError, TypeError):
             print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
             sys.stdout.flush()
             attempts += 1
@@ -498,7 +498,7 @@ def get_minion_python_executable(options):
         setattr(options, 'minion_python_executable', python_executable)
         save_state(options)
         return python_executable
-    except ValueError:
+    except (ValueError, TypeError):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
 
