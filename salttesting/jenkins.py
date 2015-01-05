@@ -526,7 +526,7 @@ def delete_lxc_vm(options):
     return run_command(cmd, options)
 
 
-def check_boostrapped_minion_version(options):
+def check_bootstrapped_minion_version(options):
     '''
     Confirm that the bootstrapped minion version matches the desired one
     '''
@@ -588,7 +588,7 @@ def check_boostrapped_minion_version(options):
             sys.stdout.flush()
         else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
-        setattr(options, 'boostrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
+        setattr(options, 'bootstrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
     except (ValueError, TypeError):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
@@ -603,7 +603,7 @@ def run_state_on_vm(options, state_name, timeout=100):
         '-l', options.log_level,
         '--retcode-passthrough'
     ]
-    if options.boostrapped_salt_minion_version > (2014, 7):
+    if options.bootstrapped_salt_minion_version > (2014, 7):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
@@ -779,6 +779,7 @@ def download_artifacts(options):
             else:
                 os.chown(local_path, sudo_uid, sudo_gid)
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
+
 
 # ----- Parser Code ------------------------------------------------------------------------------------------------->
 def main():
@@ -1052,7 +1053,7 @@ def main():
         time.sleep(5)
 
     if options.cloud_deploy or options.lxc_deploy:
-        check_boostrapped_minion_version(options)
+        check_bootstrapped_minion_version(options)
         time.sleep(1)
         prepare_ssh_access(options)
         time.sleep(1)
