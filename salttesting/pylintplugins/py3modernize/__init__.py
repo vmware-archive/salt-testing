@@ -2,6 +2,7 @@
 
 import difflib
 import warnings
+import logging
 from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
 
@@ -214,6 +215,9 @@ class Py3Modernize(BaseChecker):
             return
         except AssertionError as exc:
             self.add_message('W1698', line=1, args=exc)
+            return
+        except IOError as exc:
+            logging.getLogger(__name__).warn('Error while processing {0}: {1}'.format(node.file, exc))
             return
 
         for lineno, diff in rft.diff:
