@@ -216,7 +216,7 @@ class Py3Modernize(BaseChecker):
         except AssertionError as exc:
             self.add_message('W1698', line=1, args=exc)
             return
-        except IOError as exc:
+        except (IOError, OSError) as exc:
             logging.getLogger(__name__).warn('Error while processing {0}: {1}'.format(node.file, exc))
             return
 
