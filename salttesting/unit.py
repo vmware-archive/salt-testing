@@ -23,6 +23,7 @@
 # Import python libs
 import sys
 import logging
+import psutil
 
 
 # support python < 2.7 via unittest2
@@ -70,7 +71,6 @@ if sys.version_info < (2, 7):
         class _TextTestResult(__TextTestResult, NewStyleClassMixin):
             pass
 
-
     except ImportError:
         raise SystemExit('You need to install unittest2 to run the salt tests')
 else:
@@ -89,6 +89,22 @@ else:
 
 
 class TestCase(_TestCase):
+
+    def shortDescription(self):
+        
+        proc_info = ''
+        found_zombies = 0
+        try:
+            for proc in psutil.process_iter():
+                if proc.status == psutil.STATUS_ZOMBIE:
+                    found_zombies += 1
+            proc_info = '[CPU:{0}%|MEM:{1}%|Z:{2}] {3}'.format(psutil.cpu_percent(),
+                                                               psutil.virtual_memory().percent,
+                                                               found_zombies,
+                                                               _TestCase.shortDescription(self) if None else '')
+        except Exception:
+            pass
+        return proc_info
 
     def assertEquals(self, *args, **kwargs):
         raise DeprecationWarning(
