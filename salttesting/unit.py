@@ -94,6 +94,7 @@ else:
 class TestCase(_TestCase):
 
     def shortDescription(self):
+        desc = _TestCase.shortDescription(self)
         if HAS_PSUTIL:
             proc_info = ''
             found_zombies = 0
@@ -101,10 +102,10 @@ class TestCase(_TestCase):
                 for proc in psutil.process_iter():
                     if proc.status == psutil.STATUS_ZOMBIE:
                         found_zombies += 1
-                proc_info = '[CPU:{0}%|MEM:{1}%|Z:{2}] {3}'.format(psutil.cpu_percent(),
+                proc_info = '[CPU:{0}%|MEM:{1}%|Z:{2}] {short_desc}'.format(psutil.cpu_percent(),
                                                                    psutil.virtual_memory().percent,
                                                                    found_zombies,
-                                                                   _TestCase.shortDescription(self) if None else '')
+                                                                   short_desc=desc if desc else '')
             except Exception:
                 pass
             return proc_info
