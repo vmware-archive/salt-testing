@@ -6,7 +6,12 @@ The setup script for SaltTesting
 import os
 import sys
 
-SETUP_KWARGS = {}
+SETUP_KWARGS = {
+    'scripts': [
+        'scripts/salt-jenkins-build',
+        'scripts/github-commit-status'
+    ]
+}
 USE_SETUPTOOLS = False
 
 # Change to salt source's directory prior to running any command
@@ -44,10 +49,7 @@ if 'USE_SETUPTOOLS' in os.environ:
 
 if USE_SETUPTOOLS is False:
     from distutils.core import setup
-    SETUP_KWARGS['scripts'] = [
-        'scripts/salt-jenkins-build',
-        'scripts/github-commit-status'
-    ]
+
 
 exec(
     compile(
