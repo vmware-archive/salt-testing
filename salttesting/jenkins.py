@@ -603,7 +603,7 @@ def run_state_on_vm(options, state_name, timeout=100):
         '-l', options.log_level,
         '--retcode-passthrough'
     ]
-    if options.bootstrapped_salt_minion_version > (2014, 7):
+    if options.bootstrapped_salt_minion_version >= (2015, 2):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
