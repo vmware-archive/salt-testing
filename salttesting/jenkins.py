@@ -398,7 +398,7 @@ def get_minion_external_address(options):
     if 'salt_minion_bootstrapped' not in options:
         print_bulleted(options, 'Minion not boostrapped. Not grabbing external IP.', 'RED')
         sys.exit(1)
-    if 'minion_external_ip' in options:
+    if getattr(options, 'minion_external_ip', None):
         return options.minion_external_ip
 
     sync_minion(options)
@@ -1000,6 +1000,10 @@ def main():
     )
 
     options = parser.parse_args()
+    if options.echo_parseable_output and \
+            os.path.exists(os.path.join(options.workspace, '.state.json')):
+        # Since this is the first command to run, let's clear any saved state
+        os.unlink(os.path.join(options.workspace, '.state.json'))
     load_state(options)
 
     if options.lxc_deploy or options.lxc_host:
