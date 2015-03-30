@@ -759,7 +759,7 @@ def download_artifacts(options):
         if not os.path.isdir(local_path):
             os.makedirs(local_path)
         run_command(
-            'echo "get {0} {1}" | {2}'.format(
+            'echo "get -r {0} {1}" | {2}'.format(
                 remote_path,
                 local_path,
                 ' '.join(sftp_command)
