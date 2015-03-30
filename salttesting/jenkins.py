@@ -167,8 +167,17 @@ def generate_vm_name(options):
     '''
     Generate a random enough vm name
     '''
-    if 'BUILD_NUMBER' in os.environ:
-        random_part = 'build{0:0>6}'.format(os.environ.get('BUILD_NUMBER'))
+    vm_name_prefix = os.environ.get('JENKINS_VM_NAME_PREFIX', 'Z')
+    if 'BUILD_TAG' in os.environ:
+        return '{0}_{1}'.format(
+            vm_name_prefix,
+            os.environ.get('BUILD_TAG').replace(
+                'jenkins', 'jk').replace(
+                    'salt-cloud', 'cloud').replace(
+                        'nightly', 'ntly').replace(
+                            'salt', 'slt').replace(
+                                'linode', 'lin')
+        )
     else:
         random_part = hashlib.md5(
             str(random.randint(1, 100000000))).hexdigest()[:6]
