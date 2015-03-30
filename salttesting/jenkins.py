@@ -208,9 +208,9 @@ def build_pillar_data(options, convert_to_yaml=True):
         'with_coverage': options.test_without_coverage is False
     }
     if options.test_git_commit is not None:
-        pillar['test_git_commit'] = options.test_git_commit
+        pillar['test_git_commit'] = pillar['repo_clone_rev'] = options.test_git_commit
     if options.test_git_url is not None:
-        pillar['test_git_url'] = options.test_git_url
+        pillar['test_git_url'] = pillar['repo_clone_url'] = options.test_git_url
     if options.bootstrap_salt_url is not None:
         pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
     if options.bootstrap_salt_commit is not None:
