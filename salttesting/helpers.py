@@ -1049,3 +1049,42 @@ def skip_if_not_root(func):
         func.__unittest_skip__ = True
         func.__unittest_skip_why__ = 'You must be logged in as root to run this test'
     return func
+
+
+class MockModules(object):
+    '''
+    mock python modules
+    '''
+    def __init__(self):
+        '''
+        store a list of mocked modules; if the module is already in
+        `sys.modules`, then store a copy of the original module to be restored
+        into `sys.modules` when the testcase needing the mocked modules has
+        completed
+        '''
+        self.modules = {}
+
+    def add(self, name):
+        '''
+        mock a module
+        '''
+        if name in sys.modules:
+            self.modules[name] = sys.modules[name]
+        else:
+            self.modules[name] = None
+        sys.modules[name] = types.ModuleType(name)
+        return sys.modules[name]
+
+    def remove(self, name=None):
+        '''
+        remove mocked modules from `sys.modules` if they were not there,
+        otherwise restore the original, non-mocked versions from
+        `self.modules`; if `name` is not `None`, only remove the module `name`
+        '''
+        to_remove = [name] if name else self.modules
+
+        for name in to_remove:
+            if self.modules[name] is None:
+                del sys.modules[name]
+            else:
+                sys.modules[name] = self.modules[name]
