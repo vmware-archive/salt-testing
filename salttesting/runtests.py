@@ -1376,7 +1376,7 @@ class SaltRuntests(argparse.ArgumentParser):
                 'where the salt code resides'
             )
 
-        self.colors = get_colors(self.options.no_color is False)
+        self.colors = get_colors(self.options.no_colors is False)
 
         # (Major version, Minor version, Nr. commits) ignoring bugfix and rc's
         required_salt_version = (__saltstack_version__.major, __saltstack_version__.minor, __saltstack_version__.noc)
@@ -1407,7 +1407,7 @@ class SaltRuntests(argparse.ArgumentParser):
         # Parse ARGV again now that we have more of the required data...
         # Yes, it's not neat...
         self.options = super(SaltRuntests, self).parse_args(args, namespace)
-        self.colors = get_colors(self.options.no_color is False)
+        self.colors = get_colors(self.options.no_colors is False)
 
         # ----- Coverage Checks ------------------------------------------------------------------------------------->
         if (self.options.coverage_html_output or self.options.coverage_xml_output) and not self.options.coverage:
