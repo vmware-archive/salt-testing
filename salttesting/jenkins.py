@@ -989,7 +989,12 @@ def main():
         action='store_true',
         help='Run buildpackage.py to create packages off of the git build.'
     )
-    # These next three options are ignored if --build-packages is False
+    # These next four options are ignored if --build-packages is False
+    packaging_options.add_argument(
+        '--build-packages-sls',
+        default='buildpackage',
+        help='The state to run for \'--build-packages\'. Default: %(default)s.'
+    )
     packaging_options.add_argument(
         '--package-source-dir',
         default='/testing',
@@ -1116,7 +1121,7 @@ def main():
         # If we reached here it means the test command passed, let's build
         # packages if the option is passed
         if options.build_packages:
-            run_state_on_vm(options, 'buildpackage')
+            run_state_on_vm(options, options.build_packages_sls)
             # Let's download the logs, even if building the packages fails
             logs_dir = os.path.join(options.workspace, 'logs')
             if not os.path.isdir(logs_dir):
