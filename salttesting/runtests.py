@@ -304,7 +304,7 @@
     '''
 
 # Import Python modules
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 import os
 import re
 import imp
@@ -1686,7 +1686,7 @@ class SaltRuntests(argparse.ArgumentParser):
         '''
         Print a nicely formatted report about the test suite results
         '''
-        print
+        print()
         print_header(
             u'  Overall Tests Report  ', sep=u'=', centered=True, inline=True,
             width=self.options.output_columns
