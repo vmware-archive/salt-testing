@@ -9,7 +9,10 @@
     PEP-263 PyLint Checker
     ======================
 '''
-
+# ----- DEPRECATED PYLINT PLUGIN ------------------------------------------------------------------------------------>
+# This Pylint plugin is deprecated. Development continues on the SaltPyLint package
+# <---- DEPRECATED PYLINT PLUGIN -------------------------------------------------------------------------------------
+from __future__ import absolute_import
 import re
 import itertools
 

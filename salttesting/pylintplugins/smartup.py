@@ -13,8 +13,11 @@
     understand some classed used in Salt which trigger, `no-member` and `maybe-no-member`
     A bridge between the `pep8`_ library and PyLint
 
-    '''
-
+'''
+# ----- DEPRECATED PYLINT PLUGIN ------------------------------------------------------------------------------------>
+# This Pylint plugin is deprecated. Development continues on the SaltPyLint package
+# <---- DEPRECATED PYLINT PLUGIN -------------------------------------------------------------------------------------
+from __future__ import absolute_import
 # Import PyLint libs
 from astroid import nodes, MANAGER
 
