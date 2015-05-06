@@ -16,10 +16,10 @@ from __future__ import absolute_import
 import sys
 import locale
 import logging
-from StringIO import StringIO
 
 # Import 3rd-party libs
 import six
+from six import StringIO
 
 log = logging.getLogger(__name__)
 
