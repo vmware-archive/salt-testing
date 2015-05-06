@@ -10,7 +10,7 @@
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 import os
 import sys
 import time
@@ -503,7 +503,7 @@ class SaltTestingParser(optparse.OptionParser):
         '''
         Print a nicely formatted report about the test suite results
         '''
-        print
+        print()
         print_header(
             u'  Overall Tests Report  ', sep=u'=', centered=True, inline=True,
             width=self.options.output_columns
