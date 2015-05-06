@@ -14,8 +14,9 @@
     .. _`pep8`: http://pep8.readthedocs.org
 
     '''
-
-# Let's use absolute imports
+# ----- DEPRECATED PYLINT PLUGIN ------------------------------------------------------------------------------------>
+# This Pylint plugin is deprecated. Development continues on the SaltPyLint package
+# <---- DEPRECATED PYLINT PLUGIN -------------------------------------------------------------------------------------
 from __future__ import absolute_import
 import sys
 import logging
@@ -31,7 +32,7 @@ try:
     from pep8 import StyleGuide, BaseReport
     HAS_PEP8 = True
 except ImportError:
-    HAS_PEP8 = False 
+    HAS_PEP8 = False
     warnings.warn(
         'No pep8 library could be imported. No PEP8 check\'s will be done',
         RuntimeWarning
