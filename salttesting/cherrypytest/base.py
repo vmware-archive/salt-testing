@@ -28,7 +28,7 @@
 # Modified from the original. See the Git history of this file for details.
 # https://bitbucket.org/Lawouach/cherrypy-recipes/src/50aff88dc4e24206518ec32e1c32af043f2729da/testing/unit/serverless/cptestcase.py
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 from StringIO import StringIO
 
 import cherrypy
@@ -112,7 +112,7 @@ class BaseCherryPyTestCase(TestCase):
                 fd = None
 
         if response.output_status.startswith('500'):
-            print response.body
+            print(response.body)
             raise AssertionError("Unexpected error")
 
         # collapse the response into a bytestring
