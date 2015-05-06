@@ -10,6 +10,7 @@
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
+from __future__ import absolute_import
 import os
 import sys
 import time

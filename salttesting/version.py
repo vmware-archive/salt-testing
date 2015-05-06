@@ -8,5 +8,8 @@
     :license: Apache 2.0, see LICENSE for more details.
 '''
 
+# Import Python Libs
+from __future__ import absolute_import
+
 __version_info__ = (2015, 2, 16)
 __version__ = '.'.join(map(str, __version_info__))
