@@ -19,13 +19,15 @@ import types
 import socket
 import inspect
 import logging
-import __builtin__
 from functools import wraps
 
 # Import Salt Testing libs
 from salttesting import __version_info__
 from salttesting.unit import skip, _id
 
+# Import 3rd-party libs
+import six
+import six.moves.builtins as __builtin__
 log = logging.getLogger(__name__)
 
 
@@ -670,7 +672,7 @@ def with_system_user(username, on_existing='delete', delete=True):
                             )
                 if failure is not None:
                     # If an exception was thrown, raise it
-                    raise failure[0], failure[1], failure[2]
+                    six.reraise(failure[0], failure[1], failure[2])
         return wrap
     return decorator
 
@@ -772,7 +774,7 @@ def with_system_group(group, on_existing='delete', delete=True):
                             )
                 if failure is not None:
                     # If an exception was thrown, raise it
-                    raise failure[0], failure[1], failure[2]
+                    six.reraise(failure[0], failure[1], failure[2])
         return wrap
     return decorator
 
@@ -932,7 +934,7 @@ def with_system_user_and_group(username, group,
                             )
                 if failure is not None:
                     # If an exception was thrown, raise it
-                    raise failure[0], failure[1], failure[2]
+                    six.reraise(failure[0], failure[1], failure[2])
         return wrap
     return decorator
 

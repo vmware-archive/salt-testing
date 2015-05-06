@@ -20,6 +20,9 @@ import subprocess
 # Import Salt Testing Libs
 from salttesting.runtests import RUNTIME_VARS
 
+# Import 3rd-party libs
+import six
+
 log = logging.getLogger(__name__)
 
 
@@ -86,7 +89,7 @@ class SaltReturnAssertsMixIn(object):
         if isinstance(keys, tuple):
             # If it's a tuple, turn it into a list
             keys = list(keys)
-        elif isinstance(keys, basestring):
+        elif isinstance(keys, six.string_types):
             # If it's a basestring , make it a one item list
             keys = [keys]
         elif not isinstance(keys, list):

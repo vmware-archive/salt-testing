@@ -18,6 +18,9 @@ import locale
 import logging
 from StringIO import StringIO
 
+# Import 3rd-party libs
+import six
+
 log = logging.getLogger(__name__)
 
 
@@ -52,7 +55,7 @@ try:
             return encodings
 
         def write(self, text):
-            if not isinstance(text, unicode):
+            if not isinstance(text, six.text_type):
                 log.debug('Converting non unicode text into unicde')
                 for enc in self._get_encodings():
                     try:
@@ -60,7 +63,7 @@ try:
                         break
                     except UnicodeDecodeError:
                         continue
-            if isinstance(text, unicode):
+            if isinstance(text, six.text_type):
                 text = text.encode('utf-8')
             self._captured.write(text)
             self.delegate.write(text)
