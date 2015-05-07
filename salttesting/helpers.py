@@ -27,7 +27,11 @@ from salttesting.unit import skip, _id
 
 # Import 3rd-party libs
 import six
-import six.moves.builtins as __builtin__
+if sys.version_info < (3,):
+    import __builtin__  # pylint: disable=incompatible-py3-code
+else:
+    import builtins as __builtin__  # pylint: disable=import-error
+
 log = logging.getLogger(__name__)
 
 
