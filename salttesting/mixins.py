@@ -322,9 +322,7 @@ class SaltClientTestCaseMixIn(AdaptedConfigurationTestCaseMixIn):
                     self.client._check_pub_data({'jid': '0'}),
                     'Passing JID of zero is not handled gracefully')
     '''
-
     _salt_client_config_file_name_ = 'master'
-    __slots__ = ('client', '_salt_client_config_file_name_')
 
     @property
     def client(self):
