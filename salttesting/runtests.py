@@ -534,9 +534,9 @@ class RuntimeVars(object):
             yield name, value
 
     def __getattribute__(self, name):
-        if name in object.__getattribute__(self, '__self_attributes__'):
-            return object.__getattribute__(self, name)
-        return object.__getattribute__(self, '_vars')[name]
+        if name in object.__getattribute__(self, '_vars'):
+            return object.__getattribute__(self, '_vars')[name]
+        return object.__getattribute__(self, name)
 
     def __setattr__(self, name, value):
         if getattr(self, '_locked', False) is True:
