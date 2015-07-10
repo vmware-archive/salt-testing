@@ -25,10 +25,19 @@ try:
         FILTER_DIR,
         NonCallableMock,
         NonCallableMagicMock,
-        PropertyMock
+        PropertyMock,
+        __version__ as __mock_version
     )
     NO_MOCK = False
     NO_MOCK_REASON = ''
+    mock_version = []
+    for __part in __mock_version.split('.'):
+        try:
+            mock_version.append(int(__part))
+        except ValueError:
+            # Non-integer value (ex. '1a')
+            mock_version.append(__part)
+    mock_version = tuple(mock_version)
 except ImportError:
     NO_MOCK = True
     NO_MOCK_REASON = 'mock python module is unavailable'
