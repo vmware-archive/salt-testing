@@ -41,6 +41,7 @@ try:
 except ImportError:
     NO_MOCK = True
     NO_MOCK_REASON = 'mock python module is unavailable'
+    mock_version = (0, 0, 0)
 
 
     # Let's not fail on imports by providing fake objects and classes
