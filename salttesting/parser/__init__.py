@@ -419,41 +419,45 @@ class SaltTestingParser(optparse.OptionParser):
             '[%(levelname)-8s] %(message)s',
             datefmt='%H:%M:%S'
         )
+        if not hasattr(logging, 'TRACE'):
+            logging.TRACE = 5
+            logging.addLevelName(logging.TRACE, 'TRACE')
+        if not hasattr(logging, 'GARBAGE'):
+            logging.GARBAGE = 1
+            logging.addLevelName(logging.GARBAGE, 'GARBAGE')
+
+        # Default logging level: ERROR
+        logging.root.setLevel(logging.NOTSET)
+
         if self.options.tests_logfile:
             filehandler = logging.FileHandler(
                 mode='w',           # Not preserved between re-runs
                 filename=self.options.tests_logfile
             )
-            filehandler.setLevel(logging.DEBUG)
+            # The logs of the file are the most verbose possible
+            filehandler.setLevel(logging.GARBAGE)
             filehandler.setFormatter(formatter)
             logging.root.addHandler(filehandler)
-            logging.root.setLevel(logging.DEBUG)
 
             print(' * Logging tests on {0}'.format(self.options.tests_logfile))
 
         # With greater verbosity we can also log to the console
-        if self.options.verbosity > 2:
+        if self.options.verbosity >= 2:
             consolehandler = logging.StreamHandler(sys.stderr)
-            consolehandler.setLevel(logging.INFO)       # -vv
             consolehandler.setFormatter(formatter)
-            if not hasattr(logging, 'TRACE'):
-                logging.TRACE = 5
-                logging.addLevelName(logging.TRACE, 'TRACE')
-            if not hasattr(logging, 'GARBAGE'):
-                logging.GARBAGE = 1
-                logging.addLevelName(logging.GARBAGE, 'GARBAGE')
-            handled_levels = {
-                3: logging.DEBUG,   # -vvv
-                4: logging.TRACE,   # -vvvv
-                5: logging.GARBAGE  # -vvvvv
-            }
-            if self.options.verbosity > 3:
-                consolehandler.setLevel(
-                    handled_levels.get(
-                        self.options.verbosity,
-                        self.options.verbosity > 5 and 5 or 3
-                    )
-                )
+            if self.options.verbosity >= 6:     # -vvvvv
+                logging_level = logging.GARBAGE
+            elif self.options.verbosity == 5:   # -vvvv
+                logging_level = logging.TRACE
+            elif self.options.verbosity == 4:   # -vvv
+                logging_level = logging.DEBUG
+                print('DEBUG')
+            elif self.options.verbosity == 3:   # -vv
+                print('INFO')
+                logging_level = logging.INFO
+            else:
+                logging_level = logging.ERROR
+            consolehandler.setLevel(logging_level)
             logging.root.addHandler(consolehandler)
             logging.getLogger(__name__).info('Runtests logging has been setup')
 
