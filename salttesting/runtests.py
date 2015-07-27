@@ -890,7 +890,7 @@ class SaltRuntests(argparse.ArgumentParser):
             default='zeromq',
             choices=('zeromq', 'raet', 'tcp'),
             help=('Select which transport to run the integration tests with, '
-                  'zeromq, raet, or tcp. Default: %default')
+                  'zeromq, raet, or tcp. Default: %(default)s')
         )
         self.tests_execution_tweaks_group.add_argument(
             '--run-destructive',

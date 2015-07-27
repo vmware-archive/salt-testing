@@ -935,7 +935,7 @@ def main():
         default='zeromq',
         choices=('zeromq', 'raet', 'tcp'),
         help=('Select which transport to run the integration tests with, '
-              'zeromq, raet, or tcp. Default: %default')
+              'zeromq, raet, or tcp. Default: %(default)s')
     )
     testing_source_options.add_argument(
         '--test-git-url',
