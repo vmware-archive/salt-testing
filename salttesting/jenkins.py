@@ -933,8 +933,10 @@ def main():
     testing_source_options.add_argument(
         '--test-transport',
         default='zeromq',
-        choices=('zeromq', 'raet'),
-        help='Set to raet to run integration tests with raet transport. Default: %(default)s')
+        choices=('zeromq', 'raet', 'tcp'),
+        help=('Select which transport to run the integration tests with, '
+              'zeromq, raet, or tcp. Default: %default')
+    )
     testing_source_options.add_argument(
         '--test-git-url',
         default=None,
