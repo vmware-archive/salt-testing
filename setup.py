@@ -3,6 +3,7 @@
 The setup script for SaltTesting
 '''
 
+import io
 import os
 import sys
 
@@ -53,8 +54,8 @@ if USE_SETUPTOOLS is False:
 
 exec(
     compile(
-        open(os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py')).read(),
-             os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'), 'exec'
+        io.open(os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'), encoding='utf-8').read(),
+                os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'), 'exec'
     )
 )
 
