@@ -3,6 +3,7 @@
 The setup script for SaltTesting
 '''
 
+from __future__ import with_statement
 import io
 import os
 import sys
@@ -51,13 +52,16 @@ if 'USE_SETUPTOOLS' in os.environ:
 if USE_SETUPTOOLS is False:
     from distutils.core import setup
 
-
-exec(
-    compile(
-        io.open(os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'), encoding='utf-8').read(),
-                os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'), 'exec'
+with io.open(os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'), encoding='utf-8') as fh_:
+    if not isinstance(contents, str):
+        contents = contents.encode('utf-8')
+    exec(  # pylint: disable=exec-used
+        compile(
+            contents,
+            os.path.join(SETUP_DIRNAME, 'salttesting', 'version.py'),
+            'exec'
+        )
     )
-)
 
 
 NAME = 'SaltTesting'
