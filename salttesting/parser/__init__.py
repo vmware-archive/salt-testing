@@ -435,7 +435,7 @@ class SaltTestingParser(optparse.OptionParser):
                 filename=self.options.tests_logfile
             )
             # The logs of the file are the most verbose possible
-            filehandler.setLevel(logging.GARBAGE)
+            filehandler.setLevel(logging.DEBUG)
             filehandler.setFormatter(formatter)
             logging.root.addHandler(filehandler)
 
