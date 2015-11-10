@@ -337,7 +337,18 @@ def bootstrap_cloud_minion(options):
     if options.no_color:
         cmd.append('--no-color')
 
-    exitcode = run_command(cmd, options)
+    exitcode = 1
+    retried = 0
+    if options.bootstrap_retry:
+        while exitcode != 0:
+            exitcode = run_command(cmd, options)
+            if retried > options.bootstrap_retry:
+                break
+            else:
+                retried += 1
+                time.sleep(60 * (2**retried))
+    else:
+        exitcode = run_command(cmd, options)
     if exitcode == 0:
         setattr(options, 'salt_minion_bootstrapped', 'yes')
     return exitcode
@@ -888,6 +899,12 @@ def main():
         '--bootstrap-salt-commit',
         default=None,
         help='The salt git commit used to bootstrap a minion'
+    )
+    bootstrap_script_options.add_argument(
+        '--bootstrap-retry',
+        default=None,
+        help='If bootstrapping a minion fails, retry this number of times. '
+             'Employs an exponential backoff starting at 60s for retries.'
     )
 
     # VM related options
