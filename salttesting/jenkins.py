@@ -321,6 +321,8 @@ def bootstrap_cloud_minion(options):
     script_args = ['-ZD']
     if options.no_color:
         script_args.append('-n')
+    if options.pip_based:
+        script_args.append('-P')
     if options.bootstrap_salt_url != SALT_GIT_URL:
         script_args.extend([
             '-g', options.bootstrap_salt_url
@@ -866,6 +868,12 @@ def main():
         action='store_true',
         default=False,
         help='Salt LXC Deployment'
+    )
+    deployment_group_mutually_exclusive.add_argument(
+        '--pip-based',
+        action='store_true',
+        default=False,
+        help='Allow pip based installations'
     )
     deployment_group.add_argument(
         '--lxc-host',
