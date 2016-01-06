@@ -169,7 +169,7 @@ def generate_vm_name(options):
     '''
     vm_name_prefix = os.environ.get('JENKINS_VM_NAME_PREFIX', 'Z')
     if 'BUILD_TAG' in os.environ:
-        return '{0}_{1}'.format(
+        return '{0}{1}'.format(
             vm_name_prefix,
             os.environ.get('BUILD_TAG').replace(
                 'jenkins', 'jk').replace(
