@@ -869,7 +869,7 @@ def main():
         default=False,
         help='Salt LXC Deployment'
     )
-    deployment_group_mutually_exclusive.add_argument(
+    deployment_group.add_argument(
         '--pip-based',
         action='store_true',
         default=False,
