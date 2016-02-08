@@ -480,10 +480,14 @@ class SaltTestingParser(optparse.OptionParser):
         Execute a unit test suite
         '''
         loader = TestLoader()
-        if load_from_name:
-            tests = loader.loadTestsFromName(display_name)
-        else:
-            tests = loader.discover(path, suffix, self.testsuite_directory)
+        try:
+            if load_from_name:
+                tests = loader.loadTestsFromName(display_name)
+            else:
+                tests = loader.discover(path, suffix, self.testsuite_directory)
+        except AttributeError:
+            print('Could not locate test \'{0}\'. Exiting.'.format(display_name))
+            sys.exit(1)
 
         header = '{0} Tests'.format(display_name)
         print_header('Starting {0}'.format(header),
