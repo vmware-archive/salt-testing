@@ -81,10 +81,14 @@ class GetPullRequestAction(argparse.Action):
 
 
 # ----- Helper Functions -------------------------------------------------------------------------------------------->
+def print_flush(*args, **kwargs):
+    print(*args, **kwargs)
+    sys.stdout.flush()
+
+
 def print_bulleted(options, message, color='LIGHT_BLUE'):
     colors = get_colors(options.no_color is False)
-    print(' {0}*{ENDC} {1}'.format(colors[color], message, **colors))
-    sys.stdout.flush()
+    print_flush(' {0}*{ENDC} {1}'.format(colors[color], message, **colors))
 
 
 def save_state(options):
@@ -257,8 +261,7 @@ def echo_parseable_environment(options):
     if 'pull_request_git_base_branch' in options:
         output.append('SALT_PR_GIT_BASE_BRANCH={0}'.format(options.pull_request_git_base_branch))
 
-    sys.stdout.write('\n\n{0}\n\n'.format('\n'.join(output)))
-    sys.stdout.flush()
+    print_flush('\n\n{0}\n\n'.format('\n'.join(output)))
 
 
 def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True, stream_stderr=True):
@@ -311,8 +314,7 @@ def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True
     except vt.TerminalException as exc:
         print_header(u'', sep='-', inline=True, width=options.output_columns)
         print_bulleted(options, '\n\nAn error occurred while running command:\n', 'RED')
-        print(str(exc))
-        sys.stdout.flush()
+        print_flush(str(exc))
     finally:
         print_header(u'', sep='<', inline=True, width=options.output_columns)
         proc.close(terminate=True, kill=True)
@@ -593,8 +595,7 @@ def check_bootstrapped_minion_version(options):
                 '{0!r} does not contain {1!r}'.format(version_info[options.vm_name], bootstrap_minion_version),
                 'YELLOW'
             )
-            print('\n\n')
-            sys.stdout.flush()
+            print_flush('\n\n')
         else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
         setattr(options, 'bootstrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
@@ -673,8 +674,7 @@ def check_cloned_reposiory_commit(options):
                 ' {0!r} != {1!r}'.format(revision_info[options.vm_name][:7], options.test_git_commit[:7]),
                 'YELLOW'
             )
-            print('\n\n')
-            sys.stdout.flush()
+            print_flush('\n\n')
         else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
     except (ValueError, TypeError):
