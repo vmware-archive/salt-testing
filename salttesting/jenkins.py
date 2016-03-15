@@ -139,7 +139,6 @@ def generate_ssh_keypair(options):
     authorized key in the minion's root user account on the remote system.
     '''
     print_bulleted(options, 'Generating temporary SSH Key')
-    sys.stdout.flush()
     ssh_key_path = os.path.join(options.workspace, 'jenkins_test_account_key')
 
     if os.path.exists(ssh_key_path):
@@ -159,7 +158,6 @@ def generate_ssh_keypair(options):
         )
         if exitcode != 0:
             print_bulleted(options, 'Failed to generate temporary SSH ksys', 'RED')
-            sys.stdout.flush()
             sys.exit(1)
 
 
@@ -273,7 +271,6 @@ def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True
 
     print_bulleted(options, 'Running command: {0}'.format(cmd))
     print_header(u'', sep='-', inline=True, width=options.output_columns)
-    sys.stdout.flush()
 
     if return_output is True:
         stdout_buffer = stderr_buffer = ''
@@ -303,13 +300,11 @@ def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True
         if proc.exitstatus != 0:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
             print_bulleted(options, 'Failed execute command. Exit code: {0}'.format(proc.exitstatus), 'RED')
-            sys.stdout.flush()
         else:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
             print_bulleted(
                 options, 'Command execution succeeded. Exit code: {0}'.format(proc.exitstatus), 'LIGHT_GREEN'
             )
-            sys.stdout.flush()
         if return_output is True:
             return stdout_buffer, stderr_buffer, proc.exitstatus
         return proc.exitstatus
@@ -320,7 +315,6 @@ def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True
         sys.stdout.flush()
     finally:
         print_header(u'', sep='<', inline=True, width=options.output_columns)
-        sys.stdout.flush()
         proc.close(terminate=True, kill=True)
 
 
@@ -361,13 +355,11 @@ def bootstrap_lxc_minion(options):
     '''
 
     print_bulleted(options, 'LXC support not implemented', 'RED')
-    sys.stdout.flush()
     sys.exit(1)
 
 
 def prepare_ssh_access(options):
     print_bulleted(options, 'Prepare SSH Access to Bootstrapped VM')
-    sys.stdout.flush()
     generate_ssh_keypair(options)
 
     cmd = [
@@ -427,7 +419,6 @@ def get_minion_external_address(options):
     attempts = 1
     while attempts <= 3:
         print_bulleted(options, 'Fetching the external IP of the minion. Attempt {0}/3'.format(attempts))
-        sys.stdout.flush()
         stdout_buffer = stderr_buffer = ''
         cmd = [
             'salt',
@@ -449,7 +440,6 @@ def get_minion_external_address(options):
             if attempts == 3:
                 print_bulleted(
                     options, 'Failed to get the minion external IP. Exit code: {0}'.format(exitcode), 'RED')
-                sys.stdout.flush()
                 sys.exit(exitcode)
             attempts += 1
             continue
@@ -457,7 +447,6 @@ def get_minion_external_address(options):
         if not stdout.strip():
             if attempts == 3:
                 print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
-                sys.stdout.flush()
                 sys.exit(1)
             attempts += 1
             continue
@@ -470,7 +459,6 @@ def get_minion_external_address(options):
             return external_ip
         except (ValueError, TypeError):
             print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
-            sys.stdout.flush()
             attempts += 1
 
 
@@ -510,7 +498,6 @@ def get_minion_python_executable(options):
 
     if not stdout.strip():
         print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
-        sys.stdout.flush()
         sys.exit(1)
 
     try:
@@ -584,7 +571,6 @@ def check_bootstrapped_minion_version(options):
 
     if not stdout.strip():
         print_bulleted(options, 'Failed to get the bootstrapped minion version(no output).', 'RED')
-        sys.stdout.flush()
         sys.exit(1)
 
     try:
@@ -675,7 +661,6 @@ def check_cloned_reposiory_commit(options):
 
     if not stdout.strip():
         print_bulleted(options, 'Failed to get the cloned repository revision(no output).', 'RED')
-        sys.stdout.flush()
         sys.exit(1)
 
     try:
@@ -1089,19 +1074,15 @@ def main():
         exitcode = bootstrap_cloud_minion(options)
         if exitcode != 0:
             print_bulleted(options, 'Failed to bootstrap the cloud minion', 'RED')
-            sys.stdout.flush()
             parser.exit(exitcode)
         print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        sys.stdout.flush()
         time.sleep(5)
     elif options.lxc_deploy:
         exitcode = bootstrap_lxc_minion(options)
         if exitcode != 0:
             print_bulleted(options, 'Failed to bootstrap the LXC minion', 'RED')
-            sys.stdout.flush()
             parser.exit(exitcode)
         print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        sys.stdout.flush()
         time.sleep(5)
 
     if options.cloud_deploy or options.lxc_deploy:
@@ -1115,7 +1096,6 @@ def main():
         exitcode = run_state_on_vm(options, sls, timeout=900)
         if exitcode != 0:
             print_bulleted(options, 'The execution of the {0!r} SLS failed'.format(sls), 'RED')
-            sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
 
@@ -1177,7 +1157,6 @@ def main():
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
             )
-            sys.stdout.flush()
             generate_xml_coverage_report(exit=False)
             parser.exit(exitcode)
         time.sleep(1)

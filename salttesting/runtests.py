@@ -475,6 +475,7 @@ def print_header(header, sep='~', top=True, bottom=True, inline=False, centered=
 
     if bottom and not inline:
         print(sep * width)
+    sys.stdout.flush()
 
 
 class RootsDict(dict):
