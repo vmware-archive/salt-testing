@@ -93,7 +93,7 @@ def print_bulleted(options, message, color='LIGHT_BLUE'):
 
 def save_state(options):
     '''
-    Save some state data to be used between executions, minion external IP, minion states synced, etc...
+    Save some state data to be used between executions, minion IP address, minion states synced, etc...
     '''
     state_file = os.path.join(options.workspace, '.state.json')
     if os.path.isfile(state_file):
@@ -108,7 +108,7 @@ def save_state(options):
                     'require_sudo',
                     'output_columns',
                     'salt_minion_synced',
-                    'minion_external_ip',
+                    'minion_ip_address',
                     'minion_python_executable',
                     'salt_minion_bootstrapped'):
         if varname not in state and varname in options:
@@ -119,7 +119,7 @@ def save_state(options):
 
 def load_state(options):
     '''
-    Load some state data to be used between executions, minion external IP, minion states synced, etc...
+    Load some state data to be used between executions, minion IP address, minion states synced, etc...
     '''
     state_file = os.path.join(options.workspace, '.state.json')
     allow_overwrite_variables = ('output_columns', 'workspace')
@@ -493,21 +493,36 @@ def sync_minion(options):
     return exitcode
 
 
-def get_minion_external_address(options):
+def find_private_addr(ip_addrs):
     '''
-    Get and store the remote minion external IP
+    Find an RFC 1918 IP address in ip_addrs
+    '''
+    for ip_address in ip_addrs:
+        ip = [int(quad) for quad in ip_address.strip().split('.')]
+        if ip[0] == 10:
+            return ip_address
+        elif ip[0] == 172 and ip[1] in [i for i in range(16, 32)]:
+            return ip_address
+        elif ip[0] == 192 and ip[1] == 168:
+            return ip_address
+        return ''
+
+
+def get_minion_ip_address(options):
+    '''
+    Get and store the remote minion IP address
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing external IP.', 'RED')
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing IP address.', 'RED')
         sys.exit(1)
-    if getattr(options, 'minion_external_ip', None):
-        return options.minion_external_ip
+    if getattr(options, 'minion_ip_address', None):
+        return options.minion_ip_address
 
     sync_minion(options)
 
     attempts = 1
     while attempts <= 3:
-        print_bulleted(options, 'Fetching the external IP of the minion. Attempt {0}/3'.format(attempts))
+        print_bulleted(options, 'Fetching the IP address of the minion. Attempt {0}/3'.format(attempts))
         stdout_buffer = stderr_buffer = ''
         cmd = [
             'salt',
@@ -518,7 +533,7 @@ def get_minion_external_address(options):
             cmd.append('--no-color')
         cmd.extend([
             options.vm_name,
-            'grains.get', 'external_ip'
+            'grains.get', 'ipv4' if options.ssh_private_address else 'external_ip'
         ])
         stdout, stderr, exitcode = run_command(cmd,
                                                options,
@@ -528,24 +543,31 @@ def get_minion_external_address(options):
         if exitcode != 0:
             if attempts == 3:
                 print_bulleted(
-                    options, 'Failed to get the minion external IP. Exit code: {0}'.format(exitcode), 'RED')
+                    options, 'Failed to get the minion IP address. Exit code: {0}'.format(exitcode), 'RED')
                 sys.exit(exitcode)
             attempts += 1
             continue
 
         if not stdout.strip():
             if attempts == 3:
-                print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
+                print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
                 sys.exit(1)
             attempts += 1
             continue
 
         try:
-            external_ip_info = json.loads(stdout.strip())
-            external_ip = external_ip_info[options.vm_name]
-            setattr(options, 'minion_external_ip', external_ip)
+
+            ip_info = json.loads(stdout.strip())
+            if options.ssh_private_address:
+                ip_address = find_private_addr(ip_info[options.vm_name])
+            else:
+                ip_address = ip_info[options.vm_name]
+            if not ip_address:
+                print_bulleted(options, 'Failed to get the minion IP address(not found)', 'RED')
+                sys.exit(1)
+            setattr(options, 'minion_ip_address', ip_address)
             save_state(options)
-            return external_ip
+            return ip_address
         except (ValueError, TypeError):
             print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
             attempts += 1
@@ -586,7 +608,7 @@ def get_minion_python_executable(options):
         sys.exit(exitcode)
 
     if not stdout.strip():
-        print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
+        print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
         sys.exit(1)
 
     try:
@@ -824,7 +846,7 @@ def run_ssh_command(options, remote_command):
     cmd.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
-            get_minion_external_address(options)
+            get_minion_ip_address(options)
         )
     )
     if isinstance(remote_command, (list, tuple)):
@@ -844,7 +866,7 @@ def test_ssh_root_login(options):
 
     cmd = ['ssh'] + build_ssh_opts(options)
     cmd.extend([
-        'root@{0}'.format(get_minion_external_address(options)),
+        'root@{0}'.format(get_minion_ip_address(options)),
         pipes.quote('echo "root login possible"')
     ])
     exitcode = run_command(cmd, options)
@@ -864,7 +886,7 @@ def download_artifacts(options):
     sftp_command.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
-            get_minion_external_address(options)
+            get_minion_ip_address(options)
         )
     )
     for remote_path, local_path in options.download_artifact:
@@ -953,6 +975,11 @@ def main():
         '--ssh-prepare-state',
         default='accounts.test_account',
         help='The name of the state which prepares the remove VM for SSH access'
+    )
+    ssh_options_group.add_argument(
+        '--ssh-private-address',
+        action='store_true',
+        help='Try to find the RFC 1918 private address of the minion rather than the external address'
     )
 
     # Deployment Selection
