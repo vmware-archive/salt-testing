@@ -139,7 +139,7 @@ def load_state(options):
 
 def generate_ssh_keypair(options):
     '''
-    Generate a temporary SSH key, valid for one hour, and set it as an
+    Generate a temporary SSH key, valid for two hours, and set it as an
     authorized key in the minion's root user account on the remote system.
     '''
     print_bulleted(options, 'Generating temporary SSH Key')
@@ -150,13 +150,13 @@ def generate_ssh_keypair(options):
         os.unlink(ssh_key_path + '.pub')
 
     exitcode = run_command(
-        'ssh-keygen -b 2048 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
+        'ssh-keygen -b 2048 -C "$(whoami)@$(hostname)-$(date \"+%Y-%m-%dT%H:%M:%S%z\")" '
         '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
         options
     )
     if exitcode != 0:
         exitcode = run_command(
-            'ssh-keygen -t rsa -b 2048 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
+            'ssh-keygen -t rsa -b 2048 -C "$(whoami)@$(hostname)-$(date \"+%Y-%m-%dT%H:%M:%S%z\")" '
             '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
             options
         )
