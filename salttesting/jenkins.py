@@ -912,6 +912,71 @@ def download_artifacts(options):
                         os.chown(os.path.join(root, fname), sudo_uid, sudo_gid)
             else:
                 os.chown(local_path, sudo_uid, sudo_gid)
+
+
+def build_default_test_command(options):
+    '''
+    Construct the command that is sent to the minion to execute the test run
+    '''
+    python_bin_path = get_minion_python_executable(options)
+    # This is a pretty naive aproach to get the coverage binary path
+    coverage_bin_path = python_bin_path.replace('python', 'coverage')
+
+    test_command = [python_bin_path]
+
+    # Append coverage parameters
+    if options.test_without_coverage is False and options.test_with_new_coverage is True:
+        test_command.extend([
+            coverage_bin_path,
+            'run',
+            '--branch',
+            '--concurrency=multiprocessing',
+            '--parallel-mode',
+        ])
+
+    # Append basic command parameters
+    test_command.extend([
+        '/testing/tests/runtests.py',
+        '-v',
+        '--run-destructive',
+        '--sysinfo',
+        '--xml=/tmp/xmp-unittests-output',
+        '--transport={0}'.format(options.test_transport),
+        '--output-columns={0}'.format(options.output_columns),
+    ])
+
+    # Append extra and conditional parameters
+    pillar = build_pillar_data(options, convert_to_yaml=False)
+    git_branch = pillar.get('git_branch', 'develop')
+    if git_branch and git_branch not in('2014.1',):
+        test_command.append('--ssh')
+    if options.test_without_coverage is False and options.test_with_new_coverage is False:
+        test_command.append('--coverage-xml=/tmp/coverage.xml')
+    if options.no_color:
+        test_command.append('--no-color')
+
+    return test_command
+
+
+def generate_xml_coverage_report(exit=True):
+    '''
+    generate coverage report
+    '''
+    if options.test_without_coverage is False and options.test_with_new_coverage is True:
+        # Let's generate the new coverage report
+        cmd = '{0} {1} combine; {0} {1} xml -o /tmp/coverage.xml'.format(
+            get_minion_python_executable(options),
+            coverage_bin_path
+        )
+        exitcode = run_ssh_command(options, cmd)
+        if exitcode != 0:
+            print_bulleted(
+                options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
+            )
+            sys.stdout.flush()
+            if exit is True:
+                parser.exit(exitcode)
+        time.sleep(1)
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
 
 
@@ -974,7 +1039,7 @@ def main():
     ssh_options_group.add_argument(
         '--ssh-prepare-state',
         default='accounts.test_account',
-        help='The name of the state which prepares the remove VM for SSH access'
+        help='The name of the state which prepares the remote VM for SSH access'
     )
     ssh_options_group.add_argument(
         '--ssh-private-address',
@@ -1147,10 +1212,7 @@ def main():
     testing_source_options_mutually_exclusive.add_argument(
         '--test-default-command',
         action='store_true',
-        help=('Run the default salt runtests command: '
-              '\'\{python_executable\} /testing/tests/runtests.py -v --run-destructive --sysinfo '
-              '\{no_color\} --xml=/tmp/xml-unittests-output --coverage-xml=/tmp/coverage.xml '
-              '--transport=\{transport\}\'')
+        help='Execute the default command that runs the test suite on the deployed VM'
     )
 
     packaging_options = parser.add_argument_group(
@@ -1188,6 +1250,7 @@ def main():
     )
 
     options = parser.parse_args()
+
     if options.echo_parseable_output and \
             os.path.exists(os.path.join(options.workspace, '.state.json')):
         # Since this is the first command to run, let's clear any saved state
@@ -1274,56 +1337,12 @@ def main():
     if options.test_git_commit is not None:
         check_cloned_reposiory_commit(options)
 
-    # Run the main command using SSH for realtime output
+    # Construct default test runner command
     if options.test_default_command:
-        # This is a pretty naive aproach to get the coverage binary path
-        coverage_bin_path = get_minion_python_executable(options).replace('python', 'coverage')
+        options.test_command = build_default_test_command(options)
 
-        options.test_command = '{python_executable} '
-
-        if options.test_without_coverage is False and options.test_with_new_coverage is True:
-            options.test_command += (
-                '{0} run --branch --concurrency=multiprocessing '
-                '--parallel-mode '.format(coverage_bin_path)
-            )
-
-        options.test_command += (
-            '/testing/tests/runtests.py -v --run-destructive --sysinfo'
-            '{no_color} --xml=/tmp/xml-unittests-output --transport={transport} '
-            '--output-columns={output_columns}'
-        )
-
-        pillar = build_pillar_data(options, convert_to_yaml=False)
-        git_branch = pillar.get('git_branch', 'develop')
-        if git_branch and git_branch not in('2014.1',):
-            options.test_command += ' --ssh'
-        if options.test_without_coverage is False and options.test_with_new_coverage is False:
-            options.test_command += ' --coverage-xml=/tmp/coverage.xml'
-
+    # Run the main command using SSH for realtime output
     if options.test_command:
-        def generate_xml_coverage_report(exit=True):
-            if options.test_without_coverage is False and options.test_with_new_coverage is True:
-                # Let's generate the new coverage report
-                cmd = '{0} {1} combine; {0} {1} xml -o /tmp/coverage.xml'.format(
-                    get_minion_python_executable(options),
-                    coverage_bin_path
-                )
-                exitcode = run_ssh_command(options, cmd)
-                if exitcode != 0:
-                    print_bulleted(
-                        options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
-                    )
-                    sys.stdout.flush()
-                    if exit is True:
-                        parser.exit(exitcode)
-                time.sleep(1)
-
-        options.test_command = options.test_command.format(
-            python_executable=get_minion_python_executable(options),
-            no_color=options.no_color and ' --no-color' or '',
-            transport=options.test_transport,
-            output_columns=options.output_columns
-        )
         exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
             print_bulleted(
