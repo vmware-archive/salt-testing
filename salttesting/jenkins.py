@@ -934,6 +934,13 @@ def build_default_test_command(options):
             '--parallel-mode',
         ])
 
+    # Select python executable
+    if 'salt_minion_bootstrapped' in options:
+        test_command.append(get_minion_python_executable(options))
+    else:
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
+        test_command.append('python')
+
     # Append basic command parameters
     test_command.extend([
         '/testing/tests/runtests.py',
@@ -1203,6 +1210,11 @@ def main():
         action='append',
         help='Run a preparation SLS file. Pass one SLS per `--test-prep-sls` option argument'
     )
+    testing_source_options.add_argument(
+        '--show-default-command',
+        action='store_true',
+        help='Print out the default command that runs the test suite on the deployed VM'
+    )
     testing_source_options_mutually_exclusive = testing_source_options.add_mutually_exclusive_group()
     testing_source_options_mutually_exclusive.add_argument(
         '--test-command',
@@ -1212,7 +1224,8 @@ def main():
     testing_source_options_mutually_exclusive.add_argument(
         '--test-default-command',
         action='store_true',
-        help='Execute the default command that runs the test suite on the deployed VM'
+        help=('Execute the default command that runs the test suite on the deployed VM. '
+              'To view the default command, use the --show-default-command option')
     )
 
     packaging_options = parser.add_argument_group(
@@ -1250,6 +1263,11 @@ def main():
     )
 
     options = parser.parse_args()
+
+    # Print test suite command line and exit
+    if options.show_default_command:
+        print_flush(' '.join(build_default_test_command(options)))
+        sys.exit(0)
 
     if options.echo_parseable_output and \
             os.path.exists(os.path.join(options.workspace, '.state.json')):
