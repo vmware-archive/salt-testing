@@ -851,8 +851,14 @@ def run_ssh_command(options, remote_command):
     )
     if isinstance(remote_command, (list, tuple)):
         remote_command = ' '.join(remote_command)
+
     if options.require_sudo and not remote_command.startswith('sudo'):
         remote_command = 'sudo {0}'.format(remote_command)
+
+    # Workaround nonstandard path issue on MacOS
+    if options.parallels_deploy:
+        remote_command = 'source /etc/profile ; {0}'.format(remote_command)
+
     cmd.append(pipes.quote(remote_command))
     return run_command(cmd, options)
 
