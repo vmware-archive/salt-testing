@@ -837,21 +837,27 @@ def run_ssh_command(options, remote_command):
     '''
     Run a command using SSH
     '''
+    # Setup SSH options
     test_ssh_root_login(options)
     cmd = ['ssh'] + build_ssh_opts(options)
+
     # Use double `-t` on the `ssh` command, it's necessary when `sudo` has
     # `requiretty` enforced.
     cmd.extend(['-t', '-t'])
 
+    # Add VM URL
     cmd.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
             get_minion_ip_address(options)
         )
     )
+
+    # Compile remote command to a string
     if isinstance(remote_command, (list, tuple)):
         remote_command = ' '.join(remote_command)
 
+    # Prepend sudo if needed
     if options.require_sudo and not remote_command.startswith('sudo'):
         remote_command = 'sudo {0}'.format(remote_command)
 
@@ -859,6 +865,7 @@ def run_ssh_command(options, remote_command):
     if options.parallels_deploy:
         remote_command = 'source /etc/profile ; {0}'.format(remote_command)
 
+    # Assemble local and remote parts into final command and return result
     cmd.append(pipes.quote(remote_command))
     return run_command(cmd, options)
 
