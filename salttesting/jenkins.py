@@ -248,10 +248,19 @@ def echo_parseable_environment(options):
     '''
     Echo NAME=VAL parseable output
     '''
+    # Standard environment
     output = [
         'JENKINS_VM_NAME={0}'.format(options.vm_name),
         'JENKINS_VM_SOURCE={0}'.format(options.vm_source),
     ]
+
+    # VM environment
+    if 'vm_host' in options:
+        output.append('JENKINS_VM_HOST={0}'.format(options.vm_host))
+    if 'vm_host_user' in options:
+        output.append('JENKINS_VM_HOST_USER={0}'.format(options.vm_host_user))
+
+    # Git environment
     if 'pull_request_git_url' in options:
         output.append('SALT_PR_GIT_URL={0}'.format(options.pull_request_git_url))
     if 'pull_request_git_commit' in options:
