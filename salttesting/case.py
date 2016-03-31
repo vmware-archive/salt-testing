@@ -186,33 +186,49 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         arg_str = '-c {0} {1}'.format(self.get_config_dir(), arg_str)
         return self.run_script('salt-cloud', arg_str, catch_stderr, timeout)
 
-    def run_script(self,
-                   script,
-                   arg_str,
-                   catch_stderr=False,
-                   with_retcode=False,
-                   timeout=None,
-                   raw=False):
+    def run_prog(self,
+                 argv,
+                 catch_stderr=False,
+                 with_retcode=False,
+                 timeout=None,
+                 raw=False,
+                 env=None,
+                 shell=False):
         '''
-        Execute a script with the given argument string
+        Execute a command possibly using a supplied environment.
+
+        argv
+            A command string or a command sequence of program and arguments.
+
+        :param catch_stderr: A boolean whether to capture and return stderr.
+
+        :param with_retcode: A boolean whether to return the exit code.
+
+        :param timeout: A float of how long to wait for the process to
+            complete before it is killed.
+
+        :param raw: A boolean whether to return buffer strings for stdout and
+            stderr or sequences of output lines.
+
+        :param env: A dictionary of environment key/value settings for the
+            command.
+
+        :param shell: A boolean of whether the command is processed by the
+            shell or invoked with execv.
+
+        :return list: (stdout [,stderr] [,retcode])
         '''
-        script_path = self.get_script_path(script)
-        if not os.path.isfile(script_path):
-            return False
 
-        python_path = os.environ.get('PYTHONPATH', None)
-        cmd = 'PYTHONPATH='
-        if python_path is not None:
-            cmd += '{0}:'.format(python_path)
+        if not env:
+            env = {}
 
-        cmd += '{0} '.format(':'.join(sys.path[1:]))
-        cmd += 'python{0}.{1} '.format(*sys.version_info)
-        cmd += '{0} '.format(script_path)
-        cmd += '{0} '.format(arg_str)
+        cmd_env = dict(os.environ)
+        cmd_env.update(env)
 
         popen_kwargs = {
-            'shell': True,
-            'stdout': subprocess.PIPE
+            'shell': shell,
+            'stdout': subprocess.PIPE,
+            'env': cmd_env,
         }
 
         if catch_stderr is True:
@@ -230,7 +246,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         elif sys.platform.lower().startswith('win') and timeout is not None:
             raise RuntimeError('Timeout is not supported under windows')
 
-        process = subprocess.Popen(cmd, **popen_kwargs)
+        process = subprocess.Popen(argv, **popen_kwargs)
 
         if timeout is not None:
             stop_at = datetime.now() + timedelta(seconds=timeout)
@@ -343,6 +359,40 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
             except OSError as err:
                 # process already terminated
                 pass
+        
+
+    def run_script(self,
+                   script,
+                   arg_str,
+                   catch_stderr=False,
+                   with_retcode=False,
+                   timeout=None,
+                   raw=False):
+        '''
+        Execute a script with the given argument string
+        '''
+        script_path = self.get_script_path(script)
+        if not os.path.isfile(script_path):
+            return False
+
+        python_path = os.environ.get('PYTHONPATH', None)
+        cmd = 'PYTHONPATH='
+        if python_path is not None:
+            cmd += '{0}:'.format(python_path)
+
+        cmd += '{0} '.format(':'.join(sys.path[1:]))
+        cmd += 'python{0}.{1} '.format(*sys.version_info)
+        cmd += '{0} '.format(script_path)
+        cmd += '{0} '.format(arg_str)
+
+        return self.run_prog(
+            cmd,
+            catch_stderr=catch_stderr,
+            with_retcode=with_retcode,
+            timeout=timeout,
+            raw=raw,
+            shell=True,
+        )
 
 
 class ModuleCase(TestCase, SaltClientTestCaseMixIn):
