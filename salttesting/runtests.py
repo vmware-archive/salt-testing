@@ -314,6 +314,7 @@ import time
 import shutil
 import fnmatch
 import logging
+import platform
 import argparse
 import tempfile
 import multiprocessing
@@ -553,8 +554,16 @@ class RuntimeVars(object):
 
 # ----- Global Variables -------------------------------------------------------------------------------------------->
 CONF_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), '_saltconf')
-# Gentoo Portage prefers ebuild tests are rooted in ${TMPDIR}
-__TMP = os.path.join(os.environ.get('TMPDIR', tempfile.gettempdir()), 'salt-tests-tmpdir')
+SYS_TMP_DIR = os.path.realpath(
+    os.environ.get(
+        # Avoid MacOS ${TMPDIR} as it yields a base path too long for unix sockets:
+        # 'error: AF_UNIX path too long'
+        # Gentoo Portage prefers ebuild tests are rooted in ${TMPDIR}
+        'TMPDIR' if platform.system() != 'Darwin' else '',
+        tempfile.gettempdir()
+    )
+)
+__TMP = os.path.join(SYS_TMP_DIR, 'salt-tests-tmpdir')
 XML_OUTPUT_DIR = os.environ.get('SALT_XML_TEST_REPORTS_DIR', os.path.join(__TMP, 'xml-test-reports'))
 # <---- Global Variables ---------------------------------------------------------------------------------------------
 
