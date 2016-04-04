@@ -748,7 +748,8 @@ def run_state_on_vm(options, state_name, timeout=100):
         '-l', options.log_level,
         '--retcode-passthrough'
     ]
-    if options.bootstrapped_salt_minion_version >= (2015, 2):
+    boot_version = getattr(options, 'bootstrapped_salt_minion_version', False)
+    if boot_version and boot_verision >= (2015, 2):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
@@ -1361,7 +1362,9 @@ def main():
         options.parallels_deploy,
     ])
     if deploy:
-        check_bootstrapped_minion_version(options)
+        # Parallels Desktop deployments are run from preinstalled snapshots
+        if not options.parallels_deploy:
+            check_bootstrapped_minion_version(options)
         time.sleep(1)
         prepare_ssh_access(options)
         time.sleep(1)
