@@ -843,7 +843,10 @@ class SaltRuntests(argparse.ArgumentParser):
         )
         self.output_options_group.add_argument(
             '--tests-logfile',
-            default=os.path.join(tempfile.gettempdir(), 'salt-runtests.log'),
+            default=os.path.join(
+                tempfile.gettempdir() if platform.system() != 'Darwin' else '/tmp',
+                'salt-runtests.log'
+            ),
             help='The path to the tests suite logging logfile. Default: %(default)r'
         )
         self.output_options_group.add_argument(
