@@ -555,13 +555,10 @@ class RuntimeVars(object):
 # ----- Global Variables -------------------------------------------------------------------------------------------->
 CONF_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), '_saltconf')
 SYS_TMP_DIR = os.path.realpath(
-    os.environ.get(
-        # Avoid MacOS ${TMPDIR} as it yields a base path too long for unix sockets:
-        # 'error: AF_UNIX path too long'
-        # Gentoo Portage prefers ebuild tests are rooted in ${TMPDIR}
-        'TMPDIR' if platform.system() != 'Darwin' else '',
-        tempfile.gettempdir()
-    )
+    # Avoid ${TMPDIR} and gettempdir() on MacOS as they yield a base path too long for unix sockets:
+    # 'error: AF_UNIX path too long'
+    # Gentoo Portage prefers ebuild tests are rooted in ${TMPDIR}
+    os.environ.get('TMPDIR', tempfile.gettempdir()) if platform.system() != 'Darwin' else '/tmp'
 )
 __TMP = os.path.join(SYS_TMP_DIR, 'salt-tests-tmpdir')
 XML_OUTPUT_DIR = os.environ.get('SALT_XML_TEST_REPORTS_DIR', os.path.join(__TMP, 'xml-test-reports'))
@@ -846,7 +843,10 @@ class SaltRuntests(argparse.ArgumentParser):
         )
         self.output_options_group.add_argument(
             '--tests-logfile',
-            default=os.path.join(tempfile.gettempdir(), 'salt-runtests.log'),
+            default=os.path.join(
+                tempfile.gettempdir() if platform.system() != 'Darwin' else '/tmp',
+                'salt-runtests.log'
+            ),
             help='The path to the tests suite logging logfile. Default: %(default)r'
         )
         self.output_options_group.add_argument(
