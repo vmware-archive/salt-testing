@@ -969,6 +969,12 @@ def main():
         help='When running the tests default command, remove the coverage related flags.'
     )
     testing_source_options.add_argument(
+        '--test-with-new-coverage',
+        default=False,
+        action='store_true',
+        help='When running the tests default command, run coverage using a more inclusive approach.'
+    )
+    testing_source_options.add_argument(
         '--test-prep-sls',
         default=[],
         action='append',
@@ -1100,16 +1106,27 @@ def main():
 
     # Run the main command using SSH for realtime output
     if options.test_default_command:
-        options.test_command = (
-            '{python_executable} /testing/tests/runtests.py -v --run-destructive --sysinfo'
+        # This is a pretty naive aproach to get the coverage binary path
+        coverage_bin_path = get_minion_python_executable(options).replace('python', 'coverage')
+
+        options.test_command = '{python_executable} '
+
+        if options.test_without_coverage is False and options.test_with_new_coverage is True:
+            options.test_command += (
+                '{0} run --branch --concurrency=multiprocessing '
+                '--parallel-mode '.format(coverage_bin_path)
+
+        options.test_command += (
+            '/testing/tests/runtests.py -v --run-destructive --sysinfo'
             '{no_color} --xml=/tmp/xml-unittests-output --transport={transport} '
             '--output-columns={output_columns}'
         )
+
         pillar = build_pillar_data(options, convert_to_yaml=False)
         git_branch = pillar.get('git_branch', 'develop')
         if git_branch and git_branch not in('2014.1',):
             options.test_command += ' --ssh'
-        if options.test_without_coverage is False:
+        if options.test_without_coverage is False and options.test_with_new_coverage is False:
             options.test_command += ' --coverage-xml=/tmp/coverage.xml'
 
     if options.test_command:
@@ -1127,6 +1144,18 @@ def main():
             sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
+
+        if options.test_without_coverage is False and options.test_with_new_coverage is True:
+            # Let's generate the new coverage report
+            cmd = '{0} xml -o /tmp/coverage.xml'.format(coverage_bin_path)
+            exitcode = run_ssh_command(options, cmd)
+            if exitcode != 0:
+                print_bulleted(
+                    options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
+                )
+                sys.stdout.flush()
+                parser.exit(exitcode)
+            time.sleep(1)
 
         # If we reached here it means the test command passed, let's build
         # packages if the option is passed
