@@ -231,6 +231,9 @@ def build_pillar_data(options, convert_to_yaml=True):
     if options.test_pillar:
         pillar.update(dict(options.test_pillar))
 
+    if options.test_with_new_coverage:
+        pillar['new_coverage'] = True
+
     if convert_to_yaml is True:
         return to_cli_yaml(pillar)
     return pillar
