@@ -179,8 +179,8 @@ def generate_vm_name(options):
                 'salt', 'slt').replace(
                 'linode', 'lin').replace(
                 '.', '_').replace(
-                'branch_tests', 'branch').replace(
-                'branch-tests', 'branch')
+                'branch_tests', '').replace(
+                'branch-tests', '')
         )
     else:
         random_part = hashlib.md5(
