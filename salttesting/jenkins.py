@@ -1138,6 +1138,20 @@ def main():
             options.test_command += ' --coverage-xml=/tmp/coverage.xml'
 
     if options.test_command:
+        def generate_xml_coverage_report(exit=True):
+            if options.test_without_coverage is False and options.test_with_new_coverage is True:
+                # Let's generate the new coverage report
+                cmd = '{0} xml -o /tmp/coverage.xml'.format(coverage_bin_path)
+                exitcode = run_ssh_command(options, cmd)
+                if exitcode != 0:
+                    print_bulleted(
+                        options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
+                    )
+                    sys.stdout.flush()
+                    if exit is True:
+                        parser.exit(exitcode)
+                time.sleep(1)
+
         options.test_command = options.test_command.format(
             python_executable=get_minion_python_executable(options),
             no_color=options.no_color and ' --no-color' or '',
@@ -1150,20 +1164,11 @@ def main():
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
             )
             sys.stdout.flush()
+            generate_xml_coverage_report(exit=False)
             parser.exit(exitcode)
         time.sleep(1)
 
-        if options.test_without_coverage is False and options.test_with_new_coverage is True:
-            # Let's generate the new coverage report
-            cmd = '{0} xml -o /tmp/coverage.xml'.format(coverage_bin_path)
-            exitcode = run_ssh_command(options, cmd)
-            if exitcode != 0:
-                print_bulleted(
-                    options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
-                )
-                sys.stdout.flush()
-                parser.exit(exitcode)
-            time.sleep(1)
+        generate_xml_coverage_report(exit=False)
 
         # If we reached here it means the test command passed, let's build
         # packages if the option is passed
