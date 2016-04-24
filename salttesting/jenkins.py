@@ -176,7 +176,8 @@ def generate_vm_name(options):
                     'salt-cloud', 'cloud').replace(
                         'nightly', 'ntly').replace(
                             'salt', 'slt').replace(
-                                'linode', 'lin')
+                                'linode', 'lin').replace(
+                                    '.', '_')
         )
     else:
         random_part = hashlib.md5(
