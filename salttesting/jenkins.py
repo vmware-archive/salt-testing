@@ -173,11 +173,14 @@ def generate_vm_name(options):
             vm_name_prefix,
             os.environ.get('BUILD_TAG').replace(
                 'jenkins', 'jk').replace(
-                    'salt-cloud', 'cloud').replace(
-                        'nightly', 'ntly').replace(
-                            'salt', 'slt').replace(
-                                'linode', 'lin').replace(
-                                    '.', '_')
+                'salt-cloud', 'cloud').replace(
+                'nightly', 'ntly').replace(
+                'salt-', '').replace(
+                'salt', 'slt').replace(
+                'linode', 'lin').replace(
+                '.', '_').replace(
+                'branch_tests', 'branch').replace(
+                'branch-tests', 'branch')
         )
     else:
         random_part = hashlib.md5(
