@@ -1115,6 +1115,7 @@ def main():
             options.test_command += (
                 '{0} run --branch --concurrency=multiprocessing '
                 '--parallel-mode '.format(coverage_bin_path)
+            )
 
         options.test_command += (
             '/testing/tests/runtests.py -v --run-destructive --sysinfo'
