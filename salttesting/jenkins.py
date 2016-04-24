@@ -1152,7 +1152,10 @@ def main():
         def generate_xml_coverage_report(exit=True):
             if options.test_without_coverage is False and options.test_with_new_coverage is True:
                 # Let's generate the new coverage report
-                cmd = '{0} xml -o /tmp/coverage.xml'.format(coverage_bin_path)
+                cmd = '{0} {1} combine; {0} {1} xml -o /tmp/coverage.xml'.format(
+                    get_minion_python_executable(options),
+                    coverage_bin_path
+                )
                 exitcode = run_ssh_command(options, cmd)
                 if exitcode != 0:
                     print_bulleted(
