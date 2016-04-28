@@ -234,6 +234,9 @@ def build_pillar_data(options, convert_to_yaml=True):
     if options.test_with_new_coverage:
         pillar['new_coverage'] = True
 
+    if options.test_with_python3:
+        pillar['py3'] = True
+
     if convert_to_yaml is True:
         return to_cli_yaml(pillar)
     return pillar
@@ -980,6 +983,12 @@ def main():
         default=False,
         action='store_true',
         help='When running the tests default command, run coverage using a more inclusive approach.'
+    )
+    testing_source_options.add_argument(
+        '--test-with-python3',
+        default=False,
+        action='store_true',
+        help='Use python3 instead of python2 to run the test suite'
     )
     testing_source_options.add_argument(
         '--test-prep-sls',
