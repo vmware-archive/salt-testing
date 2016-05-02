@@ -516,6 +516,8 @@ def get_minion_python_executable(options):
     try:
         python_executable = json.loads(stdout.strip())
         python_executable = python_executable[options.vm_name]
+        if options.test_with_python3:
+            python_executable = '/usr/bin/python3'
         setattr(options, 'minion_python_executable', python_executable)
         save_state(options)
         return python_executable
