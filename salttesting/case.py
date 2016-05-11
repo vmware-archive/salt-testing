@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import json
+import stat
 import errno
 import signal
 import logging
@@ -88,9 +89,11 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                         )
                     )
                 sfh.write(
-                    #'#!/usr/bin/env python{0}.{1}\n'.format(*sys.version_info),
+                    '#!{0}\n'.format(sys.executable) +
                     '\n'.join(script_template).format(script_name.replace('salt-', ''))
                 )
+            st = os.stat(script_path)
+            os.chmod(script_path, st.st_mode | stat.S_IEXEC)
 
         return script_path
 
