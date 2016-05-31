@@ -17,6 +17,7 @@ import time
 import signal
 import shutil
 import logging
+import platform
 import optparse
 import tempfile
 import traceback
@@ -139,7 +140,8 @@ class SaltTestingParser(optparse.OptionParser):
             xml_output_dir = os.environ.get(xml_output_dir_env_var)
         if not xml_output_dir:
             xml_output_dir = os.path.join(
-                tempfile.gettempdir(), 'xml-tests-output'
+                tempfile.gettempdir() if platform.system() != 'Darwin' else '/tmp',
+                'xml-tests-output'
             )
         self.xml_output_dir = xml_output_dir
 
