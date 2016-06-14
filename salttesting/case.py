@@ -215,7 +215,8 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
 
         popen_kwargs = {
             'shell': True,
-            'stdout': subprocess.PIPE
+            'stdout': subprocess.PIPE,
+            'universal_newlines': True
         }
 
         if catch_stderr is True:
