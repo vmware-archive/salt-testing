@@ -208,7 +208,10 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         if python_path is not None:
             cmd += '{0}:'.format(python_path)
 
-        cmd += '{0} '.format(':'.join(sys.path[1:]))
+        if sys.version_info[0] < 3:
+            cmd += '{0} '.format(':'.join(sys.path[1:]))
+        else:
+            cmd += '{0} '.format(':'.join(sys.path[0:]))
         cmd += 'python{0}.{1} '.format(*sys.version_info)
         cmd += '{0} '.format(script_path)
         cmd += '{0} '.format(arg_str)
