@@ -5,12 +5,14 @@
     :license: Apache 2.0, see LICENSE for more details.
 
 
-    salttesting.pylintplugins.pep263
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    ======================
     PEP-263 PyLint Checker
+    ======================
 '''
-
+# ----- DEPRECATED PYLINT PLUGIN ------------------------------------------------------------------------------------>
+# This Pylint plugin is deprecated. Development continues on the SaltPyLint package
+# <---- DEPRECATED PYLINT PLUGIN -------------------------------------------------------------------------------------
+from __future__ import absolute_import
 import re
 import itertools
 
@@ -57,10 +59,21 @@ class FileEncodingChecker(BaseChecker):
         '''
         pep263 = re.compile(self.RE_PEP263)
 
+        # Store a reference to the node's file stream position
+        current_stream_position = node.file_stream.tell()
+
+        # Go to the start of stream to achieve our logic
+        node.file_stream.seek(0)
+
+        # Grab the first two lines
         twolines = list(itertools.islice(node.file_stream, 2))
         pep263_encoding = [m.group(1).lower() for l in twolines for m in [pep263.search(l)] if m]
+
         multiple_encodings = len(pep263_encoding) > 1
         file_empty = len(twolines) == 0
+
+        # Reset the node's file stream position
+        node.file_stream.seek(current_stream_position)
 
         # - If the file has an UTF-8 BOM and yet uses any other
         #   encoding, it will be caught by F0002

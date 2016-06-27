@@ -5,14 +5,22 @@
     :license: Apache 2.0, see LICENSE for more details.
 
 
-    salttesting.pylintplugins.pep8
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ===================
+    PEP-8 PyLint Plugin
+    ===================
 
-    PEP-8 PyLint Checker
-'''
+    A bridge between the `pep8`_ library and PyLint
 
-# Let's use absolute imports
+    .. _`pep8`: http://pep8.readthedocs.org
+
+    '''
+# ----- DEPRECATED PYLINT PLUGIN ------------------------------------------------------------------------------------>
+# This Pylint plugin is deprecated. Development continues on the SaltPyLint package
+# <---- DEPRECATED PYLINT PLUGIN -------------------------------------------------------------------------------------
 from __future__ import absolute_import
+import sys
+import logging
+import warnings
 
 # Import PyLint libs
 from pylint.interfaces import IRawChecker
@@ -25,13 +33,15 @@ try:
     HAS_PEP8 = True
 except ImportError:
     HAS_PEP8 = False
-    import logging
-    logging.getLogger(__name__).warning(
-        'No pep8 library could be imported. No PEP8 check\'s will be done'
+    warnings.warn(
+        'No pep8 library could be imported. No PEP8 check\'s will be done',
+        RuntimeWarning
     )
 
 
 _PROCESSED_NODES = {}
+_KNOWN_PEP8_IDS = []
+_UNHANDLED_PEP8_IDS = []
 
 
 if HAS_PEP8 is True:
@@ -95,10 +105,28 @@ class _PEP8BaseChecker(BaseChecker):
                 # This will be handled by PyLint itself, skip it
                 continue
 
-            if pylintcode not in self.msgs:
-                # Log warning??
+            if pylintcode not in _KNOWN_PEP8_IDS:
+                if pylintcode not in _UNHANDLED_PEP8_IDS:
+                    _UNHANDLED_PEP8_IDS.append(pylintcode)
+                    msg = 'The following code, {0}, was not handled by the PEP8 plugin'.format(pylintcode)
+                    if logging.root.handlers:
+                        logging.getLogger(__name__).warning(msg)
+                    else:
+                        sys.stderr.write('{0}\n'.format(msg))
                 continue
 
+            if pylintcode not in self._msgs:
+                # Not for our class implementation to handle
+                continue
+
+            if code in ('E111', 'E113'):
+                if _PROCESSED_NODES[node.path].lines[lineno-1].strip().startswith('#'):
+                    # If E111 is triggered in a comment I consider it, at
+                    # least, bad judgement. See https://github.com/jcrocholl/pep8/issues/300
+
+                    # If E113 is triggered in comments, which I consider a bug,
+                    # skip it. See https://github.com/jcrocholl/pep8/issues/274
+                    continue
             self.add_message(pylintcode, line=lineno, args=code)
 
 
@@ -132,8 +160,16 @@ class PEP8Indentation(_PEP8BaseChecker):
                   'continuation-line-over-indented-for-visual-indent'),
         'E8128': ('PEP8 %s: continuation line under-indented for visual indent',
                   'continuation-line-under-indented-for-visual-indent'),
+        'E8129': ('PEP8 %s: visually indented line with same indent as next logical line',
+                  'visually-indented-line-with-same-indent-as-next-logical-line'),
+        'E8131': ('PEP8 %s: unaligned for hanging indent',
+                  'unaligned-for-hanging-indent'),
         'E8133': ('PEP8 %s: closing bracket is missing indentation',
                   'closing-bracket-is-missing-indentation'),
+    }
+
+    msgs_map = {
+        'E8126': 'C0330'
     }
 
 
@@ -171,12 +207,20 @@ class PEP8Whitespace(_PEP8BaseChecker):
                   'at-least-two-spaces-before-inline-comment'),
         'E8262': ("PEP8 %s: inline comment should start with '# '",
                   "inline-comment-should-start-with-'#-'"),
+        'E8265': ("PEP8 %s: block comment should start with '# '",
+                  "block-comment-should-start-with-'# '"),
         'E8271': ('PEP8 %s: multiple spaces after keyword',
                   'multiple-spaces-after-keyword'),
         'E8272': ('PEP8 %s: multiple spaces before keyword',
                   'multiple-spaces-before-keyword'),
         'E8273': ('PEP8 %s: tab after keyword', 'tab-after-keyword'),
         'E8274': ('PEP8 %s: tab before keyword', 'tab-before-keyword'),
+    }
+
+    msgs_map = {
+        'E8222': 'C0326',
+        'E8225': 'C0326',
+        'E8251': 'C0326'
     }
 
 
@@ -241,6 +285,10 @@ class PEP8Statement(_PEP8BaseChecker):
                   "comparison-to-None-should-be-'if-cond-is-None:'"),
         'E8712': ("PEP8 %s: comparison to True should be 'if cond is True:' or 'if cond:'",
                   "comparison-to-True-should-be-'if-cond-is-True:'-or-'if-cond:'"),
+        'E8713': ("PEP8 %s: test for membership should be 'not in'",
+                  "test-for-membership-should-be 'not in'"),
+        'E8714': ("PEP8 %s: test for object identity should be 'is not'",
+                  "test-for-object-identity-should-be-'is not'"),
         'E8721': ("PEP8 %s: do not compare types, use 'isinstance()'",
                   "do-not-compare-types,-use-'isinstance()'"),
     }
@@ -283,6 +331,11 @@ class PEP8WhitespaceWarning(_PEP8BaseChecker):
                   'blank-line-contains-whitespace'),
     }
 
+    msgs_map = {
+        'W8291': 'C0303',
+        'W8293': 'C0303'
+    }
+
 
 class PEP8BlankLineWarning(_PEP8BaseChecker):
     '''
@@ -310,6 +363,17 @@ class PEP8DeprecationWarning(_PEP8BaseChecker):
         'W8604': ("PEP8 %s: backticks are deprecated, use 'repr()'",
                   "backticks-are-deprecated,-use-'repr()'")
     }
+
+
+# ----- Keep Track Of Handled PEP8 MSG IDs -------------------------------------------------------------------------->
+for checker in locals().values():
+    try:
+        if issubclass(checker, _PEP8BaseChecker):
+            _KNOWN_PEP8_IDS.extend(checker._msgs.keys())
+    except TypeError:
+        # Not class
+        continue
+# <---- Keep Track Of Handled PEP8 MSG IDs ---------------------------------------------------------------------------
 
 
 def register(linter):

@@ -1,0 +1,3 @@
+graft salttesting/_saltconf/*
+exclude salttesting/pylintplugins/flask_sqlalchemy_transform.py salttesting/pylintplugins/string_format.py
+include requirements.txt

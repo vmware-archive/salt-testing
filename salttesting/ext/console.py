@@ -8,6 +8,7 @@ getTerminalSize()
 '''
 
 # Import python libs
+from __future__ import absolute_import, print_function
 import os
 import platform
 import struct
@@ -31,7 +32,6 @@ def getTerminalSize():
             current_os.startswith('CYGWIN'):
         tuple_xy = _getTerminalSize_linux()
     if tuple_xy is None:
-        print 'default'
         tuple_xy = (80, 25)      # default value
     return tuple_xy
 
@@ -105,4 +105,4 @@ def _getTerminalSize_linux():
 
 if __name__ == '__main__':
     sizex, sizey = getTerminalSize()
-    print 'width =', sizex, 'height =', sizey
+    print('width = {0}  height = {1}'.format(sizex, sizey))

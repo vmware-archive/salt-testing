@@ -1,0 +1,2 @@
+.. automodule:: salttesting.xmlunit
+    :members:
