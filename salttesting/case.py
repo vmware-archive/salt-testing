@@ -24,6 +24,9 @@ import logging
 import subprocess
 from datetime import datetime, timedelta
 
+# Import Salt Libs
+import salt.utils
+
 # Import salt testing libs
 from salttesting.unit import TestCase
 from salttesting.helpers import RedirectStdStreams
@@ -204,7 +207,12 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
             return False
 
         python_path = os.environ.get('PYTHONPATH', None)
-        cmd = 'PYTHONPATH='
+
+        if salt.utils.is_windows():
+            cmd = 'set PYTHONPATH='
+        else:
+            cmd = 'PYTHONPATH='
+
         if python_path is not None:
             cmd += '{0}:'.format(python_path)
 
