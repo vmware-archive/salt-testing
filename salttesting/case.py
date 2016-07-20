@@ -21,6 +21,7 @@ import stat
 import errno
 import signal
 import logging
+import tempfile
 import subprocess
 from datetime import datetime, timedelta
 
@@ -216,9 +217,11 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         cmd += '{0} '.format(script_path)
         cmd += '{0} '.format(arg_str)
 
+        tmp_file = tempfile.NamedTemporaryFile(delete=False)
+
         popen_kwargs = {
             'shell': True,
-            'stdout': subprocess.PIPE,
+            'stdout': tmp_file,
             'universal_newlines': True
         }
 
@@ -294,10 +297,13 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                 #
                 # Use this work around were it's needed only, python 2.6
                 process.wait()
-                out = process.stdout.read()
+                tmp_file.seek(0)
+                out = tmp_file.read()
                 err = process.stderr.read()
             else:
-                out, err = process.communicate()
+                _, err = process.communicate()
+                tmp_file.seek(0)
+                out = tmp_file.read()
             # Force closing stderr/stdout to release file descriptors
             if process.stdout is not None:
                 process.stdout.close()
@@ -330,18 +336,21 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                     pass
             # pylint: enable=maybe-no-member
 
-        data = process.communicate()
-        process.stdout.close()
+#        data = process.communicate()
+        tmp_file.seek(0)
+        data = tmp_file.read()
+        if process.stdout is not None:
+            process.stdout.close()
 
         try:
             if with_retcode:
                 if not raw:
-                    return data[0].splitlines(), process.returncode
+                    return data.splitlines(), process.returncode
                 else:
-                    return data[0], process.returncode
+                    return data, process.returncode
             else:
                 if not raw:
-                    return data[0].splitlines()
+                    return data.splitlines()
                 else:
                     return data[0]
         finally:
