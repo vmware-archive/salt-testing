@@ -21,6 +21,7 @@ import stat
 import errno
 import signal
 import logging
+import tempfile
 import subprocess
 from datetime import datetime, timedelta
 
@@ -216,9 +217,11 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         cmd += '{0} '.format(script_path)
         cmd += '{0} '.format(arg_str)
 
+        tmp_file = tempfile.SpooledTemporaryFile()
+
         popen_kwargs = {
             'shell': True,
-            'stdout': subprocess.PIPE,
+            'stdout': tmp_file,
             'universal_newlines': True
         }
 
@@ -278,7 +281,8 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
 
                 if process.returncode is not None:
                     break
-
+        tmp_file.seek(0)
+        out = tmp_file.read()
         if catch_stderr:
             if sys.version_info < (2, 7):
                 # On python 2.6, the subprocess'es communicate() method uses
@@ -294,10 +298,9 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                 #
                 # Use this work around were it's needed only, python 2.6
                 process.wait()
-                out = process.stdout.read()
                 err = process.stderr.read()
             else:
-                out, err = process.communicate()
+                _, err = process.communicate()
             # Force closing stderr/stdout to release file descriptors
             if process.stdout is not None:
                 process.stdout.close()
@@ -330,22 +333,26 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                     pass
             # pylint: enable=maybe-no-member
 
-        data = process.communicate()
-        process.stdout.close()
+        # TODO Remove this?
+        process.communicate()
+        if process.stdout is not None:
+            process.stdout.close()
 
         try:
             if with_retcode:
                 if not raw:
-                    return data[0].splitlines(), process.returncode
+                    return out.splitlines(), process.returncode
                 else:
-                    return data[0], process.returncode
+                    return out, process.returncode
             else:
                 if not raw:
-                    return data[0].splitlines()
+                    return out.splitlines()
                 else:
-                    return data[0]
+                    return out
         finally:
             try:
+                if os.path.exists(tmp_file.name):
+                    os.remove(tmp_file.name)
                 process.terminate()
             except OSError as err:
                 # process already terminated
