@@ -195,7 +195,8 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                    arg_str,
                    catch_stderr=False,
                    with_retcode=False,
-                   timeout=None,
+                   # FIXME A timeout of zero or disabling timeouts may not return results!
+                   timeout=15,
                    raw=False):
         '''
         Execute a script with the given argument string
