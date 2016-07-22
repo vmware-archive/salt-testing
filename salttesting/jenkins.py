@@ -81,15 +81,19 @@ class GetPullRequestAction(argparse.Action):
 
 
 # ----- Helper Functions -------------------------------------------------------------------------------------------->
+def print_flush(*args, **kwargs):
+    print(*args, **kwargs)
+    sys.stdout.flush()
+
+
 def print_bulleted(options, message, color='LIGHT_BLUE'):
     colors = get_colors(options.no_color is False)
-    print(' {0}*{ENDC} {1}'.format(colors[color], message, **colors))
-    sys.stdout.flush()
+    print_flush(' {0}*{ENDC} {1}'.format(colors[color], message, **colors))
 
 
 def save_state(options):
     '''
-    Save some state data to be used between executions, minion external IP, minion states synced, etc...
+    Save some state data to be used between executions, minion IP address, minion states synced, etc...
     '''
     state_file = os.path.join(options.workspace, '.state.json')
     if os.path.isfile(state_file):
@@ -104,7 +108,7 @@ def save_state(options):
                     'require_sudo',
                     'output_columns',
                     'salt_minion_synced',
-                    'minion_external_ip',
+                    'minion_ip_address',
                     'minion_python_executable',
                     'salt_minion_bootstrapped'):
         if varname not in state and varname in options:
@@ -115,7 +119,7 @@ def save_state(options):
 
 def load_state(options):
     '''
-    Load some state data to be used between executions, minion external IP, minion states synced, etc...
+    Load some state data to be used between executions, minion IP address, minion states synced, etc...
     '''
     state_file = os.path.join(options.workspace, '.state.json')
     allow_overwrite_variables = ('output_columns', 'workspace')
@@ -135,11 +139,10 @@ def load_state(options):
 
 def generate_ssh_keypair(options):
     '''
-    Generate a temporary SSH key, valid for one hour, and set it as an
+    Generate a temporary SSH key, valid for two hours, and set it as an
     authorized key in the minion's root user account on the remote system.
     '''
     print_bulleted(options, 'Generating temporary SSH Key')
-    sys.stdout.flush()
     ssh_key_path = os.path.join(options.workspace, 'jenkins_test_account_key')
 
     if os.path.exists(ssh_key_path):
@@ -147,19 +150,18 @@ def generate_ssh_keypair(options):
         os.unlink(ssh_key_path + '.pub')
 
     exitcode = run_command(
-        'ssh-keygen -b 2048 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
+        'ssh-keygen -b 2048 -C "$(whoami)@$(hostname)-$(date \"+%Y-%m-%dT%H:%M:%S%z\")" '
         '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
         options
     )
     if exitcode != 0:
         exitcode = run_command(
-            'ssh-keygen -t rsa -b 2048 -C "$(whoami)@$(hostname)-$(date --rfc-3339=seconds)" '
+            'ssh-keygen -t rsa -b 2048 -C "$(whoami)@$(hostname)-$(date \"+%Y-%m-%dT%H:%M:%S%z\")" '
             '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
             options
         )
         if exitcode != 0:
             print_bulleted(options, 'Failed to generate temporary SSH ksys', 'RED')
-            sys.stdout.flush()
             sys.exit(1)
 
 
@@ -246,10 +248,19 @@ def echo_parseable_environment(options):
     '''
     Echo NAME=VAL parseable output
     '''
+    # Standard environment
     output = [
         'JENKINS_VM_NAME={0}'.format(options.vm_name),
         'JENKINS_VM_SOURCE={0}'.format(options.vm_source),
     ]
+
+    # VM environment
+    if 'vm_host' in options:
+        output.append('JENKINS_VM_HOST={0}'.format(options.vm_host))
+    if 'vm_host_user' in options:
+        output.append('JENKINS_VM_HOST_USER={0}'.format(options.vm_host_user))
+
+    # Git environment
     if 'pull_request_git_url' in options:
         output.append('SALT_PR_GIT_URL={0}'.format(options.pull_request_git_url))
     if 'pull_request_git_commit' in options:
@@ -259,8 +270,7 @@ def echo_parseable_environment(options):
     if 'pull_request_git_base_branch' in options:
         output.append('SALT_PR_GIT_BASE_BRANCH={0}'.format(options.pull_request_git_base_branch))
 
-    sys.stdout.write('\n\n{0}\n\n'.format('\n'.join(output)))
-    sys.stdout.flush()
+    print_flush('\n\n{0}\n\n'.format('\n'.join(output)))
 
 
 def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True, stream_stderr=True):
@@ -273,7 +283,6 @@ def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True
 
     print_bulleted(options, 'Running command: {0}'.format(cmd))
     print_header(u'', sep='-', inline=True, width=options.output_columns)
-    sys.stdout.flush()
 
     if return_output is True:
         stdout_buffer = stderr_buffer = ''
@@ -303,24 +312,20 @@ def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True
         if proc.exitstatus != 0:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
             print_bulleted(options, 'Failed execute command. Exit code: {0}'.format(proc.exitstatus), 'RED')
-            sys.stdout.flush()
         else:
             print_header(u'', sep='-', inline=True, width=options.output_columns)
             print_bulleted(
                 options, 'Command execution succeeded. Exit code: {0}'.format(proc.exitstatus), 'LIGHT_GREEN'
             )
-            sys.stdout.flush()
         if return_output is True:
             return stdout_buffer, stderr_buffer, proc.exitstatus
         return proc.exitstatus
     except vt.TerminalException as exc:
         print_header(u'', sep='-', inline=True, width=options.output_columns)
         print_bulleted(options, '\n\nAn error occurred while running command:\n', 'RED')
-        print(str(exc))
-        sys.stdout.flush()
+        print_flush(str(exc))
     finally:
         print_header(u'', sep='<', inline=True, width=options.output_columns)
-        sys.stdout.flush()
         proc.close(terminate=True, kill=True)
 
 
@@ -361,13 +366,98 @@ def bootstrap_lxc_minion(options):
     '''
 
     print_bulleted(options, 'LXC support not implemented', 'RED')
-    sys.stdout.flush()
     sys.exit(1)
+
+
+def bootstrap_parallels_minion(options):
+    '''
+    Bootstrap a parallels minion.  The minion VM must have a snapshot at
+    ``options.vm_source`` in a state that includes salt and its dependencies.
+    '''
+    def _parallels_cmd(sub_cmd, *args, **kwargs):
+        '''
+        Construct a parallels desktop execution module command for which the
+        parallels host and parallels VM are hardcoded to the options given upon
+        invocation of this script file.
+
+        Example:
+
+        .. code-block::
+
+            salt -l info prl-host parallels.status macvm runas=macdev
+        '''
+        # Base command
+        cmd = ['salt', '-l', options.log_level]
+        if options.no_color:
+            cmd.append('--no-color')
+
+        # parallels host, command, vm_name
+        cmd.extend([
+            options.vm_host,
+            'parallels.{0}'.format(sub_cmd),
+            options.vm_name,
+        ])
+
+        # args and kwargs unique to sub_cmd
+        cmd.extend([arg for arg in args])
+        cmd.extend(['{0}={1}'.format(k, v) for k, v in kwargs.items()])
+
+        # user on parallels host
+        cmd.append('runas={0}'.format(options.vm_host_user))
+
+        return cmd
+
+    def vm_reverted():
+        '''
+        Revert the parallels VM to a snapshot
+        '''
+        cmd = _parallels_cmd('revert_snapshot', options.vm_source)
+        return run_command(cmd, options)
+
+    def vm_started():
+        '''
+        Ensure that the VM is running
+        '''
+        stat_cmd = _parallels_cmd('status')
+        stat_out, stat_err, stat_retcode = run_command(stat_cmd, options, return_output=True)
+        if 'stopped' in stat_out:
+            start_cmd = _parallels_cmd('start')
+            return run_command(start_cmd, options)
+        else:
+            return stat_retcode
+
+    def minion_reloaded():
+        '''
+        Stop if necessary and start salt-minion service
+        '''
+        # Get list of running daemons
+        list_cmd = _parallels_cmd('exec', command=pipes.quote('launchctl list'))
+        list_out, list_err, list_retcode = run_command(list_cmd, options, return_output=True, stream_stdout=False)
+        if list_retcode != 0:
+            return list_retcode
+
+        # Unload salt-minion if it is running
+        if 'com.saltstack.salt.minion' in list_out:
+            lctl_unload = 'launchctl unload /Library/LaunchDaemons/com.saltstack.salt.minion.plist'
+            unload_cmd = _parallels_cmd('exec', command=pipes.quote(lctl_unload))
+            unload_retcode = run_command(unload_cmd, options)
+            if unload_retcode != 0:
+                return unload_retcode
+
+        # Load salt-minion
+        lctl_load = 'launchctl load /Library/LaunchDaemons/com.saltstack.salt.minion.plist'
+        list_cmd = _parallels_cmd('exec', command=pipes.quote(lctl_load))
+        return run_command(list_cmd, options)
+
+    exitcodes = [vm_reverted(), vm_started(), minion_reloaded()]
+    if not any(exitcodes):  # if all are zero
+        setattr(options, 'salt_minion_bootstrapped', 'yes')
+        return 0
+    return 1
 
 
 def prepare_ssh_access(options):
     print_bulleted(options, 'Prepare SSH Access to Bootstrapped VM')
-    sys.stdout.flush()
     generate_ssh_keypair(options)
 
     cmd = [
@@ -412,22 +502,36 @@ def sync_minion(options):
     return exitcode
 
 
-def get_minion_external_address(options):
+def find_private_addr(ip_addrs):
     '''
-    Get and store the remote minion external IP
+    Find an RFC 1918 IP address in ip_addrs
+    '''
+    for ip_address in ip_addrs:
+        ip = [int(quad) for quad in ip_address.strip().split('.')]
+        if ip[0] == 10:
+            return ip_address
+        elif ip[0] == 172 and ip[1] in [i for i in range(16, 32)]:
+            return ip_address
+        elif ip[0] == 192 and ip[1] == 168:
+            return ip_address
+        return ''
+
+
+def get_minion_ip_address(options):
+    '''
+    Get and store the remote minion IP address
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing external IP.', 'RED')
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing IP address.', 'RED')
         sys.exit(1)
-    if getattr(options, 'minion_external_ip', None):
-        return options.minion_external_ip
+    if getattr(options, 'minion_ip_address', None):
+        return options.minion_ip_address
 
     sync_minion(options)
 
     attempts = 1
     while attempts <= 3:
-        print_bulleted(options, 'Fetching the external IP of the minion. Attempt {0}/3'.format(attempts))
-        sys.stdout.flush()
+        print_bulleted(options, 'Fetching the IP address of the minion. Attempt {0}/3'.format(attempts))
         stdout_buffer = stderr_buffer = ''
         cmd = [
             'salt',
@@ -438,7 +542,7 @@ def get_minion_external_address(options):
             cmd.append('--no-color')
         cmd.extend([
             options.vm_name,
-            'grains.get', 'external_ip'
+            'grains.get', 'ipv4' if options.ssh_private_address else 'external_ip'
         ])
         stdout, stderr, exitcode = run_command(cmd,
                                                options,
@@ -448,29 +552,33 @@ def get_minion_external_address(options):
         if exitcode != 0:
             if attempts == 3:
                 print_bulleted(
-                    options, 'Failed to get the minion external IP. Exit code: {0}'.format(exitcode), 'RED')
-                sys.stdout.flush()
+                    options, 'Failed to get the minion IP address. Exit code: {0}'.format(exitcode), 'RED')
                 sys.exit(exitcode)
             attempts += 1
             continue
 
         if not stdout.strip():
             if attempts == 3:
-                print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
-                sys.stdout.flush()
+                print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
                 sys.exit(1)
             attempts += 1
             continue
 
         try:
-            external_ip_info = json.loads(stdout.strip())
-            external_ip = external_ip_info[options.vm_name]
-            setattr(options, 'minion_external_ip', external_ip)
+
+            ip_info = json.loads(stdout.strip())
+            if options.ssh_private_address:
+                ip_address = find_private_addr(ip_info[options.vm_name])
+            else:
+                ip_address = ip_info[options.vm_name]
+            if not ip_address:
+                print_bulleted(options, 'Failed to get the minion IP address(not found)', 'RED')
+                sys.exit(1)
+            setattr(options, 'minion_ip_address', ip_address)
             save_state(options)
-            return external_ip
+            return ip_address
         except (ValueError, TypeError):
             print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
-            sys.stdout.flush()
             attempts += 1
 
 
@@ -509,8 +617,7 @@ def get_minion_python_executable(options):
         sys.exit(exitcode)
 
     if not stdout.strip():
-        print_bulleted(options, 'Failed to get the minion external IP(no output)', 'RED')
-        sys.stdout.flush()
+        print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
         sys.exit(1)
 
     try:
@@ -549,6 +656,23 @@ def delete_lxc_vm(options):
     return run_command(cmd, options)
 
 
+def reset_parallels_vm(options):
+    '''
+    Reset a parallels instance
+    '''
+    cmd = ['salt', '-l', options.log_level]
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
+        options.vm_host,
+        'parallels.revert_snapshot',
+        options.vm_name,
+        options.vm_source,
+        'runas={0}'.format(options.vm_host_user)
+    ])
+    return run_command(cmd, options)
+
+
 def check_bootstrapped_minion_version(options):
     '''
     Confirm that the bootstrapped minion version matches the desired one
@@ -584,7 +708,6 @@ def check_bootstrapped_minion_version(options):
 
     if not stdout.strip():
         print_bulleted(options, 'Failed to get the bootstrapped minion version(no output).', 'RED')
-        sys.stdout.flush()
         sys.exit(1)
 
     try:
@@ -607,8 +730,7 @@ def check_bootstrapped_minion_version(options):
                 '{0!r} does not contain {1!r}'.format(version_info[options.vm_name], bootstrap_minion_version),
                 'YELLOW'
             )
-            print('\n\n')
-            sys.stdout.flush()
+            print_flush('\n\n')
         else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
         setattr(options, 'bootstrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
@@ -626,7 +748,8 @@ def run_state_on_vm(options, state_name, timeout=100):
         '-l', options.log_level,
         '--retcode-passthrough'
     ]
-    if options.bootstrapped_salt_minion_version >= (2015, 2):
+    boot_version = getattr(options, 'bootstrapped_salt_minion_version', False)
+    if boot_version and boot_verision >= (2015, 2):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
@@ -675,7 +798,6 @@ def check_cloned_reposiory_commit(options):
 
     if not stdout.strip():
         print_bulleted(options, 'Failed to get the cloned repository revision(no output).', 'RED')
-        sys.stdout.flush()
         sys.exit(1)
 
     try:
@@ -688,8 +810,7 @@ def check_cloned_reposiory_commit(options):
                 ' {0!r} != {1!r}'.format(revision_info[options.vm_name][:7], options.test_git_commit[:7]),
                 'YELLOW'
             )
-            print('\n\n')
-            sys.stdout.flush()
+            print_flush('\n\n')
         else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
     except (ValueError, TypeError):
@@ -726,22 +847,35 @@ def run_ssh_command(options, remote_command):
     '''
     Run a command using SSH
     '''
+    # Setup SSH options
     test_ssh_root_login(options)
     cmd = ['ssh'] + build_ssh_opts(options)
+
     # Use double `-t` on the `ssh` command, it's necessary when `sudo` has
     # `requiretty` enforced.
     cmd.extend(['-t', '-t'])
 
+    # Add VM URL
     cmd.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
-            get_minion_external_address(options)
+            get_minion_ip_address(options)
         )
     )
+
+    # Compile remote command to a string
     if isinstance(remote_command, (list, tuple)):
         remote_command = ' '.join(remote_command)
+
+    # Prepend sudo if needed
     if options.require_sudo and not remote_command.startswith('sudo'):
         remote_command = 'sudo {0}'.format(remote_command)
+
+    # Workaround nonstandard path issue on MacOS
+    if options.parallels_deploy:
+        remote_command = 'source /etc/profile ; {0}'.format(remote_command)
+
+    # Assemble local and remote parts into final command and return result
     cmd.append(pipes.quote(remote_command))
     return run_command(cmd, options)
 
@@ -755,7 +889,7 @@ def test_ssh_root_login(options):
 
     cmd = ['ssh'] + build_ssh_opts(options)
     cmd.extend([
-        'root@{0}'.format(get_minion_external_address(options)),
+        'root@{0}'.format(get_minion_ip_address(options)),
         pipes.quote('echo "root login possible"')
     ])
     exitcode = run_command(cmd, options)
@@ -775,7 +909,7 @@ def download_artifacts(options):
     sftp_command.append(
         '{0}@{1}'.format(
             options.require_sudo and options.ssh_username or 'root',
-            get_minion_external_address(options)
+            get_minion_ip_address(options)
         )
     )
     for remote_path, local_path in options.download_artifact:
@@ -801,6 +935,78 @@ def download_artifacts(options):
                         os.chown(os.path.join(root, fname), sudo_uid, sudo_gid)
             else:
                 os.chown(local_path, sudo_uid, sudo_gid)
+
+
+def build_default_test_command(options):
+    '''
+    Construct the command that is sent to the minion to execute the test run
+    '''
+    python_bin_path = get_minion_python_executable(options)
+    # This is a pretty naive aproach to get the coverage binary path
+    coverage_bin_path = python_bin_path.replace('python', 'coverage')
+
+    test_command = [python_bin_path]
+
+    # Append coverage parameters
+    if options.test_without_coverage is False and options.test_with_new_coverage is True:
+        test_command.extend([
+            coverage_bin_path,
+            'run',
+            '--branch',
+            '--concurrency=multiprocessing',
+            '--parallel-mode',
+        ])
+
+    # Select python executable
+    if 'salt_minion_bootstrapped' in options:
+        test_command.append(get_minion_python_executable(options))
+    else:
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
+        test_command.append('python')
+
+    # Append basic command parameters
+    test_command.extend([
+        '/testing/tests/runtests.py',
+        '-v',
+        '--run-destructive',
+        '--sysinfo',
+        '--xml=/tmp/xmp-unittests-output',
+        '--transport={0}'.format(options.test_transport),
+        '--output-columns={0}'.format(options.output_columns),
+    ])
+
+    # Append extra and conditional parameters
+    pillar = build_pillar_data(options, convert_to_yaml=False)
+    git_branch = pillar.get('git_branch', 'develop')
+    if git_branch and git_branch not in('2014.1',):
+        test_command.append('--ssh')
+    if options.test_without_coverage is False and options.test_with_new_coverage is False:
+        test_command.append('--coverage-xml=/tmp/coverage.xml')
+    if options.no_color:
+        test_command.append('--no-color')
+
+    return test_command
+
+
+def generate_xml_coverage_report(exit=True):
+    '''
+    generate coverage report
+    '''
+    if options.test_without_coverage is False and options.test_with_new_coverage is True:
+        # Let's generate the new coverage report
+        cmd = '{0} {1} combine; {0} {1} xml -o /tmp/coverage.xml'.format(
+            get_minion_python_executable(options),
+            coverage_bin_path
+        )
+        exitcode = run_ssh_command(options, cmd)
+        if exitcode != 0:
+            print_bulleted(
+                options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
+            )
+            sys.stdout.flush()
+            if exit is True:
+                parser.exit(exitcode)
+        time.sleep(1)
 # <---- Helper Functions ---------------------------------------------------------------------------------------------
 
 
@@ -863,7 +1069,12 @@ def main():
     ssh_options_group.add_argument(
         '--ssh-prepare-state',
         default='accounts.test_account',
-        help='The name of the state which prepares the remove VM for SSH access'
+        help='The name of the state which prepares the remote VM for SSH access'
+    )
+    ssh_options_group.add_argument(
+        '--ssh-private-address',
+        action='store_true',
+        help='Try to find the RFC 1918 private address of the minion rather than the external address'
     )
 
     # Deployment Selection
@@ -880,6 +1091,12 @@ def main():
         action='store_true',
         default=False,
         help='Salt LXC Deployment'
+    )
+    deployment_group_mutually_exclusive.add_argument(
+        '--parallels-deploy',
+        action='store_true',
+        default=False,
+        help='Salt Parallels Desktop Deployment'
     )
     deployment_group.add_argument(
         '--pip-based',
@@ -921,8 +1138,19 @@ def main():
     vm_options_group.add_argument(
         '--vm-source',
         default=os.environ.get('JENKINS_VM_SOURCE', None),
-        help=('The VM source. In case of --cloud-deploy usage, the could profile name. '
-              'In case of --lxc-deploy usage, the image name.')
+        help=('The VM source. In case of --cloud-deploy usage, the cloud profile name. '
+              'In case of --lxc-deploy usage, the image name. '
+              'In case of --parallels-deploy usage, the snapshot name.')
+    )
+    vm_options_group.add_argument(
+        '--vm-host',
+        default='prl-host',
+        help=('The minion ID of the VM host system.')
+    )
+    vm_options_group.add_argument(
+        '--vm-host-user',
+        default='prl-user',
+        help=('The user that parallels desktop runs as on the VM host system.')
     )
 
     # VM related actions
@@ -930,11 +1158,18 @@ def main():
         'VM Actions',
         'Action to execute on a running VM'
     )
-    vm_actions.add_argument(
+    vm_actions_mutually_exclusive = vm_actions.add_mutually_exclusive_group()
+    vm_actions_mutually_exclusive.add_argument(
         '--delete-vm',
         action='store_true',
         default=False,
         help='Delete a running VM'
+    )
+    vm_actions_mutually_exclusive.add_argument(
+        '--reset-vm',
+        action='store_true',
+        default=False,
+        help='Reset a running VM to snapshot'
     )
     vm_actions.add_argument(
         '--download-artifact',
@@ -998,6 +1233,11 @@ def main():
         action='append',
         help='Run a preparation SLS file. Pass one SLS per `--test-prep-sls` option argument'
     )
+    testing_source_options.add_argument(
+        '--show-default-command',
+        action='store_true',
+        help='Print out the default command that runs the test suite on the deployed VM'
+    )
     testing_source_options_mutually_exclusive = testing_source_options.add_mutually_exclusive_group()
     testing_source_options_mutually_exclusive.add_argument(
         '--test-command',
@@ -1007,10 +1247,8 @@ def main():
     testing_source_options_mutually_exclusive.add_argument(
         '--test-default-command',
         action='store_true',
-        help=('Run the default salt runtests command: '
-              '\'\{python_executable\} /testing/tests/runtests.py -v --run-destructive --sysinfo '
-              '\{no_color\} --xml=/tmp/xml-unittests-output --coverage-xml=/tmp/coverage.xml '
-              '--transport=\{transport\}\'')
+        help=('Execute the default command that runs the test suite on the deployed VM. '
+              'To view the default command, use the --show-default-command option')
     )
 
     packaging_options = parser.add_argument_group(
@@ -1048,6 +1286,12 @@ def main():
     )
 
     options = parser.parse_args()
+
+    # Print test suite command line and exit
+    if options.show_default_command:
+        print_flush(' '.join(build_default_test_command(options)))
+        sys.exit(0)
+
     if options.echo_parseable_output and \
             os.path.exists(os.path.join(options.workspace, '.state.json')):
         # Since this is the first command to run, let's clear any saved state
@@ -1058,7 +1302,10 @@ def main():
         parser.error('LXC support is not yet implemented')
 
     if options.vm_name is None:
-        options.vm_name = get_vm_name(options)
+        if options.parallels_deploy:
+            parser.error('Parallels Desktop VM name must be provided')
+        else:
+            options.vm_name = get_vm_name(options)
 
     if options.echo_parseable_output:
         if not options.vm_source:
@@ -1076,6 +1323,8 @@ def main():
             parser.error(
                 'You need to specify from which deployment to delete the VM from. --cloud-deploy/--lxc-deploy'
             )
+    if options.reset_vm and options.parallels_deploy:
+        parser.exit(reset_parallels_vm(options))
 
     if options.bootstrap_salt_commit is None:
         options.bootstrap_salt_commit = os.environ.get(
@@ -1089,23 +1338,33 @@ def main():
         exitcode = bootstrap_cloud_minion(options)
         if exitcode != 0:
             print_bulleted(options, 'Failed to bootstrap the cloud minion', 'RED')
-            sys.stdout.flush()
             parser.exit(exitcode)
         print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        sys.stdout.flush()
         time.sleep(5)
     elif options.lxc_deploy:
         exitcode = bootstrap_lxc_minion(options)
         if exitcode != 0:
             print_bulleted(options, 'Failed to bootstrap the LXC minion', 'RED')
-            sys.stdout.flush()
             parser.exit(exitcode)
         print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        sys.stdout.flush()
+        time.sleep(5)
+    elif options.parallels_deploy:
+        exitcode = bootstrap_parallels_minion(options)
+        if exitcode != 0:
+            print_bulleted(options, 'Failed to bootstrap the parallels minion', 'RED')
+            parser.exit(exitcode)
+        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
         time.sleep(5)
 
-    if options.cloud_deploy or options.lxc_deploy:
-        check_bootstrapped_minion_version(options)
+    deploy = any([
+        options.cloud_deploy,
+        options.lxc_deploy,
+        options.parallels_deploy,
+    ])
+    if deploy:
+        # Parallels Desktop deployments are run from preinstalled snapshots
+        if not options.parallels_deploy:
+            check_bootstrapped_minion_version(options)
         time.sleep(1)
         prepare_ssh_access(options)
         time.sleep(1)
@@ -1115,69 +1374,23 @@ def main():
         exitcode = run_state_on_vm(options, sls, timeout=900)
         if exitcode != 0:
             print_bulleted(options, 'The execution of the {0!r} SLS failed'.format(sls), 'RED')
-            sys.stdout.flush()
             parser.exit(exitcode)
         time.sleep(1)
 
     if options.test_git_commit is not None:
         check_cloned_reposiory_commit(options)
 
-    # Run the main command using SSH for realtime output
+    # Construct default test runner command
     if options.test_default_command:
-        # This is a pretty naive aproach to get the coverage binary path
-        coverage_bin_path = get_minion_python_executable(options).replace('python', 'coverage')
+        options.test_command = build_default_test_command(options)
 
-        options.test_command = '{python_executable} '
-
-        if options.test_without_coverage is False and options.test_with_new_coverage is True:
-            options.test_command += (
-                '{0} run --branch --concurrency=multiprocessing '
-                '--parallel-mode '.format(coverage_bin_path)
-            )
-
-        options.test_command += (
-            '/testing/tests/runtests.py -v --run-destructive --sysinfo'
-            '{no_color} --xml=/tmp/xml-unittests-output --transport={transport} '
-            '--output-columns={output_columns}'
-        )
-
-        pillar = build_pillar_data(options, convert_to_yaml=False)
-        git_branch = pillar.get('git_branch', 'develop')
-        if git_branch and git_branch not in('2014.1',):
-            options.test_command += ' --ssh'
-        if options.test_without_coverage is False and options.test_with_new_coverage is False:
-            options.test_command += ' --coverage-xml=/tmp/coverage.xml'
-
+    # Run the main command using SSH for realtime output
     if options.test_command:
-        def generate_xml_coverage_report(exit=True):
-            if options.test_without_coverage is False and options.test_with_new_coverage is True:
-                # Let's generate the new coverage report
-                cmd = '{0} {1} combine; {0} {1} xml -o /tmp/coverage.xml'.format(
-                    get_minion_python_executable(options),
-                    coverage_bin_path
-                )
-                exitcode = run_ssh_command(options, cmd)
-                if exitcode != 0:
-                    print_bulleted(
-                        options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
-                    )
-                    sys.stdout.flush()
-                    if exit is True:
-                        parser.exit(exitcode)
-                time.sleep(1)
-
-        options.test_command = options.test_command.format(
-            python_executable=get_minion_python_executable(options),
-            no_color=options.no_color and ' --no-color' or '',
-            transport=options.test_transport,
-            output_columns=options.output_columns
-        )
         exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
             )
-            sys.stdout.flush()
             generate_xml_coverage_report(exit=False)
             parser.exit(exitcode)
         time.sleep(1)
