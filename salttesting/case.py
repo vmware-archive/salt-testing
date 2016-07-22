@@ -98,7 +98,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
 
         return script_path
 
-    def run_salt(self, arg_str, with_retcode=False, catch_stderr=False):
+    def run_salt(self, arg_str, with_retcode=False, catch_stderr=False, timeout=15):
         r'''
         Run the ``salt`` CLI tool with the provided arguments
 
