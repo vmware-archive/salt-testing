@@ -181,8 +181,7 @@ def generate_vm_name(options):
                 'salt', 'slt').replace(
                 'linode', 'lin').replace(
                 '.', '_').replace(
-                'branch_tests', '').replace(
-                'branch-tests', '')
+                'branch_tests-', '')
         )
     else:
         random_part = hashlib.md5(
@@ -338,6 +337,8 @@ def bootstrap_cloud_minion(options):
         script_args.append('-n')
     if options.pip_based:
         script_args.append('-P')
+    if options.insecure:
+        script_args.append('-I')
     if options.bootstrap_salt_url != SALT_GIT_URL:
         script_args.extend([
             '-g', options.bootstrap_salt_url
@@ -1103,6 +1104,12 @@ def main():
         action='store_true',
         default=False,
         help='Allow pip based installations'
+    )
+    deployment_group.add_argument(
+        '--insecure',
+        action='store_true',
+        default=False,
+        help='Allow insecure connections while downloading any files'
     )
     deployment_group.add_argument(
         '--lxc-host',
