@@ -283,7 +283,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                 if process.returncode is not None:
                     break
         tmp_file.seek(0)
-        out = tmp_file.read()
+        out = tmp_file.read().decode()
         if catch_stderr:
             if sys.version_info < (2, 7):
                 # On python 2.6, the subprocess'es communicate() method uses
