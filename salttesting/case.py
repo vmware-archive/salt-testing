@@ -353,7 +353,13 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         finally:
             try:
                 if os.path.exists(tmp_file.name):
-                    os.remove(tmp_file.name)
+                    if isinstance(tmp_file.name, str):
+                        # tmp_file.name is an int when using SpooledTemporaryFiles
+                        # int types cannot be used with os.remove() in Python 3
+                        os.remove(tmp_file.name)
+                    else:
+                        # Clean up file handles
+                        tmp_file.close()
                 process.terminate()
             except OSError as err:
                 # process already terminated
