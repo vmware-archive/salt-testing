@@ -487,7 +487,7 @@ class SaltTestingParser(optparse.OptionParser):
                 tests = loader.loadTestsFromName(display_name)
             else:
                 tests = loader.discover(path, suffix, self.testsuite_directory)
-        except AttributeError:
+        except (AttributeError, ImportError):
             print('Could not locate test \'{0}\'. Exiting.'.format(display_name))
             sys.exit(1)
 
