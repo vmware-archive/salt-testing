@@ -116,7 +116,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         arg_str = '-c {0} {1}'.format(self.get_config_dir(), arg_str)
         return self.run_script('salt', arg_str, with_retcode=with_retcode, catch_stderr=catch_stderr)
 
-    def run_ssh(self, arg_str, with_retcode=False, catch_stderr=False):
+    def run_ssh(self, arg_str, with_retcode=False, timeout=25, catch_stderr=False):
         '''
         Execute salt-ssh
         '''
