@@ -31,6 +31,12 @@ from salttesting.helpers import RedirectStdStreams
 from salttesting.runtests import RUNTIME_VARS
 from salttesting.mixins import AdaptedConfigurationTestCaseMixIn, SaltClientTestCaseMixIn
 
+# Try to import salt: needed for __salt_system_encoding__ reference
+try:
+    import salt
+except ImportError:
+    pass
+
 STATE_FUNCTION_RUNNING_RE = re.compile(
     r'''The function (?:"|')(?P<state_func>.*)(?:"|') is running as PID '''
     r'(?P<pid>[\d]+) and was started at (?P<date>.*) with jid (?P<jid>[\d]+)'
