@@ -31,6 +31,12 @@ from salttesting.helpers import RedirectStdStreams
 from salttesting.runtests import RUNTIME_VARS
 from salttesting.mixins import AdaptedConfigurationTestCaseMixIn, SaltClientTestCaseMixIn
 
+# Try to import salt: needed for __salt_system_encoding__ reference
+try:
+    import salt
+except ImportError:
+    pass
+
 STATE_FUNCTION_RUNNING_RE = re.compile(
     r'''The function (?:"|')(?P<state_func>.*)(?:"|') is running as PID '''
     r'(?P<pid>[\d]+) and was started at (?P<date>.*) with jid (?P<jid>[\d]+)'
@@ -283,7 +289,16 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                 if process.returncode is not None:
                     break
         tmp_file.seek(0)
-        out = tmp_file.read().decode()
+
+        if sys.version_info > (2,):
+            try:
+                out = tmp_file.read().decode(__salt_system_encoding__)
+            except NameError:
+                # Let's cross our fingers and hope for the best
+                out = tmp_file.read().decode('utf-8')
+        else:
+            out = tmp_file.read()
+
         if catch_stderr:
             if sys.version_info < (2, 7):
                 # On python 2.6, the subprocess'es communicate() method uses
