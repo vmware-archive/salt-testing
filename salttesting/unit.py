@@ -113,6 +113,9 @@ class TestCase(_TestCase):
         else:
             return _TestCase.shortDescription(self)
 
+    def runTest(self):
+        pass
+
     def assertEquals(self, *args, **kwargs):
         raise DeprecationWarning(
             'The {0}() function is deprecated. Please start using {1}() '
