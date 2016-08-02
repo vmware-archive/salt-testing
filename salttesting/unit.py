@@ -114,7 +114,7 @@ class TestCase(_TestCase):
             return _TestCase.shortDescription(self)
 
     def runTest(self):
-        return _TestCase.runTest(self)
+        pass
 
     def assertEquals(self, *args, **kwargs):
         raise DeprecationWarning(
