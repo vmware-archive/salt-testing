@@ -185,6 +185,13 @@ class SaltTestingParser(optparse.OptionParser):
             help=('Specific test name to run. A named test is the module path '
                   'relative to the tests directory')
         )
+        self.test_selection_group.add_option(
+            '--names-file',
+            dest='names_file',
+            default=None,
+            help=('The location of a newline delimited file of test names to '
+                  'run')
+        )
         self.add_option_group(self.test_selection_group)
 
         if self.support_docker_execution is True:
@@ -327,6 +334,15 @@ class SaltTestingParser(optparse.OptionParser):
             pass
 
         self.options, self.args = optparse.OptionParser.parse_args(self, args, values)
+        if self.options.names_file:
+            with open(self.options.names_file, 'rb') as fp_:
+                lines = []
+                for line in fp_.readlines():
+                    lines.append(line.strip())
+            if self.options.name:
+                self.options.name.extend(lines)
+            else:
+                self.options.name = lines
 
         print_header(u'', inline=True, width=self.options.output_columns)
         self.pre_execution_cleanup()
