@@ -946,7 +946,12 @@ def build_default_test_command(options):
     # This is a pretty naive aproach to get the coverage binary path
     coverage_bin_path = python_bin_path.replace('python', 'coverage')
 
-    test_command = [python_bin_path]
+    # Select python executable
+    if 'salt_minion_bootstrapped' in options:
+        test_command = [get_minion_python_executable(options)]
+    else:
+        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
+        test_command = ['python']
 
     # Append coverage parameters
     if options.test_without_coverage is False and options.test_with_new_coverage is True:
@@ -957,13 +962,6 @@ def build_default_test_command(options):
             '--concurrency=multiprocessing',
             '--parallel-mode',
         ])
-
-    # Select python executable
-    if 'salt_minion_bootstrapped' in options:
-        test_command.append(get_minion_python_executable(options))
-    else:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
-        test_command.append('python')
 
     # Append basic command parameters
     test_command.extend([
