@@ -948,7 +948,7 @@ def build_default_test_command(options):
 
     # Select python executable
     if 'salt_minion_bootstrapped' in options:
-        test_command = get_minion_python_executable(options)
+        test_command = [get_minion_python_executable(options)]
     else:
         print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
         test_command = ['python']
