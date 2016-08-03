@@ -948,10 +948,10 @@ def build_default_test_command(options):
 
     # Select python executable
     if 'salt_minion_bootstrapped' in options:
-        test_command.append(get_minion_python_executable(options))
+        test_command = get_minion_python_executable(options)
     else:
         print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
-        test_command.append('python')
+        test_command = ['python']
 
     # Append coverage parameters
     if options.test_without_coverage is False and options.test_with_new_coverage is True:
