@@ -750,7 +750,7 @@ def run_state_on_vm(options, state_name, timeout=100):
         '--retcode-passthrough'
     ]
     boot_version = getattr(options, 'bootstrapped_salt_minion_version', False)
-    if boot_version and boot_verision >= (2015, 2):
+    if boot_version and boot_version >= (2015, 2):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
