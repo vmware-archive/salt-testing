@@ -987,7 +987,7 @@ def build_default_test_command(options):
     return test_command
 
 
-def generate_xml_coverage_report(exit=True):
+def generate_xml_coverage_report(options, exit=True):
     '''
     generate coverage report
     '''
@@ -1396,11 +1396,11 @@ def main():
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
             )
-            generate_xml_coverage_report(exit=False)
+            generate_xml_coverage_report(options, exit=False)
             parser.exit(exitcode)
         time.sleep(1)
 
-        generate_xml_coverage_report(exit=False)
+        generate_xml_coverage_report(options, exit=False)
 
         # If we reached here it means the test command passed, let's build
         # packages if the option is passed
