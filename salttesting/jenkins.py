@@ -1083,7 +1083,10 @@ def generate_xml_coverage_report(options, exit=True):
 
 
 # ----- Parser Code ------------------------------------------------------------------------------------------------->
-def main():
+def get_args():
+    '''
+    Process command line arguments
+    '''
     parser = argparse.ArgumentParser(description='Jenkins execution helper')
     parser.add_argument(
         '-w', '--workspace',
@@ -1368,7 +1371,11 @@ def main():
         help='Location on the minion from which packages should be '
              'retrieved (default: %(default)s)',
     )
+    return parser
 
+
+def main():
+    parser = get_args()
     options = parser.parse_args()
 
     # Print test suite command line and exit
