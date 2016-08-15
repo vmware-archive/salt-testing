@@ -212,7 +212,12 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
             return False
 
         python_path = os.environ.get('PYTHONPATH', None)
-        cmd = 'PYTHONPATH='
+
+        if sys.platform.startswith('win'):
+            cmd = 'set PYTHONPATH='
+        else:
+            cmd = 'PYTHONPATH='
+
         if python_path is not None:
             cmd += '{0}:'.format(python_path)
 
