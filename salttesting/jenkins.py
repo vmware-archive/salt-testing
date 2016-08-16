@@ -969,7 +969,7 @@ def build_default_test_command(options):
         '-v',
         '--run-destructive',
         '--sysinfo',
-        '--xml=/tmp/xmp-unittests-output',
+        '--xml=/tmp/xml-unittests-output',
         '--transport={0}'.format(options.test_transport),
         '--output-columns={0}'.format(options.output_columns),
     ])
