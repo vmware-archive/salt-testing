@@ -33,7 +33,12 @@ from salttesting.mixins import AdaptedConfigurationTestCaseMixIn, SaltClientTest
 
 # Try to import salt: needed for __salt_system_encoding__ reference
 try:
+    current_module_names = sys.modules.keys()
     import salt
+
+    for name in sys.modules.keys():
+        if name not in current_module_names:
+            del sys.modules[name]
 except ImportError:
     pass
 
