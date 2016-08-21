@@ -346,6 +346,12 @@ except ImportError:
     HAS_COVERAGE = False
 
 try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
+try:
     import multiprocessing.util
     # Force forked multiprocessing processes to be measured as well
 
@@ -1789,7 +1795,30 @@ class SaltRuntests(argparse.ArgumentParser):
             '  Overall Tests Report  ', sep='=', centered=True, inline=True,
             width=self.options.output_columns
         )
-        return
+
+        if HAS_PSUTIL:
+            # Last resort, a brute force approach to make sure we leave no child processes running
+            try:
+                parent = psutil.Process(os.getpid())
+                if hasattr(parent, 'children'):
+                    children = parent.children(recursive=True)
+            except psutil.NoSuchProcess:
+                return
+
+            def kill_children():
+                for child in children[:]:
+                    try:
+                        cmdline = child.cmdline()
+                        log.warning('runtests.py left behind the following child process: %s', cmdline)
+                        child.kill()
+                        children.remove(child)
+                    except psutil.NoSuchProcess:
+                        children.remove(child)
+
+            kill_children()
+
+            if children:
+                psutil.wait_procs(children, timeout=5, callback=kill_children)
 
     def finalize(self, exit_code=0):
         '''
