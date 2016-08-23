@@ -327,6 +327,7 @@ except ImportError:
 
 
 # Import Salt Testing libs
+from salttesting import helpers
 from salttesting import version
 from salttesting.unit import TestLoader, TestSuite, TextTestRunner
 from salttesting.xmlunit import HAS_XMLRUNNER, XMLTestRunner
@@ -344,12 +345,6 @@ try:
     HAS_COVERAGE = True
 except ImportError:
     HAS_COVERAGE = False
-
-try:
-    import psutil
-    HAS_PSUTIL = True
-except ImportError:
-    HAS_PSUTIL = False
 
 try:
     import multiprocessing.util
@@ -1796,29 +1791,8 @@ class SaltRuntests(argparse.ArgumentParser):
             width=self.options.output_columns
         )
 
-        if HAS_PSUTIL:
-            # Last resort, a brute force approach to make sure we leave no child processes running
-            try:
-                parent = psutil.Process(os.getpid())
-                if hasattr(parent, 'children'):
-                    children = parent.children(recursive=True)
-            except psutil.NoSuchProcess:
-                return
-
-            def kill_children():
-                for child in children[:]:
-                    try:
-                        cmdline = child.cmdline()
-                        log.warning('runtests.py left behind the following child process: %s', cmdline)
-                        child.kill()
-                        children.remove(child)
-                    except psutil.NoSuchProcess:
-                        children.remove(child)
-
-            kill_children()
-
-            if children:
-                psutil.wait_procs(children, timeout=5, callback=kill_children)
+        # Brute force approach to terminate this process and it's children
+        helpers.terminate_process_pid(os.getpid(), only_children=True)
 
     def finalize(self, exit_code=0):
         '''
