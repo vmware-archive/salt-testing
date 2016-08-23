@@ -1060,7 +1060,7 @@ def skip_if_not_root(func):
     return func
 
 
-def terminate_process_pid(pid):
+def terminate_process_pid(pid, only_children=False):
     children = []
     process = None
 
@@ -1079,7 +1079,7 @@ def terminate_process_pid(pid):
     except psutil.NoSuchProcess:
         log.info('No process with the PID %s was found running', pid)
 
-    if process:
+    if process and only_children is False:
         cmdline = process.cmdline()
         if not cmdline:
             cmdline = process.as_dict()
@@ -1105,6 +1105,7 @@ def terminate_process_pid(pid):
 
         if psutil.pid_exists(pid):
             log.warning('Process left behind which we were unable to kill: %s', cmdline)
+
     if children:
         # Lets log and kill any child processes which salt left behind
         def kill_children(_children, terminate=False, kill=False):
