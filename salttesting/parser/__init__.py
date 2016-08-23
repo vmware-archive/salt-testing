@@ -27,6 +27,7 @@ from functools import partial
 from contextlib import closing
 
 from salttesting import TestLoader, TextTestRunner
+from salttesting import helpers
 from salttesting.version import __version_info__
 from salttesting.xmlunit import HAS_XMLRUNNER, XMLTestRunner
 try:
@@ -529,6 +530,8 @@ class SaltTestingParser(optparse.OptionParser):
         '''
         Print a nicely formatted report about the test suite results
         '''
+        # Brute force approach to terminate this process and it's children
+        helpers.terminate_process_pid(os.getpid(), only_children=True)
         print()
         print_header(
             u'  Overall Tests Report  ', sep=u'=', centered=True, inline=True,
@@ -626,7 +629,6 @@ class SaltTestingParser(optparse.OptionParser):
             '  Overall Tests Report  ', sep='=', centered=True, inline=True,
             width=self.options.output_columns
         )
-        return
 
     def post_execution_cleanup(self):
         '''
