@@ -35,7 +35,7 @@ if 'USE_SETUPTOOLS' in os.environ:
         SETUP_KWARGS['extras_require'] = {
             'GitHub': ['requests>=2.4.2']
         }
-        SETUP_KWARGS['install_requires'] = ['six']
+        SETUP_KWARGS['install_requires'] = ['six', 'psutil']
 
         if sys.version_info < (2, 7):
             SETUP_KWARGS['install_requires'].extend(['unittest2', 'argparse'])
