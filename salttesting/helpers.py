@@ -16,6 +16,7 @@ from __future__ import absolute_import
 import os
 import sys
 import types
+import signal
 import socket
 import inspect
 import logging
@@ -27,6 +28,7 @@ from salttesting.unit import skip, _id
 
 # Import 3rd-party libs
 import six
+import psutil
 if sys.version_info < (3,):
     import __builtin__  # pylint: disable=incompatible-py3-code
 else:
@@ -1056,3 +1058,82 @@ def skip_if_not_root(func):
         func.__unittest_skip__ = True
         func.__unittest_skip_why__ = 'You must be logged in as root to run this test'
     return func
+
+
+def terminate_process_pid(pid):
+    children = []
+    process = None
+
+    # Let's begin the shutdown routines
+    if sys.platform.startswith('win'):
+        sigint = signal.CTRL_BREAK_EVENT
+        sigint_name = 'CTRL_BREAK_EVENT'
+    else:
+        sigint = signal.SIGINT
+        sigint_name = 'SIGINT'
+
+    try:
+        process = psutil.Process(pid)
+        if hasattr(process, 'children'):
+            children = process.children(recursive=True)
+    except psutil.NoSuchProcess:
+        log.info('No process with the PID %s was found running', pid)
+
+    if process:
+        cmdline = process.cmdline()
+        if not cmdline:
+            cmdline = process.as_dict()
+
+        log.info('Sending %s to process: %s', sigint_name, cmdline)
+        process.send_signal(sigint)
+        try:
+            process.wait(timeout=10)
+        except psutil.TimeoutExpired:
+            pass
+
+        if psutil.pid_exists(pid):
+            log.info('Terminating process: %s', cmdline)
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except psutil.TimeoutExpired:
+                pass
+
+        if psutil.pid_exists(pid):
+            log.warning('Killing process: %s', cmdline)
+            process.kill()
+
+        if psutil.pid_exists(pid):
+            log.warning('Process left behind which we were unable to kill: %s', cmdline)
+    if children:
+        # Lets log and kill any child processes which salt left behind
+        def kill_children(_children, terminate=False, kill=False):
+            for child in _children[:][::-1]:  # Iterate over a reversed copy of the list
+                try:
+                    if not kill and child.status() == psutil.STATUS_ZOMBIE:
+                        # Zombie processes will exit once child processes also exit
+                        continue
+                    cmdline = child.cmdline()
+                    if not cmdline:
+                        cmdline = child.as_dict()
+                    if kill:
+                        log.warning('Killing child process left behind: %s', cmdline)
+                        child.kill()
+                    elif terminate:
+                        log.warning('Terminating child process left behind: %s', cmdline)
+                        child.terminate()
+                    else:
+                        log.warning('Sending %s to child process left behind: %s', sigint_name, cmdline)
+                        child.send_signal(sigint)
+                    if not psutil.pid_exists(child.pid):
+                        _children.remove(child)
+                except psutil.NoSuchProcess:
+                    _children.remove(child)
+
+        kill_children(children)
+
+        if children:
+            psutil.wait_procs(children, timeout=10, callback=lambda proc: kill_children(children, terminate=True))
+
+        if children:
+            psutil.wait_procs(children, timeout=5, callback=lambda proc: kill_children(children, kill=True))
