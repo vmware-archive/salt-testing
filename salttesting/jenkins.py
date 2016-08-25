@@ -21,6 +21,7 @@ import hashlib
 import argparse
 
 # Import salt libs
+import salt.config
 from salt.utils import get_colors, vt
 from salt.version import SaltStackVersion
 from salt.log.setup import SORTED_LEVEL_NAMES
@@ -271,6 +272,13 @@ def echo_parseable_environment(options):
 
     print_flush('\n\n{0}\n\n'.format('\n'.join(output)))
 
+def run_interactive():
+    print('Running interactive. Display some data here.')
+    # Then register a handler for ctl-c and call the shutdown routine when heard.
+    while True:
+        print ('Still running interactive')
+        time.sleep(10)
+
 
 def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True, stream_stderr=True):
     '''
@@ -354,7 +362,6 @@ def bootstrap_cloud_minion(options):
     ]
     if options.no_color:
         cmd.append('--no-color')
-
     exitcode = run_command(cmd, options)
     if exitcode == 0:
         setattr(options, 'salt_minion_bootstrapped', 'yes')
@@ -461,26 +468,57 @@ def prepare_ssh_access(options):
     print_bulleted(options, 'Prepare SSH Access to Bootstrapped VM')
     generate_ssh_keypair(options)
 
-    cmd = [
-        'salt',
-        '-l', options.log_level,
-        '-t', '100',
-        options.vm_name,
-        'state.sls',
-        options.ssh_prepare_state,
-        'pillar="{0}"'.format(
-            to_cli_yaml({
-                'test_username': options.ssh_username,
-                'test_pubkey': open(
-                    os.path.join(options.workspace, 'jenkins_test_account_key.pub')
-                ).read().strip()
-            })
-        )
-    ]
-    if options.no_color:
-        cmd.append('--no-color')
+    if options.test_interactive:
 
-    return run_command(cmd, options)
+        cloud_config = salt.config.cloud_config('/etc/salt/cloud')  # TODO Is this always the case?
+
+        # Determine which provider we are using by looking it up in the profile
+        vm_provider = cloud_config['profiles'][options.vm_source]['provider'].split(':')[0]
+
+        # Finally, we can get the provider password
+        provider_password = cloud_config['providers']['linode']['linode']['password']
+
+        # Using the password, we can construct a data structure for a salt-ssh roster
+        roster_data = {options.vm_name:
+                            {'host': get_minion_ip_address(options, sync=False),
+                            'passwd': provider_password}
+                        }
+        # FIXME Perms!
+        if not os.path.exists('/tmp/.jenkins_ssh'):
+            os.mkdir('/tmp/.jenkins_ssh')
+        with open('/tmp/.jenkins_ssh/roster', 'w') as roster_fh:
+            yaml.dump(roster_data, stream=roster_fh)
+        roster_fh.close()
+
+        # We also need a master config file. Ours will point to the salt-jenkins repo and mount it with GitFS
+        ssh_master_conf_data = {'fileserver_backend': 'git', 'gitfs_remotes': 'https://github.com/saltstack/salt-jenkins.git'}
+
+        with open('/tmp/.jenkins_ssh/master', 'w') as master_fh:
+            yaml.dump(ssh_master_conf_data, stream=master_fh)
+        master_fh.close()
+        return True
+
+    else:
+        cmd = [
+            'salt',
+            '-l', options.log_level,
+            '-t', '100',
+            options.vm_name,
+            'state.sls',
+            options.ssh_prepare_state,
+            'pillar="{0}"'.format(
+                to_cli_yaml({
+                    'test_username': options.ssh_username,
+                    'test_pubkey': open(
+                        os.path.join(options.workspace, 'jenkins_test_account_key.pub')
+                    ).read().strip()
+                })
+            )
+        ]
+        if options.no_color:
+            cmd.append('--no-color')
+
+        return run_command(cmd, options)
 
 
 def sync_minion(options):
@@ -518,7 +556,7 @@ def find_private_addr(ip_addrs):
         return ''
 
 
-def get_minion_ip_address(options):
+def get_minion_ip_address(options, sync=True):
     '''
     Get and store the remote minion IP address
     '''
@@ -527,8 +565,8 @@ def get_minion_ip_address(options):
         sys.exit(1)
     if getattr(options, 'minion_ip_address', None):
         return options.minion_ip_address
-
-    sync_minion(options)
+    if sync:
+        sync_minion(options)
 
     attempts = 1
     while attempts <= 3:
@@ -737,6 +775,20 @@ def check_bootstrapped_minion_version(options):
         setattr(options, 'bootstrapped_salt_minion_version', SaltStackVersion.parse(version_info[options.vm_name]))
     except (ValueError, TypeError):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
+
+def run_ssh_state_on_vm(options, state_name, timeout=100):
+    '''
+    Run a state on a VM via SSH
+    '''
+    cmd = [
+            'salt-ssh',
+            '-l', options.log_level,
+            '-c', '/tmp/.jenkins_ssh',
+            options.vm_name,
+            'state.sls', state_name,
+            'pillar="{0}"'.format(build_pillar_data(options))
+            ]
+    run_command(cmd, options)
 
 
 def run_state_on_vm(options, state_name, timeout=100):
@@ -1255,6 +1307,12 @@ def main():
         help=('Execute the default command that runs the test suite on the deployed VM. '
               'To view the default command, use the --show-default-command option')
     )
+    testing_source_options_mutually_exclusive.add_argument(
+        '--test-interactive',
+        action='store_true',
+        help=('Bring up a VM will all the test dependencies and then wait. Access is '
+              'handled via SSH keys. When finished, ctl-c to destroy the VM')
+    )
 
     packaging_options = parser.add_argument_group(
         'Packaging Options',
@@ -1368,15 +1426,19 @@ def main():
     ])
     if deploy:
         # Parallels Desktop deployments are run from preinstalled snapshots
-        if not options.parallels_deploy:
+        if not options.parallels_deploy and not options.test_interactive:
             check_bootstrapped_minion_version(options)
         time.sleep(1)
         prepare_ssh_access(options)
         time.sleep(1)
 
+
     # Run preparation SLS
     for sls in options.test_prep_sls:
-        exitcode = run_state_on_vm(options, sls, timeout=900)
+        if options.test_interactive:
+            exitcode = run_ssh_state_on_vm(options, sls, timeout=900)
+        else:
+            exitcode = run_state_on_vm(options, sls, timeout=900)
         if exitcode != 0:
             print_bulleted(options, 'The execution of the {0!r} SLS failed'.format(sls), 'RED')
             parser.exit(exitcode)
@@ -1384,6 +1446,10 @@ def main():
 
     if options.test_git_commit is not None:
         check_cloned_reposiory_commit(options)
+
+    # If running in interactive mode, pause and wait for further instruction
+    if options.test_interactive:
+        run_interactive()
 
     # Construct default test runner command
     if options.test_default_command:
