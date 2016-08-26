@@ -16,8 +16,10 @@ import sys
 import json
 import time
 import pipes
+import time
 import random
 import hashlib
+import socket
 import argparse
 
 # Import salt libs
@@ -359,6 +361,7 @@ def bootstrap_cloud_minion(options):
         '--script-args="{0}"'.format(' '.join(script_args)),
         '-p', options.vm_source,
         '--out=yaml',
+        '--no-color',
         options.vm_name
     ]
     if options.no_color:
@@ -496,11 +499,23 @@ def prepare_ssh_access(options):
         roster_fh.close()
 
         # We also need a master config file. Ours will point to the salt-jenkins repo and mount it with GitFS
-        ssh_master_conf_data = {'fileserver_backend': 'git', 'gitfs_remotes': 'https://github.com/saltstack/salt-jenkins.git'}
+        ssh_master_conf_data = {'fileserver_backend': ['git'], 'gitfs_remotes': ['https://github.com/saltstack/salt-jenkins.git']}
 
         with open('/tmp/.jenkins_ssh/master', 'w') as master_fh:
             yaml.dump(ssh_master_conf_data, stream=master_fh)
         master_fh.close()
+
+        # Wait until the SSH server on the remote end is up
+        while True:
+            print_bulleted(options, 'Waiting for SSH to become available', 'LIGHT_GREEN')
+            s = socket.socket()
+            s.settimeout(5)
+            retcode = s.connect_ex((get_minion_ip_address(options, sync=False), 22))
+            if retcode == 0:
+                print_bulleted(options, 'SSH access is ready')
+                break
+            else:
+                time.sleep(2)
         return True
 
     else:
@@ -789,6 +804,7 @@ def run_ssh_state_on_vm(options, state_name, timeout=100):
             'salt-ssh',
             '-l', options.log_level,
             '-c', '/tmp/.jenkins_ssh',
+            '-i',
             options.vm_name,
             'state.sls', state_name,
             'pillar="{0}"'.format(build_pillar_data(options))
