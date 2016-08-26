@@ -173,6 +173,8 @@ def generate_vm_name(options):
     Generate a random enough vm name
     '''
     vm_name_prefix = os.environ.get('JENKINS_VM_NAME_PREFIX', 'Z')
+    random_part = hashlib.md5(str(random.randint(1, 100000000))).hexdigest()[:6]
+
     if 'BUILD_TAG' in os.environ:
         return '{0}{1}'.format(
             vm_name_prefix,
@@ -186,11 +188,11 @@ def generate_vm_name(options):
                 '.', '_').replace(
                 'branch_tests-', '')
         )
+    elif getattr(options, 'parallels_deploy', False):
+        modified_source = options.vm_source.split('-template')[0]
     else:
-        random_part = hashlib.md5(
-            str(random.randint(1, 100000000))).hexdigest()[:6]
-
-    return '{0}-{1}-{2}'.format(options.vm_prefix, (options.vm_source or 'UNKNOWN').split('_', 1)[-1], random_part)
+        modified_source = (options.vm_source or 'UNKNOWN').split('_', 1)[-1]
+    return '-'.join([options.vm_prefix, modified_source, random_part])
 
 
 def get_vm_name(options):
@@ -261,6 +263,10 @@ def echo_parseable_environment(options):
         output.append('JENKINS_VM_HOST={0}'.format(options.vm_host))
     if 'vm_host_user' in options:
         output.append('JENKINS_VM_HOST_USER={0}'.format(options.vm_host_user))
+    if 'vm_master' in options:
+        output.append('JENKINS_VM_MASTER={0}'.format(options.vm_master))
+    if 'vm_snapshot' in options:
+        output.append('JENKINS_VM_SNAPSHOT={0}'.format(options.vm_snapshot))
 
     # Git environment
     if 'pull_request_git_url' in options:
