@@ -358,13 +358,18 @@ def bootstrap_cloud_minion(options):
         '-l', options.log_level,
         '--script-args="{0}"'.format(' '.join(script_args)),
         '-p', options.vm_source,
+        '--out=yaml',
         options.vm_name
     ]
     if options.no_color:
         cmd.append('--no-color')
-    exitcode = run_command(cmd, options)
+    cloud_stdout, _, exitcode = run_command(cmd, options, return_output=True)
     if exitcode == 0:
         setattr(options, 'salt_minion_bootstrapped', 'yes')
+        # Strip off the header
+        clean_stdout = '\n'.join(cloud_stdout.split('\n')[2:])
+        print('IP', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
+        setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
     return exitcode
 
 
