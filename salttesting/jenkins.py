@@ -285,6 +285,18 @@ def run_interactive():
 def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True, stream_stderr=True):
     '''
     Run a command using VT
+
+    :param str cmd: Command to be run
+
+    :param namespace options: Program options
+
+    :param float sleep:  Sleep interval while polling process status
+
+    :param bool return_output: If true, return ``(stdout, stderr, returncode)`` instead of ``returncode``
+
+    :param bool stream_stdout: If true, stream ``stdout`` while process is running
+
+    :param bool stream_stderr: If true, stream ``stderr`` while process is running
     '''
     print_header(u'', sep='>', inline=True, width=options.output_columns)
     if isinstance(cmd, list):
