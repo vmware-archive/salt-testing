@@ -845,21 +845,40 @@ def delete_lxc_vm(options):
     return run_command(cmd, options)
 
 
-def reset_parallels_vm(options):
+def delete_parallels_vm(options):
     '''
-    Reset a parallels instance
+    Delete a parallels instance
     '''
-    cmd = ['salt', '-l', options.log_level]
+    base_cmd = ['salt', '-l', options.log_level]
     if options.no_color:
-        cmd.append('--no-color')
-    cmd.extend([
-        options.vm_host,
-        'parallels.revert_snapshot',
-        options.vm_name,
-        options.vm_source,
-        'runas={0}'.format(options.vm_host_user)
-    ])
-    return run_command(cmd, options)
+        base_cmd.append('--no-color')
+
+    # Stop the VM; VMs must be stopped before they can be deleted
+    stop_cmd = base_cmd + [options.vm_host,
+                           'parallels.stop',
+                           options.vm_name,
+                           'kill=True',  # Immediate shutdown
+                           'runas={0}'.format(options.vm_host_user)]
+    stop_retcode = run_command(stop_cmd, options)
+
+    # Delete the VM
+    delete_cmd = base_cmd + [options.vm_host,
+                             'parallels.delete',
+                             options.vm_name,
+                             'runas={0}'.format(options.vm_host_user)]
+    delete_retcode = run_command(delete_cmd, options)
+
+    # Delete the minion key
+    key_cmd = ['salt-key']
+    if options.no_color:
+        key_cmd.append('--no-color')
+    key_cmd.extend(['-yd', options.vm_name])
+    key_retcode = run_command(key_cmd, options)
+
+    if not all([stop_retcode, delete_retcode, key_retcode]):  # If all are zero
+        return 0
+    else:
+        return 1
 
 
 def check_bootstrapped_minion_version(options):
