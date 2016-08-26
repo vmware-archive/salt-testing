@@ -1547,10 +1547,7 @@ def main():
         parser.error('LXC support is not yet implemented')
 
     if options.vm_name is None:
-        if options.parallels_deploy:
-            parser.error('Parallels Desktop VM name must be provided')
-        else:
-            options.vm_name = get_vm_name(options)
+        options.vm_name = get_vm_name(options)
 
     if options.echo_parseable_output:
         if not options.vm_source:
@@ -1564,12 +1561,12 @@ def main():
             parser.exit(delete_cloud_vm(options))
         elif options.lxc_deploy:
             parser.exit(delete_lxc_vm(options))
+        elif options.parallels_deploy:
+            parser.exit(delete_parallels_vm(options))
         else:
             parser.error(
-                'You need to specify from which deployment to delete the VM from. --cloud-deploy/--lxc-deploy'
+                'You need to specify from which deployment to delete the VM from. --{cloud|lxc|parallels}-deploy'
             )
-    if options.reset_vm and options.parallels_deploy:
-        parser.exit(reset_parallels_vm(options))
 
     if options.bootstrap_salt_commit is None:
         options.bootstrap_salt_commit = os.environ.get(
@@ -1579,36 +1576,26 @@ def main():
     if options.bootstrap_salt_url is None:
         options.bootstrap_salt_url = SALT_GIT_URL
 
-    if options.cloud_deploy:
-        exitcode = bootstrap_cloud_minion(options)
-        if exitcode != 0:
-            print_bulleted(options, 'Failed to bootstrap the cloud minion', 'RED')
-            parser.exit(exitcode)
-        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        time.sleep(5)
-    elif options.lxc_deploy:
-        exitcode = bootstrap_lxc_minion(options)
-        if exitcode != 0:
-            print_bulleted(options, 'Failed to bootstrap the LXC minion', 'RED')
-            parser.exit(exitcode)
-        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        time.sleep(5)
-    elif options.parallels_deploy:
-        exitcode = bootstrap_parallels_minion(options)
-        if exitcode != 0:
-            print_bulleted(options, 'Failed to bootstrap the parallels minion', 'RED')
-            parser.exit(exitcode)
-        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        time.sleep(5)
+    if any([options.cloud_deploy, options.lxc_deploy, options.parallels_deploy]):
+        if options.cloud_deploy:
+            exitcode = bootstrap_cloud_minion(options)
+            if exitcode != 0:
+                print_bulleted(options, 'Failed to bootstrap the cloud minion', 'RED')
+                parser.exit(exitcode)
+        elif options.lxc_deploy:
+            exitcode = bootstrap_lxc_minion(options)
+            if exitcode != 0:
+                print_bulleted(options, 'Failed to bootstrap the LXC minion', 'RED')
+                parser.exit(exitcode)
+        elif options.parallels_deploy:
+            exitcode = bootstrap_parallels_minion(options)
+            if exitcode != 0:
+                print_bulleted(options, 'Failed to bootstrap the parallels minion', 'RED')
+                parser.exit(exitcode)
 
-    deploy = any([
-        options.cloud_deploy,
-        options.lxc_deploy,
-        options.parallels_deploy,
-    ])
-    if deploy:
-        # Parallels Desktop deployments are run from preinstalled snapshots
-        if not options.parallels_deploy and not options.test_interactive:
+        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
+        time.sleep(5)
+        if not options.test_interactive:
             check_bootstrapped_minion_version(options)
         time.sleep(1)
         prepare_ssh_access(options)
