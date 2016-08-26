@@ -1354,7 +1354,7 @@ def get_args():
     bootstrap_script_options.add_argument(
         '--bootstrap-salt-commit',
         default=None,
-        help='The salt git commit used to bootstrap a minion'
+        help='The salt git commit or tag used to bootstrap a minion'
     )
 
     # VM related options
@@ -1370,7 +1370,7 @@ def get_args():
         default=os.environ.get('JENKINS_VM_SOURCE', None),
         help=('The VM source. In case of --cloud-deploy usage, the cloud profile name. '
               'In case of --lxc-deploy usage, the image name. '
-              'In case of --parallels-deploy usage, the snapshot name.')
+              'In case of --parallels-deploy usage, the VM to clone from.')
     )
     vm_options_group.add_argument(
         '--vm-host',
@@ -1382,24 +1382,29 @@ def get_args():
         default='prl-user',
         help=('The user that parallels desktop runs as on the VM host system.')
     )
+    vm_options_group.add_argument(
+        '--vm-master',
+        default='salt',
+        help=('Until MacOS is supportd by bootstrap, this argument is used to '
+              'supply the master location for custom bootstrapping of '
+              'parallels VMs.')
+    )
+    vm_options_group.add_argument(
+        '--vm-snapshot',
+        default='system-updates',
+        help=('Used with parallels base VMs to create linked VMs for test runs')
+    )
 
     # VM related actions
     vm_actions = parser.add_argument_group(
         'VM Actions',
         'Action to execute on a running VM'
     )
-    vm_actions_mutually_exclusive = vm_actions.add_mutually_exclusive_group()
-    vm_actions_mutually_exclusive.add_argument(
+    vm_actions.add_argument(
         '--delete-vm',
         action='store_true',
         default=False,
         help='Delete a running VM'
-    )
-    vm_actions_mutually_exclusive.add_argument(
-        '--reset-vm',
-        action='store_true',
-        default=False,
-        help='Reset a running VM to snapshot'
     )
     vm_actions.add_argument(
         '--download-artifact',
