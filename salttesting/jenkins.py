@@ -43,19 +43,20 @@ SALT_GIT_URL = 'https://github.com/saltstack/salt.git'
 
 
 # ----- Argparse Custom Actions ------------------------------------------------------------------------------------->
-class GetPullRequestAction(argparse.Action):
+class GitHubAction(argparse.Action):
     '''
-    Load the required pull request information
+    Access salt git repository information from GitHub
     '''
-
-    def __call__(self, parser, namespace, values, option_string=None):
+    def get_github_data(self, url, parser, namespace, values, option_string=None):
+        '''
+        Retrieve information from GitHub
+        '''
         if HAS_REQUESTS is False:
             parser.error(
                 'The python \'requests\' library needs to be installed'
             )
 
         headers = {}
-        url = 'https://api.github.com/repos/saltstack/salt/pulls/{0}'.format(values)
 
         github_access_token_path = os.path.join(
             os.environ.get('JENKINS_HOME', os.path.expanduser('~')),
@@ -71,15 +72,34 @@ class GetPullRequestAction(argparse.Action):
         http_req = requests.get(url, headers=headers)
         if http_req.status_code != 200:
             parser.error(
-                'Unable to get the pull request: {0[message]}'.format(http_req.json())
+                'Unable to get the GitHub data: {0[message]}'.format(http_req.json())
             )
 
-        pr_details = http_req.json()
+        return http_req.json()
+
+
+class GetPullRequestAction(GitHubAction):
+    '''
+    Load the required pull request information
+    '''
+    def __call__(self, parser, namespace, values, option_string=None):
+        url = 'https://api.github.com/repos/saltstack/salt/pulls/{0}'.format(values)
+        pr_details = self.get_github_data(url, parser, namespace, values, option_string=option_string)
+
         setattr(namespace, 'pull_request_git_url', pr_details['head']['repo']['clone_url'])
         setattr(namespace, 'pull_request_git_commit', pr_details['head']['sha'])
         setattr(namespace, 'pull_request_git_branch', pr_details['head']['ref'])
         setattr(namespace, 'pull_request_git_base_branch', pr_details['base']['ref'])
 
+
+class GetBranchAction(GitHubAction):
+    '''
+    Load the required branch information
+    '''
+    def __call__(self, parser, namespace, values, option_string=None):
+        url = 'https://api.github.com/repos/saltstack/salt/branches/{0}'.format(values)
+        branch_details = self.get_github_data(url, parser, namespace, values, option_string=option_string)
+        setattr(namespace, 'branch_git_commit', branch_details['commit']['sha'])
 # <---- Argparse Custom Actions --------------------------------------------------------------------------------------
 
 
@@ -263,6 +283,8 @@ def echo_parseable_environment(options):
         output.append('JENKINS_VM_HOST_USER={0}'.format(options.vm_host_user))
 
     # Git environment
+    if 'branch_git_commit' in options:
+        output.append('SALT_BRANCH_GIT_COMMIT={0}'.format(options.branch_git_commit))
     if 'pull_request_git_url' in options:
         output.append('SALT_PR_GIT_URL={0}'.format(options.pull_request_git_url))
     if 'pull_request_git_commit' in options:
@@ -273,6 +295,7 @@ def echo_parseable_environment(options):
         output.append('SALT_PR_GIT_BASE_BRANCH={0}'.format(options.pull_request_git_base_branch))
 
     print_flush('\n\n{0}\n\n'.format('\n'.join(output)))
+
 
 def run_interactive():
     print('Running interactive. Display some data here.')
@@ -796,6 +819,7 @@ def check_bootstrapped_minion_version(options):
     except (ValueError, TypeError):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
+
 def run_ssh_state_on_vm(options, state_name, timeout=100):
     '''
     Run a state on a VM via SSH
@@ -1119,12 +1143,20 @@ def main():
         default=False,
         help='Print Jenkins related environment variables and exit'
     )
-    output_group.add_argument(
+    output_group_mutually_exclusive = output_group.add_mutually_exclusive_group()
+    output_group_mutually_exclusive.add_argument(
         '--pull-request',
         type=int,
         action=GetPullRequestAction,
         default=None,
         help='Include the Pull Request information in parseable output'
+    )
+    output_group_mutually_exclusive.add_argument(
+        '--branch',
+        type=str,
+        action=GetBranchAction,
+        default='develop',
+        help='Include the branch information in parseable output'
     )
 
     # SSH Options
