@@ -154,7 +154,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         Execute Salt run and the salt run function and return the data from
         each in a dict
         '''
-        ret = {}
+        ret = {'fun': fun}
         ret['out'] = self.run_run(
             '{0} {1} {2}'.format(options, fun, ' '.join(arg)), catch_stderr=kwargs.get('catch_stderr', None)
         )
@@ -168,7 +168,11 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         opts.update({'doc': False, 'fun': fun, 'arg': arg})
         with RedirectStdStreams():
             runner = salt.runner.Runner(opts)
-            ret['fun'] = runner.run()
+            ret['return'] = runner.run()
+            try:
+                ret['jid'] = runner.jid
+            except AttributeError:
+                ret['jid'] = None
         return ret
 
     def run_key(self, arg_str, catch_stderr=False, with_retcode=False):
