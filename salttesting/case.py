@@ -154,10 +154,16 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         Execute Salt run and the salt run function and return the data from
         each in a dict
         '''
+        cmd = '{0} {1} {2}'.format(options, fun, ' '.join(arg))
+        for key, value in six.iteritems(kwargs):
+            cmd += ' {0}={1}'.format(key, _quote(value))
+
         ret = {'fun': fun}
         ret['out'] = self.run_run(
-            '{0} {1} {2}'.format(options, fun, ' '.join(arg)), catch_stderr=kwargs.get('catch_stderr', None)
+            cmd,
+            catch_stderr=kwargs.get('catch_stderr', None)
         )
+
         # Late import
         import salt.config
         import salt.runner
@@ -165,7 +171,13 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         opts = salt.config.master_config(
             self.get_config_file_path('master')
         )
-        opts.update({'doc': False, 'fun': fun, 'arg': arg})
+
+        opts_arg = list(arg)
+        if kwargs:
+            opts_arg.append({'__kwarg__': True})
+            opts_arg[-1].update(kwargs)
+
+        opts.update({'doc': False, 'fun': fun, 'arg': opts_arg})
         with RedirectStdStreams():
             runner = salt.runner.Runner(opts)
             ret['return'] = runner.run()
