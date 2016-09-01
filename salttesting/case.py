@@ -154,19 +154,13 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         Execute Salt run and the salt run function and return the data from
         each in a dict
         '''
-        cmd = '{0} {1} {2}'.format(options, fun, ' '.join(arg))
-        for key, value in six.iteritems(kwargs):
-            cmd += ' {0}={1}'.format(key, _quote(value))
-
         ret = {'fun': fun}
-        ret['out'] = self.run_run(
-            cmd,
-            catch_stderr=kwargs.get('catch_stderr', None)
-        )
 
         # Late import
         import salt.config
+        import salt.output
         import salt.runner
+        from salt.ext.six.moves import cStringIO
 
         opts = salt.config.master_config(
             self.get_config_file_path('master')
@@ -185,6 +179,17 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                 ret['jid'] = runner.jid
             except AttributeError:
                 ret['jid'] = None
+
+        # Compile output
+        # TODO: Support outputters other than nested
+        opts['color'] = False
+        opts['output_file'] = cStringIO()
+        try:
+            salt.output.display_output(ret['return'], opts=opts)
+            ret['out'] = opts['output_file'].getvalue()
+        finally:
+            opts['output_file'].close()
+
         return ret
 
     def run_key(self, arg_str, catch_stderr=False, with_retcode=False):
