@@ -412,8 +412,11 @@ def bootstrap_cloud_minion(options):
         setattr(options, 'salt_minion_bootstrapped', 'yes')
         # Strip off the header
         clean_stdout = '\n'.join(cloud_stdout.split('\n')[2:])
-        print('IP', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
-        setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
+        try:
+            print('IP', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
+            setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
+        except Exception as exc:
+            print('Exception encountered when processing bootstrap return for display: {0}'.format(exc))
     return exitcode
 
 
