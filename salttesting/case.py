@@ -151,8 +151,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
 
     def run_run_plus(self, fun, *arg, **kwargs):
         '''
-        Execute Salt run and the salt run function and return the data from
-        each in a dict
+        Execute the runner function and return the return data and output in a dict
         '''
         ret = {'fun': fun}
 
