@@ -193,6 +193,8 @@ def generate_vm_name(options):
     Generate a random enough vm name
     '''
     vm_name_prefix = os.environ.get('JENKINS_VM_NAME_PREFIX', 'Z')
+    random_part = hashlib.md5(str(random.randint(1, 100000000))).hexdigest()[:6]
+
     if 'BUILD_TAG' in os.environ:
         return '{0}{1}'.format(
             vm_name_prefix,
@@ -206,11 +208,11 @@ def generate_vm_name(options):
                 '.', '_').replace(
                 'branch_tests-', '')
         )
+    elif getattr(options, 'parallels_deploy', False):
+        modified_source = options.vm_source.split('-template')[0]
     else:
-        random_part = hashlib.md5(
-            str(random.randint(1, 100000000))).hexdigest()[:6]
-
-    return '{0}-{1}-{2}'.format(options.vm_prefix, (options.vm_source or 'UNKNOWN').split('_', 1)[-1], random_part)
+        modified_source = (options.vm_source or 'UNKNOWN').split('_', 1)[-1]
+    return '-'.join([options.vm_prefix, modified_source, random_part])
 
 
 def get_vm_name(options):
@@ -281,6 +283,10 @@ def echo_parseable_environment(options):
         output.append('JENKINS_VM_HOST={0}'.format(options.vm_host))
     if 'vm_host_user' in options:
         output.append('JENKINS_VM_HOST_USER={0}'.format(options.vm_host_user))
+    if 'vm_master' in options:
+        output.append('JENKINS_VM_MASTER={0}'.format(options.vm_master))
+    if 'vm_snapshot' in options:
+        output.append('JENKINS_VM_SNAPSHOT={0}'.format(options.vm_snapshot))
 
     # Git environment
     if 'branch_git_commit' in options:
@@ -308,6 +314,18 @@ def run_interactive():
 def run_command(cmd, options, sleep=0.5, return_output=False, stream_stdout=True, stream_stderr=True):
     '''
     Run a command using VT
+
+    :param str cmd: Command to be run
+
+    :param namespace options: Program options
+
+    :param float sleep:  Sleep interval while polling process status
+
+    :param bool return_output: If true, return ``(stdout, stderr, returncode)`` instead of ``returncode``
+
+    :param bool stream_stdout: If true, stream ``stdout`` while process is running
+
+    :param bool stream_stderr: If true, stream ``stderr`` while process is running
     '''
     print_header(u'', sep='>', inline=True, width=options.output_columns)
     if isinstance(cmd, list):
@@ -403,23 +421,21 @@ def bootstrap_lxc_minion(options):
     '''
     Bootstrap a minion using salt-cloud
     '''
-
     print_bulleted(options, 'LXC support not implemented', 'RED')
     sys.exit(1)
 
 
 def bootstrap_parallels_minion(options):
     '''
-    Bootstrap a parallels minion.  The minion VM must have a snapshot at
-    ``options.vm_source`` in a state that includes salt and its dependencies.
+    Bootstrap a parallels minion
     '''
-    def _parallels_cmd(sub_cmd, *args, **kwargs):
+    def _prl_cmd(sub_cmd, *args, **kwargs):
         '''
         Construct a parallels desktop execution module command for which the
         parallels host and parallels VM are hardcoded to the options given upon
         invocation of this script file.
 
-        Example:
+        The resulting salt command will have the following form:
 
         .. code-block::
 
@@ -429,12 +445,12 @@ def bootstrap_parallels_minion(options):
         cmd = ['salt', '-l', options.log_level]
         if options.no_color:
             cmd.append('--no-color')
+        cmd.extend(['--timeout', '32'])
 
         # parallels host, command, vm_name
         cmd.extend([
             options.vm_host,
             'parallels.{0}'.format(sub_cmd),
-            options.vm_name,
         ])
 
         # args and kwargs unique to sub_cmd
@@ -446,31 +462,134 @@ def bootstrap_parallels_minion(options):
 
         return cmd
 
-    def vm_reverted():
+    def _repeat(command, key, tries=19, sleep=7):
         '''
-        Revert the parallels VM to a snapshot
+        Poll the state of a VM and wait until the desired change has been made
+        before returning.
+
+        Some parallels actions take a long time and prlctl returns before the
+        action completes under cmd.run even when this doesn't necessarily
+        happen when running prlctl in a login shell.  The job does return the
+        output when it has completed, though long after salt has stopped
+        waiting for the minion to return.
+
+        :param str command: The poll command to execute
+
+        :param str key: Substring to be found in the command std_out, which
+            indicates the desired successful change in the state of the VM
+
+        :param int tries: Number of tries to attempt
+
+        :param int sleep: Amount of time to wait between each try
         '''
-        cmd = _parallels_cmd('revert_snapshot', options.vm_source)
-        return run_command(cmd, options)
+        for i in range(tries):
+            std_out = run_command(command, options, return_output=True)[0]
+            if key in std_out:
+                return 0
+            print_bulleted(options, 'Waiting {0}s for parallels to complete action on VM '
+                                    '(try {2} of {1})'.format(sleep, tries, i + 1), 'YELLOW')
+            time.sleep(sleep)
+
+        return 1
+
+    def vm_cloned():
+        '''
+        Clone a new VM from a snapshot in the stopped state of the template VM
+
+        .. note::
+
+            'template' here does not mean a parallels template because the
+            'template' VMs need to be periodically started, updated, and
+            resnapshotted, so it is easier and simpler to work directly with
+            normal VMs as template VMs cannot be booted.
+        '''
+        # Ensure source VM is reverted to stopped snapshot since running VMs
+        # cannot be cloned
+        source_state = run_command(_prl_cmd('state', options.vm_source),
+                                            options,
+                                            return_output=True)[0]
+        if source_state == 'running':
+            run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
+            # Wait template VM is reverted to snapshot (stopped state)
+            if _repeat(_prl_cmd('state', options.vm_source), 'stopped') != 0:
+                return 1
+
+        # Clone source VM
+        run_command(_prl_cmd('clone', options.vm_source, options.vm_name, linked=True), options)
+        # Wait for prlctl to clone VM
+        if _repeat(_prl_cmd('exists', options.vm_name), 'True') != 0:
+            return 1
+
+        return 0
 
     def vm_started():
         '''
-        Ensure that the VM is running
+        Ensure VM is started
         '''
-        stat_cmd = _parallels_cmd('status')
+        stat_cmd = _prl_cmd('status', options.vm_name)
         stat_out, stat_err, stat_retcode = run_command(stat_cmd, options, return_output=True)
         if 'stopped' in stat_out:
-            start_cmd = _parallels_cmd('start')
-            return run_command(start_cmd, options)
+            run_command(_prl_cmd('start', options.vm_name), options)
+            # Wait for prlctl to start VM
+            if _repeat(_prl_cmd('state', options.vm_name), 'running') != 0:
+                return 1
+            return 0
         else:
             return stat_retcode
+
+    def bootstrap_salt():
+        '''
+        Ensure that the salt package is installed
+        '''
+        # TODO: This function needs to be refactored into bootstrap for MacOS
+
+        pkg_name = 'salt-{0}-x86_64.pkg'.format(options.bootstrap_salt_commit.lstrip('v'))
+
+        # Wait for network to finish configuring (and VM to finish starting)
+        ping_cmd = 'ping -c 3 repo.saltstack.com'
+        ping_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(ping_cmd))
+        if _repeat(ping_wrap, '3 packets received') != 0:
+            return 1
+
+        # Download package
+        downl_cmd = 'curl https://repo.saltstack.com/osx/{0} > /tmp/{0}'.format(pkg_name)
+        downl_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_cmd))
+        downl_retcode = run_command(downl_wrap, options)
+        if downl_retcode != 0:
+            return downl_retcode
+
+        # Install package
+        inst_cmd = 'installer -pkg /tmp/{0} -target / ; exit 0'.format(pkg_name)
+        inst_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(inst_cmd))
+        inst_retcode = run_command(inst_wrap, options)
+        if inst_retcode != 0:
+            return inst_retcode
+
+        # Install psutil until it becomes an official dep of the package; also
+        # source salt envs since the environment setup by ``parallels exec`` is
+        # very limited and does not source standard profiles
+        psutil_cmd = 'source /etc/profile ; pip install psutil'
+        psutil_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(psutil_cmd))
+        psutil_retcode = run_command(psutil_wrap, options)
+        if psutil_retcode != 0:
+            return psutil_retcode
+
+        # Configure salt minion
+        for config_str in ('echo id: {0} > /etc/salt/minion'.format(options.vm_name),
+                           'echo master: {0} >> /etc/salt/minion'.format(options.vm_master)):
+            config_cmd = _prl_cmd('exec', options.vm_name, command=pipes.quote(config_str))
+            config_retcode = run_command(config_cmd, options)
+            if config_retcode != 0:
+                return config_retcode
+
+        return 0
 
     def minion_reloaded():
         '''
         Stop if necessary and start salt-minion service
         '''
         # Get list of running daemons
-        list_cmd = _parallels_cmd('exec', command=pipes.quote('launchctl list'))
+        list_cmd = _prl_cmd('exec', options.vm_name, command=pipes.quote('launchctl list'))
         list_out, list_err, list_retcode = run_command(list_cmd, options, return_output=True, stream_stdout=False)
         if list_retcode != 0:
             return list_retcode
@@ -478,21 +597,32 @@ def bootstrap_parallels_minion(options):
         # Unload salt-minion if it is running
         if 'com.saltstack.salt.minion' in list_out:
             lctl_unload = 'launchctl unload /Library/LaunchDaemons/com.saltstack.salt.minion.plist'
-            unload_cmd = _parallels_cmd('exec', command=pipes.quote(lctl_unload))
+            unload_cmd = _prl_cmd('exec', options.vm_name, command=pipes.quote(lctl_unload))
             unload_retcode = run_command(unload_cmd, options)
             if unload_retcode != 0:
                 return unload_retcode
 
         # Load salt-minion
         lctl_load = 'launchctl load /Library/LaunchDaemons/com.saltstack.salt.minion.plist'
-        list_cmd = _parallels_cmd('exec', command=pipes.quote(lctl_load))
+        list_cmd = _prl_cmd('exec', options.vm_name, command=pipes.quote(lctl_load))
         return run_command(list_cmd, options)
 
-    exitcodes = [vm_reverted(), vm_started(), minion_reloaded()]
-    if not any(exitcodes):  # if all are zero
-        setattr(options, 'salt_minion_bootstrapped', 'yes')
-        return 0
-    return 1
+    def accept_key():
+        '''
+        Accept minion key
+        '''
+        # Wait for key to be generated and sent to master
+        if _repeat(['salt-key', '--list', 'unaccepted'], options.vm_name, tries=10, sleep=5) != 0:
+            return 1
+        return run_command(['salt-key', '-ya', options.vm_name], options)
+
+    for fcn in (vm_cloned, vm_started, bootstrap_salt, minion_reloaded, accept_key):
+        exitcode = fcn()
+        if exitcode != 0:
+            return exitcode
+
+    setattr(options, 'salt_minion_bootstrapped', 'yes')
+    return 0
 
 
 def prepare_ssh_access(options):
@@ -738,21 +868,40 @@ def delete_lxc_vm(options):
     return run_command(cmd, options)
 
 
-def reset_parallels_vm(options):
+def delete_parallels_vm(options):
     '''
-    Reset a parallels instance
+    Delete a parallels instance
     '''
-    cmd = ['salt', '-l', options.log_level]
+    base_cmd = ['salt', '-l', options.log_level]
     if options.no_color:
-        cmd.append('--no-color')
-    cmd.extend([
-        options.vm_host,
-        'parallels.revert_snapshot',
-        options.vm_name,
-        options.vm_source,
-        'runas={0}'.format(options.vm_host_user)
-    ])
-    return run_command(cmd, options)
+        base_cmd.append('--no-color')
+
+    # Stop the VM; VMs must be stopped before they can be deleted
+    stop_cmd = base_cmd + [options.vm_host,
+                           'parallels.stop',
+                           options.vm_name,
+                           'kill=True',  # Immediate shutdown
+                           'runas={0}'.format(options.vm_host_user)]
+    stop_retcode = run_command(stop_cmd, options)
+
+    # Delete the VM
+    delete_cmd = base_cmd + [options.vm_host,
+                             'parallels.delete',
+                             options.vm_name,
+                             'runas={0}'.format(options.vm_host_user)]
+    delete_retcode = run_command(delete_cmd, options)
+
+    # Delete the minion key
+    key_cmd = ['salt-key']
+    if options.no_color:
+        key_cmd.append('--no-color')
+    key_cmd.extend(['-yd', options.vm_name])
+    key_retcode = run_command(key_cmd, options)
+
+    if not all([stop_retcode, delete_retcode, key_retcode]):  # If all are zero
+        return 0
+    else:
+        return 1
 
 
 def check_bootstrapped_minion_version(options):
@@ -1107,7 +1256,10 @@ def generate_xml_coverage_report(options, exit=True):
 
 
 # ----- Parser Code ------------------------------------------------------------------------------------------------->
-def main():
+def get_args():
+    '''
+    Process command line arguments
+    '''
     parser = argparse.ArgumentParser(description='Jenkins execution helper')
     parser.add_argument(
         '-w', '--workspace',
@@ -1234,7 +1386,7 @@ def main():
     bootstrap_script_options.add_argument(
         '--bootstrap-salt-commit',
         default=None,
-        help='The salt git commit used to bootstrap a minion'
+        help='The salt git commit or tag used to bootstrap a minion'
     )
 
     # VM related options
@@ -1250,7 +1402,7 @@ def main():
         default=os.environ.get('JENKINS_VM_SOURCE', None),
         help=('The VM source. In case of --cloud-deploy usage, the cloud profile name. '
               'In case of --lxc-deploy usage, the image name. '
-              'In case of --parallels-deploy usage, the snapshot name.')
+              'In case of --parallels-deploy usage, the VM to clone from.')
     )
     vm_options_group.add_argument(
         '--vm-host',
@@ -1262,24 +1414,29 @@ def main():
         default='prl-user',
         help=('The user that parallels desktop runs as on the VM host system.')
     )
+    vm_options_group.add_argument(
+        '--vm-master',
+        default='salt',
+        help=('Until MacOS is supportd by bootstrap, this argument is used to '
+              'supply the master location for custom bootstrapping of '
+              'parallels VMs.')
+    )
+    vm_options_group.add_argument(
+        '--vm-snapshot',
+        default='system-updates',
+        help=('Used with parallels base VMs to create linked VMs for test runs')
+    )
 
     # VM related actions
     vm_actions = parser.add_argument_group(
         'VM Actions',
         'Action to execute on a running VM'
     )
-    vm_actions_mutually_exclusive = vm_actions.add_mutually_exclusive_group()
-    vm_actions_mutually_exclusive.add_argument(
+    vm_actions.add_argument(
         '--delete-vm',
         action='store_true',
         default=False,
         help='Delete a running VM'
-    )
-    vm_actions_mutually_exclusive.add_argument(
-        '--reset-vm',
-        action='store_true',
-        default=False,
-        help='Reset a running VM to snapshot'
     )
     vm_actions.add_argument(
         '--download-artifact',
@@ -1400,7 +1557,11 @@ def main():
         help='Location on the minion from which packages should be '
              'retrieved (default: %(default)s)',
     )
+    return parser
 
+
+def main():
+    parser = get_args()
     options = parser.parse_args()
 
     # Print test suite command line and exit
@@ -1418,10 +1579,7 @@ def main():
         parser.error('LXC support is not yet implemented')
 
     if options.vm_name is None:
-        if options.parallels_deploy:
-            parser.error('Parallels Desktop VM name must be provided')
-        else:
-            options.vm_name = get_vm_name(options)
+        options.vm_name = get_vm_name(options)
 
     if options.echo_parseable_output:
         if not options.vm_source:
@@ -1435,12 +1593,12 @@ def main():
             parser.exit(delete_cloud_vm(options))
         elif options.lxc_deploy:
             parser.exit(delete_lxc_vm(options))
+        elif options.parallels_deploy:
+            parser.exit(delete_parallels_vm(options))
         else:
             parser.error(
-                'You need to specify from which deployment to delete the VM from. --cloud-deploy/--lxc-deploy'
+                'You need to specify from which deployment to delete the VM from. --{cloud|lxc|parallels}-deploy'
             )
-    if options.reset_vm and options.parallels_deploy:
-        parser.exit(reset_parallels_vm(options))
 
     if options.bootstrap_salt_commit is None:
         options.bootstrap_salt_commit = os.environ.get(
@@ -1450,36 +1608,26 @@ def main():
     if options.bootstrap_salt_url is None:
         options.bootstrap_salt_url = SALT_GIT_URL
 
-    if options.cloud_deploy:
-        exitcode = bootstrap_cloud_minion(options)
-        if exitcode != 0:
-            print_bulleted(options, 'Failed to bootstrap the cloud minion', 'RED')
-            parser.exit(exitcode)
-        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        time.sleep(5)
-    elif options.lxc_deploy:
-        exitcode = bootstrap_lxc_minion(options)
-        if exitcode != 0:
-            print_bulleted(options, 'Failed to bootstrap the LXC minion', 'RED')
-            parser.exit(exitcode)
-        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        time.sleep(5)
-    elif options.parallels_deploy:
-        exitcode = bootstrap_parallels_minion(options)
-        if exitcode != 0:
-            print_bulleted(options, 'Failed to bootstrap the parallels minion', 'RED')
-            parser.exit(exitcode)
-        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
-        time.sleep(5)
+    if any([options.cloud_deploy, options.lxc_deploy, options.parallels_deploy]):
+        if options.cloud_deploy:
+            exitcode = bootstrap_cloud_minion(options)
+            if exitcode != 0:
+                print_bulleted(options, 'Failed to bootstrap the cloud minion', 'RED')
+                parser.exit(exitcode)
+        elif options.lxc_deploy:
+            exitcode = bootstrap_lxc_minion(options)
+            if exitcode != 0:
+                print_bulleted(options, 'Failed to bootstrap the LXC minion', 'RED')
+                parser.exit(exitcode)
+        elif options.parallels_deploy:
+            exitcode = bootstrap_parallels_minion(options)
+            if exitcode != 0:
+                print_bulleted(options, 'Failed to bootstrap the parallels minion', 'RED')
+                parser.exit(exitcode)
 
-    deploy = any([
-        options.cloud_deploy,
-        options.lxc_deploy,
-        options.parallels_deploy,
-    ])
-    if deploy:
-        # Parallels Desktop deployments are run from preinstalled snapshots
-        if not options.parallels_deploy and not options.test_interactive:
+        print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
+        time.sleep(5)
+        if not options.test_interactive:
             check_bootstrapped_minion_version(options)
         time.sleep(1)
         prepare_ssh_access(options)
