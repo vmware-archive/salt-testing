@@ -1082,7 +1082,10 @@ def terminate_process_pid(pid, only_children=False):
     if process and only_children is False:
         cmdline = process.cmdline()
         if not cmdline:
-            cmdline = process.as_dict()
+            try:
+                cmdline = process.as_dict()
+            except Exception:
+                cmdline = 'UNKNOWN PROCESS'
 
         log.info('Sending %s to process: %s', sigint_name, cmdline)
         process.send_signal(sigint)
@@ -1114,6 +1117,8 @@ def terminate_process_pid(pid, only_children=False):
                     if not kill and child.status() == psutil.STATUS_ZOMBIE:
                         # Zombie processes will exit once child processes also exit
                         continue
+                    if child.pid == os.getpid():
+                        continue
                     cmdline = child.cmdline()
                     if not cmdline:
                         cmdline = child.as_dict()
@@ -1131,10 +1136,10 @@ def terminate_process_pid(pid, only_children=False):
                 except psutil.NoSuchProcess:
                     _children.remove(child)
 
-        kill_children(children)
+        kill_children([child for child in children if child.is_running() and not any(sys.argv[0] in cmd for cmd in child.cmdline())])
 
         if children:
-            psutil.wait_procs(children, timeout=10, callback=lambda proc: kill_children(children, terminate=True))
+            psutil.wait_procs(children, timeout=3, callback=lambda proc: kill_children(children, kill=True))
 
         if children:
-            psutil.wait_procs(children, timeout=5, callback=lambda proc: kill_children(children, kill=True))
+            psutil.wait_procs(children, timeout=1, callback=lambda proc: kill_children(children, kill=True))
