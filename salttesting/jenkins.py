@@ -97,7 +97,12 @@ class GetBranchAction(GitHubAction):
     Load the required branch information
     '''
     def __call__(self, parser, namespace, values, option_string=None):
-        url = 'https://api.github.com/repos/saltstack/salt/branches/{0}'.format(values)
+        # Get a branch from a different GitHub account if requested
+        if ':' in values:
+            account, branch = values.split(':', 1)
+        else:
+            account, branch = 'saltstack', values
+        url = 'https://api.github.com/repos/{0}/salt/branches/{1}'.format(account, branch)
         branch_details = self.get_github_data(url, parser, namespace, values, option_string=option_string)
         setattr(namespace, 'branch_git_commit', branch_details['commit']['sha'])
 # <---- Argparse Custom Actions --------------------------------------------------------------------------------------
@@ -1325,7 +1330,9 @@ def get_args():
         type=str,
         action=GetBranchAction,
         default='develop',
-        help='Include the branch information in parseable output'
+        help='Include the branch information in parseable output.  A GitHub'
+             ' account/org other than saltstack can be specified by prefixing'
+             ' it as <account>:<branch>'
     )
 
     # SSH Options
