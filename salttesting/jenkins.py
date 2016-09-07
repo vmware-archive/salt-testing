@@ -1533,7 +1533,7 @@ def get_args():
     )
     packaging_options.add_argument(
         '--build-packages',
-        default=True,
+        default=False,
         action='store_true',
         help='Run buildpackage.py to create packages off of the git build.'
     )
