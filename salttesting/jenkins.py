@@ -554,12 +554,26 @@ def bootstrap_parallels_minion(options):
         if _repeat(ping_wrap, '3 packets received') != 0:
             return 1
 
+        # Download package hash
+        downl_hash_cmd = 'curl https://repo.saltstack.com/osx/{0}.md5 > /tmp/{0}.md5'.format(pkg_name)
+        downl_hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_hash_cmd))
+        downl_hash_retcode = run_command(downl_hash_wrap, options)
+        if downl_hash_retcode != 0:
+            return downl_hash_retcode
+
         # Download package
         downl_cmd = 'curl https://repo.saltstack.com/osx/{0} > /tmp/{0}'.format(pkg_name)
         downl_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_cmd))
-        downl_retcode = run_command(downl_wrap, options)
-        if downl_retcode != 0:
-            return downl_retcode
+        run_command(downl_wrap, options)
+        # Wait for package to finish downloading by first downloading the hash
+        hash_cmd = 'cat /tmp/{0}.md5'.format(pkg_name)
+        hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(hash_cmd))
+        hash_code = run_command(hash_wrap, options, return_output=True)[0]
+        # And then comparing it to the actual hash
+        get_hash_cmd = 'md5 -q /tmp/{0}'.format(pkg_name)
+        get_hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(get_hash_cmd))
+        if _repeat(get_hash_wrap, hash_code) != 0:
+            return 1
 
         # Install package
         inst_cmd = 'installer -pkg /tmp/{0} -target / ; exit 0'.format(pkg_name)
