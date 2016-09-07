@@ -1080,7 +1080,11 @@ def terminate_process_pid(pid, only_children=False):
         log.info('No process with the PID %s was found running', pid)
 
     if process and only_children is False:
-        cmdline = process.cmdline()
+        try:
+            cmdline = process.cmdline()
+        except psutil.AccessDenied:
+            # OSX denies us access to the above information
+            cmdline = None
         if not cmdline:
             try:
                 cmdline = process.as_dict()
@@ -1119,7 +1123,11 @@ def terminate_process_pid(pid, only_children=False):
                         continue
                     if child.pid == os.getpid():
                         continue
-                    cmdline = child.cmdline()
+                    try:
+                        cmdline = child.cmdline()
+                    except psutil.AccessDenied:
+                        # OSX denies us access to the above information
+                        cmdline = None
                     if not cmdline:
                         cmdline = child.as_dict()
                     if kill:
@@ -1138,6 +1146,7 @@ def terminate_process_pid(pid, only_children=False):
         try:
             kill_children([child for child in children if child.is_running() and not any(sys.argv[0] in cmd for cmd in child.cmdline())])
         except psutil.AccessDenied:
+            # OSX denies us access to the above information
             kill_children(children)
 
         if children:
