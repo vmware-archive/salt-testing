@@ -11,5 +11,5 @@
 # Import Python Libs
 from __future__ import absolute_import
 
-__version_info__ = (2016, 8, 22)
+__version_info__ = (2016, 9, 7)
 __version__ = '{0}.{1}.{2}'.format(*__version_info__)
