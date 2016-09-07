@@ -1135,8 +1135,10 @@ def terminate_process_pid(pid, only_children=False):
                         _children.remove(child)
                 except psutil.NoSuchProcess:
                     _children.remove(child)
-
-        kill_children([child for child in children if child.is_running() and not any(sys.argv[0] in cmd for cmd in child.cmdline())])
+        try:
+            kill_children([child for child in children if child.is_running() and not any(sys.argv[0] in cmd for cmd in child.cmdline())])
+        except psutil.AccessDenied:
+            kill_children(children)
 
         if children:
             psutil.wait_procs(children, timeout=3, callback=lambda proc: kill_children(children, kill=True))
