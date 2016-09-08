@@ -97,7 +97,12 @@ class GetBranchAction(GitHubAction):
     Load the required branch information
     '''
     def __call__(self, parser, namespace, values, option_string=None):
-        url = 'https://api.github.com/repos/saltstack/salt/branches/{0}'.format(values)
+        # Get a branch from a different GitHub account if requested
+        if ':' in values:
+            account, branch = values.split(':', 1)
+        else:
+            account, branch = 'saltstack', values
+        url = 'https://api.github.com/repos/{0}/salt/branches/{1}'.format(account, branch)
         branch_details = self.get_github_data(url, parser, namespace, values, option_string=option_string)
         setattr(namespace, 'branch_git_commit', branch_details['commit']['sha'])
 # <---- Argparse Custom Actions --------------------------------------------------------------------------------------
@@ -508,13 +513,13 @@ def bootstrap_parallels_minion(options):
         '''
         # Ensure source VM is reverted to stopped snapshot since running VMs
         # cannot be cloned
-        source_state = run_command(_prl_cmd('state', options.vm_source),
+        source_state = run_command(_prl_cmd('status', options.vm_source),
                                             options,
                                             return_output=True)[0]
-        if source_state == 'running':
+        if 'running' in source_state:
             run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
             # Wait template VM is reverted to snapshot (stopped state)
-            if _repeat(_prl_cmd('state', options.vm_source), 'stopped') != 0:
+            if _repeat(_prl_cmd('status', options.vm_source), 'stopped') != 0:
                 return 1
 
         # Clone source VM
@@ -534,7 +539,7 @@ def bootstrap_parallels_minion(options):
         if 'stopped' in stat_out:
             run_command(_prl_cmd('start', options.vm_name), options)
             # Wait for prlctl to start VM
-            if _repeat(_prl_cmd('state', options.vm_name), 'running') != 0:
+            if _repeat(_prl_cmd('status', options.vm_name), 'running') != 0:
                 return 1
             return 0
         else:
@@ -554,12 +559,26 @@ def bootstrap_parallels_minion(options):
         if _repeat(ping_wrap, '3 packets received') != 0:
             return 1
 
+        # Download package hash
+        downl_hash_cmd = 'curl https://repo.saltstack.com/osx/{0}.md5 > /tmp/{0}.md5'.format(pkg_name)
+        downl_hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_hash_cmd))
+        downl_hash_retcode = run_command(downl_hash_wrap, options)
+        if downl_hash_retcode != 0:
+            return downl_hash_retcode
+
         # Download package
         downl_cmd = 'curl https://repo.saltstack.com/osx/{0} > /tmp/{0}'.format(pkg_name)
         downl_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_cmd))
-        downl_retcode = run_command(downl_wrap, options)
-        if downl_retcode != 0:
-            return downl_retcode
+        run_command(downl_wrap, options)
+        # Wait for package to finish downloading by first downloading the hash
+        hash_cmd = 'cat /tmp/{0}.md5'.format(pkg_name)
+        hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(hash_cmd))
+        hash_code = run_command(hash_wrap, options, return_output=True)[0]
+        # And then comparing it to the actual hash
+        get_hash_cmd = 'md5 -q /tmp/{0}'.format(pkg_name)
+        get_hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(get_hash_cmd))
+        if _repeat(get_hash_wrap, hash_code) != 0:
+            return 1
 
         # Install package
         inst_cmd = 'installer -pkg /tmp/{0} -target / ; exit 0'.format(pkg_name)
@@ -1311,7 +1330,9 @@ def get_args():
         type=str,
         action=GetBranchAction,
         default='develop',
-        help='Include the branch information in parseable output'
+        help='Include the branch information in parseable output.  A GitHub'
+             ' account/org other than saltstack can be specified by prefixing'
+             ' it as <account>:<branch>'
     )
 
     # SSH Options
