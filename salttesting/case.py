@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import json
+import time
 import stat
 import errno
 import signal
@@ -284,7 +285,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
             term_sent = False
             while True:
                 process.poll()
-
+                time.sleep(0.1)
                 if datetime.now() > stop_at:
                     if term_sent is False:
                         # Kill the process group since sending the term signal
