@@ -513,13 +513,13 @@ def bootstrap_parallels_minion(options):
         '''
         # Ensure source VM is reverted to stopped snapshot since running VMs
         # cannot be cloned
-        source_state = run_command(_prl_cmd('state', options.vm_source),
+        source_state = run_command(_prl_cmd('status', options.vm_source),
                                             options,
                                             return_output=True)[0]
-        if source_state == 'running':
+        if 'running' in source_state:
             run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
             # Wait template VM is reverted to snapshot (stopped state)
-            if _repeat(_prl_cmd('state', options.vm_source), 'stopped') != 0:
+            if _repeat(_prl_cmd('status', options.vm_source), 'stopped') != 0:
                 return 1
 
         # Clone source VM
@@ -539,7 +539,7 @@ def bootstrap_parallels_minion(options):
         if 'stopped' in stat_out:
             run_command(_prl_cmd('start', options.vm_name), options)
             # Wait for prlctl to start VM
-            if _repeat(_prl_cmd('state', options.vm_name), 'running') != 0:
+            if _repeat(_prl_cmd('status', options.vm_name), 'running') != 0:
                 return 1
             return 0
         else:
