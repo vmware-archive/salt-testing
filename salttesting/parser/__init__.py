@@ -511,6 +511,7 @@ class SaltTestingParser(optparse.OptionParser):
                     loaded_custom = True
         except (AttributeError, ImportError):
             print('Could not locate test \'{0}\'. Exiting.'.format(display_name))
+            sys.exit(1)
 
         if additional_test_dirs and not loaded_custom:
             for test_dir in additional_test_dirs:
