@@ -510,15 +510,24 @@ def bootstrap_parallels_minion(options):
             'template' VMs need to be periodically started, updated, and
             resnapshotted, so it is easier and simpler to work directly with
             normal VMs as template VMs cannot be booted.
+
+        .. note::
+
+            When updating the template VM snapshots, ensure that the snapshot
+            is made after the template VM has shutdown so that jenkins doesn't
+            have to wait to for it to shutdown on every test run.
         '''
-        # Ensure source VM is reverted to stopped snapshot since running VMs
-        # cannot be cloned
+        # Ensure source VM is reverted to the desired snapshot before cloning
+        run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
+        # Get source VM state
         source_state = run_command(_prl_cmd('status', options.vm_source),
                                             options,
                                             return_output=True)[0]
+
+        # Ensure source VM is stopped since running VMs cannot be cloned
         if 'running' in source_state:
-            run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
-            # Wait template VM is reverted to snapshot (stopped state)
+            run_command(_prl_cmd('stop', options.vm_source), options)
+            # Wait until template VM is in stopped state
             if _repeat(_prl_cmd('status', options.vm_source), 'stopped') != 0:
                 return 1
 
