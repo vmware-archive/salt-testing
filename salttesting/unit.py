@@ -23,6 +23,7 @@
 # Import python libs
 from __future__ import absolute_import
 import sys
+import os
 import logging
 try:
     import psutil
@@ -93,6 +94,22 @@ else:
 
 
 class TestCase(_TestCase):
+
+    _cwd = os.getcwd()
+
+    @classmethod
+    def tearDownClass(cls):
+        '''
+        Overriden method for setting up all classes in salttesting
+
+        This hard-resets the environment between test classes
+        '''
+        # Compare where we are now compared to where we were when we began this family of tests
+        if not cls._cwd == os.getcwd():
+            os.chdir(cls._cwd)
+            print('\nWARNING: A misbehaving test has modified the working directory!\nThe test suite has reset the working directory '
+                    'on tearDown() to {0}\n'.format(cls._cwd))
+        super(TestCase, cls).tearDownClass()
 
     def shortDescription(self):
         desc = _TestCase.shortDescription(self)
