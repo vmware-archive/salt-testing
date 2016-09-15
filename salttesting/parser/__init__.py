@@ -504,7 +504,7 @@ class SaltTestingParser(optparse.OptionParser):
             if load_from_name:
                 tests = loader.loadTestsFromName(display_name)
             else:
-                if self.testsuite_directory.startswith(path):
+                if additional_test_dirs is None or self.testsuite_directory.startswith(path):
                     tests = loader.discover(path, suffix, self.testsuite_directory)
                 else:
                     tests = loader.discover(path, suffix)
