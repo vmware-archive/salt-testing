@@ -100,7 +100,7 @@ class TestCase(_TestCase):
     @classmethod
     def tearDownClass(cls):
         '''
-        Overriden method for setting up all classes in salttesting
+        Overriden method for tearing down all classes in salttesting
 
         This hard-resets the environment between test classes
         '''
