@@ -991,7 +991,7 @@ def check_bootstrapped_minion_version(options):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
 
-def run_ssh_state_on_vm(options, state_name, timeout=100):
+def run_ssh_state_on_vm(options, state_name, saltenv=None, timeout=100):
     '''
     Run a state on a VM via SSH
     '''
@@ -1004,10 +1004,12 @@ def run_ssh_state_on_vm(options, state_name, timeout=100):
             'state.sls', state_name,
             'pillar="{0}"'.format(build_pillar_data(options))
             ]
+    if saltenv:
+        cmd.extend(['saltenv={0}'.format(saltenv)])
     run_command(cmd, options)
 
 
-def run_state_on_vm(options, state_name, timeout=100):
+def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     '''
     Run a state on the VM
     '''
@@ -1026,7 +1028,10 @@ def run_state_on_vm(options, state_name, timeout=100):
         'state.sls',
         state_name,
         'pillar="{0}"'.format(build_pillar_data(options))
+
     ])
+    if saltenv:
+        cmd.extend(['saltenv={0}'.format(saltenv)])
     if options.require_sudo:
         cmd.insert(0, 'sudo')
     if options.no_color:
@@ -1525,6 +1530,11 @@ def get_args():
         help='Run a preparation SLS file. Pass one SLS per `--test-prep-sls` option argument'
     )
     testing_source_options.add_argument(
+            '--test-prep-sls-branch',
+            action='store_true',
+            help='Pull test preparation states from a particular branch',
+    )
+    testing_source_options.add_argument(
         '--show-default-command',
         action='store_true',
         help='Print out the default command that runs the test suite on the deployed VM'
@@ -1657,13 +1667,12 @@ def main():
         prepare_ssh_access(options)
         time.sleep(1)
 
-
     # Run preparation SLS
     for sls in options.test_prep_sls:
         if options.test_interactive:
-            exitcode = run_ssh_state_on_vm(options, sls, timeout=900)
+            exitcode = run_ssh_state_on_vm(options, sls, saltenv=options.test_prep_sls_branch, timeout=900)
         else:
-            exitcode = run_state_on_vm(options, sls, timeout=900)
+            exitcode = run_state_on_vm(options, sls, saltenv=options.test_prep_sls_branch, timeout=900)
         if exitcode != 0:
             print_bulleted(options, 'The execution of the {0!r} SLS failed'.format(sls), 'RED')
             parser.exit(exitcode)
