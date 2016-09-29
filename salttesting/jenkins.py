@@ -250,6 +250,8 @@ def build_pillar_data(options, convert_to_yaml=True):
         pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
     if options.bootstrap_salt_commit is not None:
         pillar['bootstrap_salt_commit'] = options.bootstrap_salt_commit
+    if options['salttesting_version'] is not None:
+        pillar['salttesting_version'] = options.salttesting_version
 
     # Build package pillar data
     if options.package_source_dir:
@@ -1496,6 +1498,10 @@ def get_args():
         '--test-git-commit',
         default=None,
         help='The testing git commit to track')
+    testing_source_options.add_argument(
+        '--salttesting-version',
+        default=None,
+        help='The version of salttesting to be installed into the test environment. i.e. 2016.7.22')
     testing_source_options.add_argument(
         '--test-pillar',
         default=[],
