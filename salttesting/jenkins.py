@@ -250,7 +250,7 @@ def build_pillar_data(options, convert_to_yaml=True):
         pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
     if options.bootstrap_salt_commit is not None:
         pillar['bootstrap_salt_commit'] = options.bootstrap_salt_commit
-    if options['salttesting_version'] is not None:
+    if options.salttesting_version is not None:
         pillar['salttesting_version'] = options.salttesting_version
 
     # Build package pillar data
