@@ -590,7 +590,7 @@ def bootstrap_parallels_minion(options):
         get_hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(get_hash_cmd))
         if _repeat(get_hash_wrap, hash_code) != 0:
             return 1
-        else
+        else:
             print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
 
         # Install package
