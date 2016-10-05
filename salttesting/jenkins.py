@@ -391,6 +391,8 @@ def bootstrap_cloud_minion(options):
     Bootstrap a minion using salt-cloud
     '''
     script_args = ['-ZD']
+    if options.bootstrap_quiet_setup:
+        script_args.append('-q')
     if options.no_color:
         script_args.append('-n')
     if options.pip_based:
@@ -1429,6 +1431,12 @@ def get_args():
         '--bootstrap-salt-commit',
         default=None,
         help='The salt git commit or tag used to bootstrap a minion'
+    )
+    bootstrap_script_options.add_argument(
+        '--bootstrap-quiet-setup',
+        action='store_true',
+        default=False,
+        help='Run the `setup.py install` step of bootstrap with `-q`'
     )
 
     # VM related options
