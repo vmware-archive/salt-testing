@@ -96,6 +96,7 @@ else:
 class TestCase(_TestCase):
 
     _cwd = os.getcwd()
+    _chdir_counter = 0
 
     @classmethod
     def tearDownClass(cls):
@@ -105,10 +106,11 @@ class TestCase(_TestCase):
         This hard-resets the environment between test classes
         '''
         # Compare where we are now compared to where we were when we began this family of tests
-        if not cls._cwd == os.getcwd():
+        if not cls._cwd == os.getcwd() and cls._chdir_counter > 0:
             os.chdir(cls._cwd)
             print('\nWARNING: A misbehaving test has modified the working directory!\nThe test suite has reset the working directory '
                     'on tearDown() to {0}\n'.format(cls._cwd))
+            cls._chdir_counter += 1
         super(TestCase, cls).tearDownClass()
 
     def shortDescription(self):
