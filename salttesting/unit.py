@@ -31,6 +31,11 @@ try:
 except ImportError:
     HAS_PSUTIL = False
 
+# Set SHOW_PROC to True to show
+# process details when running in verbose mode
+# i.e. [CPU:15.1%|MEM:48.3%|Z:0]
+SHOW_PROC = False
+
 # support python < 2.7 via unittest2
 if sys.version_info < (2, 7):
     try:
@@ -115,7 +120,7 @@ class TestCase(_TestCase):
 
     def shortDescription(self):
         desc = _TestCase.shortDescription(self)
-        if HAS_PSUTIL:
+        if HAS_PSUTIL and SHOW_PROC:
             proc_info = ''
             found_zombies = 0
             try:
