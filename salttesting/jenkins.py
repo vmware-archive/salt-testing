@@ -97,7 +97,12 @@ class GetBranchAction(GitHubAction):
     Load the required branch information
     '''
     def __call__(self, parser, namespace, values, option_string=None):
-        url = 'https://api.github.com/repos/saltstack/salt/branches/{0}'.format(values)
+        # Get a branch from a different GitHub account if requested
+        if ':' in values:
+            account, branch = values.split(':', 1)
+        else:
+            account, branch = 'saltstack', values
+        url = 'https://api.github.com/repos/{0}/salt/branches/{1}'.format(account, branch)
         branch_details = self.get_github_data(url, parser, namespace, values, option_string=option_string)
         setattr(namespace, 'branch_git_commit', branch_details['commit']['sha'])
 # <---- Argparse Custom Actions --------------------------------------------------------------------------------------
@@ -245,6 +250,8 @@ def build_pillar_data(options, convert_to_yaml=True):
         pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
     if options.bootstrap_salt_commit is not None:
         pillar['bootstrap_salt_commit'] = options.bootstrap_salt_commit
+    if options.salttesting_namespec is not None:
+        pillar['salttesting_namespec'] = options.salttesting_namespec
 
     # Build package pillar data
     if options.package_source_dir:
@@ -384,6 +391,8 @@ def bootstrap_cloud_minion(options):
     Bootstrap a minion using salt-cloud
     '''
     script_args = ['-ZD']
+    if options.bootstrap_quiet_setup:
+        script_args.append('-q')
     if options.no_color:
         script_args.append('-n')
     if options.pip_based:
@@ -505,16 +514,25 @@ def bootstrap_parallels_minion(options):
             'template' VMs need to be periodically started, updated, and
             resnapshotted, so it is easier and simpler to work directly with
             normal VMs as template VMs cannot be booted.
+
+        .. note::
+
+            When updating the template VM snapshots, ensure that the snapshot
+            is made after the template VM has shutdown so that jenkins doesn't
+            have to wait to for it to shutdown on every test run.
         '''
-        # Ensure source VM is reverted to stopped snapshot since running VMs
-        # cannot be cloned
-        source_state = run_command(_prl_cmd('state', options.vm_source),
+        # Ensure source VM is reverted to the desired snapshot before cloning
+        run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
+        # Get source VM state
+        source_state = run_command(_prl_cmd('status', options.vm_source),
                                             options,
                                             return_output=True)[0]
-        if source_state == 'running':
-            run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
-            # Wait template VM is reverted to snapshot (stopped state)
-            if _repeat(_prl_cmd('state', options.vm_source), 'stopped') != 0:
+
+        # Ensure source VM is stopped since running VMs cannot be cloned
+        if 'running' in source_state:
+            run_command(_prl_cmd('stop', options.vm_source), options)
+            # Wait until template VM is in stopped state
+            if _repeat(_prl_cmd('status', options.vm_source), 'stopped') != 0:
                 return 1
 
         # Clone source VM
@@ -534,7 +552,7 @@ def bootstrap_parallels_minion(options):
         if 'stopped' in stat_out:
             run_command(_prl_cmd('start', options.vm_name), options)
             # Wait for prlctl to start VM
-            if _repeat(_prl_cmd('state', options.vm_name), 'running') != 0:
+            if _repeat(_prl_cmd('status', options.vm_name), 'running') != 0:
                 return 1
             return 0
         else:
@@ -554,12 +572,28 @@ def bootstrap_parallels_minion(options):
         if _repeat(ping_wrap, '3 packets received') != 0:
             return 1
 
+        # Download package hash
+        downl_hash_cmd = 'curl https://repo.saltstack.com/osx/{0}.md5 > /tmp/{0}.md5'.format(pkg_name)
+        downl_hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_hash_cmd))
+        downl_hash_retcode = run_command(downl_hash_wrap, options)
+        if downl_hash_retcode != 0:
+            return downl_hash_retcode
+
         # Download package
         downl_cmd = 'curl https://repo.saltstack.com/osx/{0} > /tmp/{0}'.format(pkg_name)
         downl_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_cmd))
-        downl_retcode = run_command(downl_wrap, options)
-        if downl_retcode != 0:
-            return downl_retcode
+        run_command(downl_wrap, options)
+        # Wait for package to finish downloading by first downloading the hash
+        hash_cmd = 'cat /tmp/{0}.md5'.format(pkg_name)
+        hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(hash_cmd))
+        hash_code = run_command(hash_wrap, options, return_output=True)[0]
+        # And then comparing it to the actual hash
+        get_hash_cmd = 'md5 -q /tmp/{0}'.format(pkg_name)
+        get_hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(get_hash_cmd))
+        if _repeat(get_hash_wrap, hash_code) != 0:
+            return 1
+        else:
+            print_bulleted(options, 'Matches!', 'LIGHT_GREEN')
 
         # Install package
         inst_cmd = 'installer -pkg /tmp/{0} -target / ; exit 0'.format(pkg_name)
@@ -972,7 +1006,7 @@ def check_bootstrapped_minion_version(options):
         print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
 
 
-def run_ssh_state_on_vm(options, state_name, timeout=100):
+def run_ssh_state_on_vm(options, state_name, saltenv=None, timeout=100):
     '''
     Run a state on a VM via SSH
     '''
@@ -985,10 +1019,12 @@ def run_ssh_state_on_vm(options, state_name, timeout=100):
             'state.sls', state_name,
             'pillar="{0}"'.format(build_pillar_data(options))
             ]
+    if saltenv:
+        cmd.extend(['saltenv={0}'.format(saltenv)])
     run_command(cmd, options)
 
 
-def run_state_on_vm(options, state_name, timeout=100):
+def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     '''
     Run a state on the VM
     '''
@@ -1007,7 +1043,10 @@ def run_state_on_vm(options, state_name, timeout=100):
         'state.sls',
         state_name,
         'pillar="{0}"'.format(build_pillar_data(options))
+
     ])
+    if saltenv:
+        cmd.extend(['saltenv={0}'.format(saltenv)])
     if options.require_sudo:
         cmd.insert(0, 'sudo')
     if options.no_color:
@@ -1311,7 +1350,9 @@ def get_args():
         type=str,
         action=GetBranchAction,
         default='develop',
-        help='Include the branch information in parseable output'
+        help='Include the branch information in parseable output.  A GitHub'
+             ' account/org other than saltstack can be specified by prefixing'
+             ' it as <account>:<branch>'
     )
 
     # SSH Options
@@ -1390,6 +1431,12 @@ def get_args():
         '--bootstrap-salt-commit',
         default=None,
         help='The salt git commit or tag used to bootstrap a minion'
+    )
+    bootstrap_script_options.add_argument(
+        '--bootstrap-quiet-setup',
+        action='store_true',
+        default=False,
+        help='Run the `setup.py install` step of bootstrap with `-q`'
     )
 
     # VM related options
@@ -1471,6 +1518,12 @@ def get_args():
         default=None,
         help='The testing git commit to track')
     testing_source_options.add_argument(
+        '--salttesting-namespec',
+        default=None,
+        help='The name specifier used by pip to install salttesting, i.e.'
+             ' salttesting==2016.9.7 or'
+             ' git+https://github.com/saltstack/salt-testing.git@develop#egg=SaltTesting')
+    testing_source_options.add_argument(
         '--test-pillar',
         default=[],
         nargs=2,
@@ -1502,6 +1555,11 @@ def get_args():
         default=[],
         action='append',
         help='Run a preparation SLS file. Pass one SLS per `--test-prep-sls` option argument'
+    )
+    testing_source_options.add_argument(
+            '--test-prep-sls-branch',
+            action='store_true',
+            help='Pull test preparation states from a particular branch',
     )
     testing_source_options.add_argument(
         '--show-default-command',
@@ -1636,13 +1694,12 @@ def main():
         prepare_ssh_access(options)
         time.sleep(1)
 
-
     # Run preparation SLS
     for sls in options.test_prep_sls:
         if options.test_interactive:
-            exitcode = run_ssh_state_on_vm(options, sls, timeout=900)
+            exitcode = run_ssh_state_on_vm(options, sls, saltenv=options.test_prep_sls_branch, timeout=900)
         else:
-            exitcode = run_state_on_vm(options, sls, timeout=900)
+            exitcode = run_state_on_vm(options, sls, saltenv=options.test_prep_sls_branch, timeout=900)
         if exitcode != 0:
             print_bulleted(options, 'The execution of the {0!r} SLS failed'.format(sls), 'RED')
             parser.exit(exitcode)

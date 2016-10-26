@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 import os
 import sys
+import time
 import types
 import signal
 import socket
@@ -102,6 +103,38 @@ def expensiveTest(caller):
         if os.environ.get('EXPENSIVE_TESTS', 'False').lower() == 'false':
             cls.skipTest('Expensive tests are disabled')
         return caller(cls)
+    return wrap
+
+
+def flaky(caller):
+    '''
+    Mark a test as flaky. The test will attempt to run five times,
+    looking for a successful run. After an immediate second try,
+    it will use an exponential backoff starting with one second.
+
+    .. code-block:: python
+
+        class MyTestCase(TestCase):
+
+        @flaky
+        def test_sometimes_works(self):
+            pass
+    '''
+    # TODO Handle class case. Right now, just POC on a function
+
+    @wraps(caller)
+    def wrap(cls):
+        for attempt in range(0, 4):
+            try:
+                caller(cls)
+                break
+            except Exception as exc:
+                if attempt == 4:
+                    raise exc
+                backoff_time = attempt ** 2
+                print('Found exception. Waiting {0} seconds to retry.'.format(backoff_time))
+                time.sleep(backoff_time)
+        return None
     return wrap
 
 
