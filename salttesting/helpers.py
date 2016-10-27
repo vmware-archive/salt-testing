@@ -1118,6 +1118,9 @@ def terminate_process_pid(pid, only_children=False):
         except psutil.AccessDenied:
             # OSX denies us access to the above information
             cmdline = None
+        except TypeError:
+            # Very old versions of psutil put this in a list
+            cmdline = process.cmdline
         if not cmdline:
             try:
                 cmdline = process.as_dict()
