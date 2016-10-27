@@ -324,7 +324,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
         if sys.version_info > (2,):
             try:
                 out = tmp_file.read().decode(__salt_system_encoding__)
-            except NameError:
+            except (NameError, UnicodeDecodeError):
                 # Let's cross our fingers and hope for the best
                 out = tmp_file.read().decode('utf-8')
         else:
