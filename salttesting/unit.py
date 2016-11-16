@@ -116,7 +116,6 @@ class TestCase(_TestCase):
             print('\nWARNING: A misbehaving test has modified the working directory!\nThe test suite has reset the working directory '
                     'on tearDown() to {0}\n'.format(cls._cwd))
             cls._chdir_counter += 1
-        super(TestCase, cls).tearDownClass()
 
     def shortDescription(self):
         desc = _TestCase.shortDescription(self)
