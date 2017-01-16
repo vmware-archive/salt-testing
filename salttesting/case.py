@@ -321,7 +321,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixIn):
                     break
         tmp_file.seek(0)
 
-        if sys.version_info.major > 2:
+        if sys.version_info >= (3,):
             try:
                 out = tmp_file.read().decode(__salt_system_encoding__)
             except (NameError, UnicodeDecodeError):
