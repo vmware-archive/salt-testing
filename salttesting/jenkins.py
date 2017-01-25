@@ -24,7 +24,9 @@ import argparse
 
 # Import salt libs
 import salt.config
-from salt.utils import get_colors, vt
+from salt.utils import get_colors, vt, fopen
+from salt.utils.smb import get_conn
+from salt.utils.cloud import win_cmd
 from salt.version import SaltStackVersion
 from salt.log.setup import SORTED_LEVEL_NAMES
 
@@ -414,6 +416,8 @@ def bootstrap_cloud_minion(options):
         '--no-color',
         options.vm_name
     ]
+    if options.windows:
+        cmd.append('-k')
     if options.no_color:
         cmd.append('--no-color')
     cloud_stdout, _, exitcode = run_command(cmd, options, return_output=True)
@@ -731,9 +735,33 @@ def prepare_ssh_access(options):
         return run_command(cmd, options)
 
 
+def prepare_winexe_access(options):
+
+    # See if win_username and win_password are already set
+    if getattr(options, 'win_username', None) and \
+            getattr(options, 'win_password', None):
+        return options.win_username, options.win_password
+
+    # Get win_username and win_password from Cloud Config and put in options
+    # Load cloud config
+    cloud_config = salt.config.cloud_config('/etc/salt/cloud')
+
+    # Determine which provider we are using by looking it up in the profile
+    p_file, p_name = cloud_config['profiles'][options.vm_source]['provider'].split(':')
+
+    # Finally, we can get the provider password
+    win_username = cloud_config['providers'][p_file][p_name]['win_username']
+    win_password = cloud_config['providers'][p_file][p_name]['win_password']
+
+    setattr(options, 'win_username', win_username)
+    setattr(options, 'win_password', win_password)
+
+    return win_username, win_password
+
+
 def sync_minion(options):
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not syncing minion.', 'RED')
+        print_bulleted(options, 'Minion not bootstrapped. Not syncing minion.', 'RED')
         sys.exit(1)
     if 'salt_minion_synced' in options:
         return
@@ -771,7 +799,7 @@ def get_minion_ip_address(options, sync=True):
     Get and store the remote minion IP address
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing IP address.', 'RED')
+        print_bulleted(options, 'Minion not bootstrapped. Not grabbing IP address.', 'RED')
         sys.exit(1)
     if getattr(options, 'minion_ip_address', None):
         return options.minion_ip_address
@@ -836,7 +864,7 @@ def get_minion_python_executable(options):
     Get and store the remote minion python executable
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'RED')
+        print_bulleted(options, 'Minion not bootstrapped. Not grabbing remote python executable.', 'RED')
         sys.exit(1)
     if 'minion_python_executable' in options:
         return options.minion_python_executable
@@ -946,7 +974,7 @@ def check_bootstrapped_minion_version(options):
     Confirm that the bootstrapped minion version matches the desired one
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing minion version information.', 'RED')
+        print_bulleted(options, 'Minion not bootstrapped. Not grabbing minion version information.', 'RED')
         sys.exit(1)
 
     print_bulleted(options, 'Grabbing bootstrapped minion version information ... ')
@@ -990,7 +1018,7 @@ def check_bootstrapped_minion_version(options):
             print_bulleted(options, '\n\nATTENTION!!!!\n', 'YELLOW')
             print_bulleted(
                 options,
-                'The boostrapped minion version commit does not contain the desired commit:',
+                'The bootstrapped minion version commit does not contain the desired commit:',
                 'YELLOW'
             )
             print_bulleted(
@@ -1071,7 +1099,7 @@ def check_cloned_reposiory_commit(options):
     cmd.extend([
         options.vm_name,
         'git.revision',
-        '/testing'
+        '/{0}'.format(options.package_source_dir)
     ])
 
     stdout, stderr, exitcode = run_command(cmd,
@@ -1169,6 +1197,23 @@ def run_ssh_command(options, remote_command):
     return run_command(cmd, options)
 
 
+def run_winexe_command(options, remote_command):
+    host = get_minion_ip_address(options)
+    win_username, win_password = prepare_winexe_access(options)
+    credentials = "-U '{0}%{1}' //{2}".format(
+        win_username,
+        win_password,
+        host
+    )
+    logging_credentials = "-U '{0}%XXX-REDACTED-XXX' //{1}".format(
+        win_username,
+        host
+    )
+    cmd = 'winexe {0} "{1}"'.format(credentials, remote_command)
+    logging_cmd = 'winexe {0} "{1}"'.format(logging_credentials, remote_command)
+    win_cmd(cmd, logging_command=logging_cmd)
+
+
 def test_ssh_root_login(options):
     '''
     Test if we're able to login as root
@@ -1186,7 +1231,7 @@ def test_ssh_root_login(options):
     save_state(options)
 
 
-def download_artifacts(options):
+def download_artifacts_ssh(options):
     test_ssh_root_login(options)
 
     # Check if we're sudo'ing
@@ -1226,19 +1271,73 @@ def download_artifacts(options):
                 os.chown(local_path, sudo_uid, sudo_gid)
 
 
+def download_artifacts_smb(options):
+    '''
+    Download artifacts from a Windows test box using Samba.
+    '''
+    # Check if we're sudo'ing
+    using_sudo = 'SUDO_USER' in os.environ
+    sudo_uid = int(os.environ.get('SUDO_UID', os.getuid()))
+    sudo_gid = int(os.environ.get('SUDO_GID', os.getgid()))
+
+    # Make sure minion IP is set
+    host = get_minion_ip_address(options)
+    win_username, win_password = prepare_winexe_access(options)
+
+    smb_conn = get_conn(host, win_username, win_password)
+
+    for remote_path, local_path in options.download_artifact:
+
+        # Create the local directories
+        if not os.path.isdir(local_path):
+            os.makedirs(local_path)
+
+        # Create the correct path format. ``C:\Path\To\file.txt`` needs to be
+        # formatted as ``Path\To\file.txt``. Samba will connect to the ``C$``
+        # hidden share. We're assuming ``C:`` is the only drive
+
+        # Convert unix slashes to Windows slashes if present.
+        if '/' in remote_path:
+            remote_path = remote_path.replace('/', "\\")
+
+        # Remove drive letter if present. Can't use os.path.splitdrive in this
+        # case because this code is not running on Windows
+        if ':' in remote_path:
+            remote_path = remote_path[2:]
+
+        # Remove leading slashes
+        while remote_path[0:1] == '\\':
+            remote_path = remote_path[1:]
+
+        # Download the file
+        with fopen(local_path, 'wb') as _fh:
+            smb_conn.getFile('C$', remote_path, _fh.write)
+
+        # Set permissions if Using SUDO
+        if using_sudo:
+            if os.path.isdir(local_path):
+                for root, dirs, files in os.walk(local_path):
+                    for dname in dirs:
+                        os.chown(os.path.join(root, dname), sudo_uid, sudo_gid)
+                    for fname in files:
+                        os.chown(os.path.join(root, fname), sudo_uid, sudo_gid)
+            else:
+                os.chown(local_path, sudo_uid, sudo_gid)
+
+
 def build_default_test_command(options):
     '''
     Construct the command that is sent to the minion to execute the test run
     '''
     python_bin_path = get_minion_python_executable(options)
-    # This is a pretty naive aproach to get the coverage binary path
+    # This is a pretty naive approach to get the coverage binary path
     coverage_bin_path = python_bin_path.replace('python', 'coverage')
 
     # Select python executable
     if 'salt_minion_bootstrapped' in options:
         test_command = [get_minion_python_executable(options)]
     else:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
+        print_bulleted(options, 'Minion not bootstrapped. Not grabbing remote python executable.', 'YELLOW')
         test_command = ['python']
 
     # Append coverage parameters
@@ -1253,11 +1352,10 @@ def build_default_test_command(options):
 
     # Append basic command parameters
     test_command.extend([
-        '/testing/tests/runtests.py',
+        '/{0}/tests/runtests.py'.format(options.package_source_dir),
         '-v',
         '--run-destructive',
         '--sysinfo',
-        '--xml=/tmp/xml-unittests-output',
         '--transport={0}'.format(options.test_transport),
         '--output-columns={0}'.format(options.output_columns),
     ])
@@ -1268,9 +1366,18 @@ def build_default_test_command(options):
     if git_branch and git_branch not in('2014.1',):
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
-        test_command.append('--coverage-xml=/tmp/coverage.xml')
+        if options.windows:
+            test_command.append('--coverage-xml=/%TEMP%/coverage.xml')
+        else:
+            test_command.append('--coverage-xml=/tmp/coverage.xml')
     if options.no_color:
         test_command.append('--no-color')
+    if options.windows:
+        test_command.append('--names-file=\\{0}\\tests\\whitelist.txt' \
+                            ''.format(options.package_source_dir))
+        test_command.append('--xml=/%TEMP%/xml-unittests-output')
+    else:
+        test_command.append('--xml=/tmp/xml-unittests-output')
 
     return test_command
 
@@ -1397,6 +1504,13 @@ def get_args():
         action='store_true',
         default=False,
         help='Salt Parallels Desktop Deployment'
+    )
+    deployment_group.add_argument(
+        '--windows',
+        action='store_true',
+        default=False,
+        help='This is a windows host. salt-cloud will use the "-k" switch and '
+             'winexe will be used.'
     )
     deployment_group.add_argument(
         '--pip-based',
@@ -1716,9 +1830,12 @@ def main():
     if options.test_default_command:
         options.test_command = build_default_test_command(options)
 
-    # Run the main command using SSH for realtime output
+    # Run the main command using SSH/winexe for realtime output
     if options.test_command:
-        exitcode = run_ssh_command(options, options.test_command)
+        if options.windows:
+            exitcode = run_winexe_command(options, options.test_command)
+        else:
+            exitcode = run_ssh_command(options, options.test_command)
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
@@ -1752,7 +1869,10 @@ def main():
             time.sleep(1)
 
     if options.download_artifact:
-        download_artifacts(options)
+        if options.windows:
+            download_artifacts_smb(options)
+        else:
+            download_artifacts_ssh(options)
 # <---- Parser Code --------------------------------------------------------------------------------------------------
 
 if __name__ == '__main__':
