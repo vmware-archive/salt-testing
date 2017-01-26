@@ -1030,6 +1030,7 @@ def check_win_minion_connected(options):
                     options,
                     'Found Version: {0}'.format(version_info[options.vm_name]),
                     'LIGHT_GREEN')
+                print_flush('\n')
                 setattr(
                     options,
                     'bootstrapped_salt_minion_version',
@@ -1130,7 +1131,9 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     '''
     Run a state on the VM
     '''
-    test_ssh_root_login(options)
+    if not options.windows:
+        test_ssh_root_login(options)
+
     cmd = [
         'salt-call',
         '-l', options.log_level,
@@ -1145,7 +1148,6 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
         'state.sls',
         state_name,
         'pillar="{0}"'.format(build_pillar_data(options))
-
     ])
     if saltenv:
         cmd.extend(['saltenv={0}'.format(saltenv)])
@@ -1273,6 +1275,7 @@ def run_ssh_command(options, remote_command):
 
     # Assemble local and remote parts into final command and return result
     cmd.append(pipes.quote(remote_command))
+    print_bulleted(options, 'Running SSH command: {0}'.format(cmd))
     return run_command(cmd, options)
 
 
@@ -1290,6 +1293,7 @@ def run_winexe_command(options, remote_command):
     )
     cmd = 'winexe {0} "{1}"'.format(credentials, remote_command)
     logging_cmd = 'winexe {0} "{1}"'.format(logging_credentials, remote_command)
+    print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
     return win_cmd(cmd, logging_command=logging_cmd)
 
 
@@ -1442,7 +1446,7 @@ def build_default_test_command(options):
     # Append extra and conditional parameters
     pillar = build_pillar_data(options, convert_to_yaml=False)
     git_branch = pillar.get('git_branch', 'develop')
-    if git_branch and git_branch not in('2014.1',):
+    if git_branch and git_branch not in('2014.1',) and not options.windows:
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
         if options.windows:
