@@ -978,26 +978,18 @@ def delete_parallels_vm(options):
 
 def check_win_minion_connected(options):
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not bootstrapped. Not pinging minion.', 'RED')
+        print_bulleted(
+            options, 'Minion not bootstrapped. Not pinging minion.', 'RED')
         sys.exit(1)
 
     print_bulleted(options, 'Pinging bootstrapped minion ... ')
-    cmd = [
-        'salt',
-        '-t', '100',
-        '--out=json',
-        '-l', options.log_level
-    ]
+    cmd = ['salt', '-t', '100', '--out=json', '-l', options.log_level]
     if options.no_color:
         cmd.append('--no-color')
-    cmd.extend([
-        options.vm_name,
-        'test.version'
-    ])
+    cmd.extend([options.vm_name, 'test.version'])
 
-    connected = False
     attempts = 0
-    while not connected and attempts <= 10:
+    while attempts <= 12:
         attempts += 1
         stdout, stderr, exitcode = run_command(cmd,
                                                options,
@@ -1023,11 +1015,16 @@ def check_win_minion_connected(options):
                     options, '\n\nATTENTION!!!!\n', 'YELLOW')
                 print_bulleted(
                     options, 'The minion did not return. ', 'YELLOW')
-                print_flush('\n')
+
                 if attempts < 10:
                     print_bulleted(
-                        options, 'Trying again in 20 seconds.', 'YELLOW')
-                    time.sleep(20)
+                        options,
+                        'Trying again in 5 seconds. Attempt {0}'
+                        ''.format(attempts),
+                        'YELLOW')
+                    time.sleep(5)
+
+                print_flush('\n')
             else:
                 print_bulleted(
                     options,
@@ -1037,7 +1034,7 @@ def check_win_minion_connected(options):
                     options,
                     'bootstrapped_salt_minion_version',
                     SaltStackVersion.parse(version_info[options.vm_name]))
-                connected = True
+                attempts = 13
 
         except (ValueError, TypeError):
             print_bulleted(
