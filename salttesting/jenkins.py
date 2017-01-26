@@ -1151,7 +1151,7 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     ])
     if saltenv:
         cmd.extend(['saltenv={0}'.format(saltenv)])
-    if options.require_sudo:
+    if options.require_sudo and not options.windows:
         cmd.insert(0, 'sudo')
     if options.no_color:
         cmd.append('--no-color')
@@ -1291,6 +1291,8 @@ def run_winexe_command(options, remote_command):
         win_username,
         host
     )
+    if isinstance(remote_command, list):
+        remote_command = ' '.join(remote_command)
     cmd = 'winexe {0} "{1}"'.format(credentials, remote_command)
     logging_cmd = 'winexe {0} "{1}"'.format(logging_credentials, remote_command)
     print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
