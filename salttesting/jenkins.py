@@ -1157,7 +1157,12 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     if options.no_color:
         cmd.append('--no-color')
 
-    return run_ssh_command(options, cmd)
+    if options.windows:
+        exitcode = run_winexe_command(options, cmd)
+    else:
+        exitcode = run_ssh_command(options, cmd)
+
+    return exitcode
 
 
 def check_cloned_reposiory_commit(options):
@@ -1288,7 +1293,7 @@ def run_winexe_command(options, remote_command):
     )
     cmd = 'winexe {0} "{1}"'.format(credentials, remote_command)
     logging_cmd = 'winexe {0} "{1}"'.format(logging_credentials, remote_command)
-    win_cmd(cmd, logging_command=logging_cmd)
+    return win_cmd(cmd, logging_command=logging_cmd)
 
 
 def test_ssh_root_login(options):
@@ -1469,7 +1474,10 @@ def generate_xml_coverage_report(options, exit=True):
             get_minion_python_executable(options),
             coverage_bin_path
         )
-        exitcode = run_ssh_command(options, cmd)
+        if options.windows:
+            exitcode = run_winexe_command(options, cmd)
+        else:
+            exitcode = run_ssh_command(options, cmd)
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
@@ -1915,10 +1923,12 @@ def main():
 
     # Run the main command using SSH/winexe for realtime output
     if options.test_command:
+
         if options.windows:
             exitcode = run_winexe_command(options, options.test_command)
         else:
             exitcode = run_ssh_command(options, options.test_command)
+
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
