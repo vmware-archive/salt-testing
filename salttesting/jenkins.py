@@ -405,19 +405,25 @@ def bootstrap_cloud_minion(options):
         script_args.extend([
             '-g', options.bootstrap_salt_url
         ])
-    script_args.extend(['git', options.bootstrap_salt_commit])
+    if options.bootstrap_salt_commit:
+        script_args.extend(['git', options.bootstrap_salt_commit])
 
     cmd = [
         'salt-cloud',
         '-l', options.log_level,
-        '--script-args="{0}"'.format(' '.join(script_args)),
         '-p', options.vm_source,
         '--out=yaml',
         '--no-color',
         options.vm_name
     ]
     if options.windows:
+        # This switch is needed until we fix the problem with salt-cloud
+        # deleting the installation file on CentOS 7
         cmd.append('-k')
+    else:
+        # Windows does not use the bootstrap script
+        cmd.append('--script-args="{0}"'.format(' '.join(script_args)))
+
     if options.no_color:
         cmd.append('--no-color')
     cloud_stdout, _, exitcode = run_command(cmd, options, return_output=True)
@@ -426,6 +432,7 @@ def bootstrap_cloud_minion(options):
         # Strip off the header
         clean_stdout = '\n'.join(cloud_stdout.split('\n')[2:])
         try:
+            # Failing on OpenNebula because public_ips returns []
             print('IP', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
             setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
         except Exception as exc:
@@ -747,11 +754,11 @@ def prepare_winexe_access(options):
     cloud_config = salt.config.cloud_config('/etc/salt/cloud')
 
     # Determine which provider we are using by looking it up in the profile
-    p_file, p_name = cloud_config['profiles'][options.vm_source]['provider'].split(':')
+    p_file, driver = cloud_config['profiles'][options.vm_source]['provider'].split(':')
 
     # Finally, we can get the provider password
-    win_username = cloud_config['providers'][p_file][p_name]['win_username']
-    win_password = cloud_config['providers'][p_file][p_name]['win_password']
+    win_username = cloud_config['providers'][p_file][driver]['win_username']
+    win_password = cloud_config['providers'][p_file][driver]['win_password']
 
     setattr(options, 'win_username', win_username)
     setattr(options, 'win_password', win_password)
@@ -967,6 +974,76 @@ def delete_parallels_vm(options):
         return 0
     else:
         return 1
+
+
+def check_win_minion_connected(options):
+    if 'salt_minion_bootstrapped' not in options:
+        print_bulleted(options, 'Minion not bootstrapped. Not pinging minion.', 'RED')
+        sys.exit(1)
+
+    print_bulleted(options, 'Pinging bootstrapped minion ... ')
+    cmd = [
+        'salt',
+        '-t', '100',
+        '--out=json',
+        '-l', options.log_level
+    ]
+    if options.no_color:
+        cmd.append('--no-color')
+    cmd.extend([
+        options.vm_name,
+        'test.version'
+    ])
+
+    connected = False
+    attempts = 0
+    while not connected and attempts <= 10:
+        attempts += 1
+        stdout, stderr, exitcode = run_command(cmd,
+                                               options,
+                                               return_output=True,
+                                               stream_stdout=False,
+                                               stream_stderr=False)
+        if exitcode:
+            print_bulleted(
+                options, 'Failed to return a ping from the minion. Exit code: {0}'.format(exitcode), 'RED'
+            )
+            if attempts == 10:
+                sys.exit(exitcode)
+
+        if not stdout.strip():
+            print_bulleted(options, 'Failed to get the bootstrapped minion version(no output).', 'RED')
+            if attempts == 10:
+                sys.exit(1)
+
+        try:
+            version_info = json.loads(stdout.strip())
+            if 'No response' in version_info[options.vm_name]:
+                print_bulleted(
+                    options, '\n\nATTENTION!!!!\n', 'YELLOW')
+                print_bulleted(
+                    options, 'The minion did not return. ', 'YELLOW')
+                print_flush('\n')
+                if attempts < 10:
+                    print_bulleted(
+                        options, 'Trying again in 20 seconds.', 'YELLOW')
+                    time.sleep(20)
+            else:
+                print_bulleted(
+                    options,
+                    'Found Version: {0}'.format(version_info[options.vm_name]),
+                    'LIGHT_GREEN')
+                setattr(
+                    options,
+                    'bootstrapped_salt_minion_version',
+                    SaltStackVersion.parse(version_info[options.vm_name]))
+                connected = True
+
+        except (ValueError, TypeError):
+            print_bulleted(
+                options,
+                'Failed to load any JSON from {0!r}'.format(stdout.strip()),
+                'RED')
 
 
 def check_bootstrapped_minion_version(options):
@@ -1803,9 +1880,15 @@ def main():
         print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
         time.sleep(5)
         if not options.test_interactive:
-            check_bootstrapped_minion_version(options)
+            if options.windows:
+                check_win_minion_connected(options)
+            else:
+                check_bootstrapped_minion_version(options)
         time.sleep(1)
-        prepare_ssh_access(options)
+        if options.windows:
+            prepare_winexe_access(options)
+        else:
+            prepare_ssh_access(options)
         time.sleep(1)
 
     # Run preparation SLS
