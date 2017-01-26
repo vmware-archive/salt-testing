@@ -247,9 +247,21 @@ def build_pillar_data(options, convert_to_yaml=True):
     if options.test_git_commit is not None:
         pillar['test_git_commit'] = pillar['repo_clone_rev'] = options.test_git_commit
     if options.test_git_url is not None:
-        pillar['test_git_url'] = pillar['repo_clone_url'] = options.test_git_url
+        # Due to quoting issues in Linux shelling out to Windows using WinEXE
+        # it is necessary to wrap some parameters in some crazy quotes '"'"'
+        # But, it's being converted to YAML at the end, so I don't know what's
+        # going to happen.
+        if options.windows:
+            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.test_git_url)
+            pillar['test_git_url'] = pillar['repo_clone_url'] = q_url
+        else:
+            pillar['test_git_url'] = pillar['repo_clone_url'] = options.test_git_url
     if options.bootstrap_salt_url is not None:
-        pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
+        if options.windows:
+            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.bootstrap_salt_url)
+            pillar['bootstrap_salt_url'] = q_url
+        else:
+            pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
     if options.bootstrap_salt_commit is not None:
         pillar['bootstrap_salt_commit'] = options.bootstrap_salt_commit
     if options.salttesting_namespec is not None:
@@ -257,11 +269,23 @@ def build_pillar_data(options, convert_to_yaml=True):
 
     # Build package pillar data
     if options.package_source_dir:
-        pillar['package_source_dir'] = options.package_source_dir
+        if options.windows:
+            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.package_source_dir)
+            pillar['package_source_dir'] = q_url
+        else:
+            pillar['package_source_dir'] = options.package_source_dir
     if options.package_build_dir:
-        pillar['package_build_dir'] = options.package_build_dir
+        if options.windows:
+            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.package_build_dir)
+            pillar['package_build_dir'] = q_url
+        else:
+            pillar['package_build_dir'] = options.package_build_dir
     if options.package_artifact_dir:
-        pillar['package_artifact_dir'] = options.package_artifact_dir
+        if options.windows:
+            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.package_artifact_dir)
+            pillar['package_artifact_dir'] = q_url
+        else:
+            pillar['package_artifact_dir'] = options.package_artifact_dir
 
     if options.test_pillar:
         pillar.update(dict(options.test_pillar))
@@ -824,10 +848,13 @@ def get_minion_ip_address(options, sync=True):
         ]
         if options.no_color:
             cmd.append('--no-color')
-        cmd.extend([
-            options.vm_name,
-            'grains.get', 'ipv4' if options.ssh_private_address else 'external_ip'
-        ])
+
+        cmd.extend([options.vm_name, 'grains.get'])
+        if options.windows:
+            cmd.append('ipv4')
+        else:
+            cmd.append('ipv4' if options.ssh_private_address else 'external_ip')
+
         stdout, stderr, exitcode = run_command(cmd,
                                                options,
                                                return_output=True,
@@ -1452,7 +1479,7 @@ def build_default_test_command(options):
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
         if options.windows:
-            test_command.append('--coverage-xml=/%TEMP%/coverage.xml')
+            test_command.append('--coverage-xml=%TEMP%\\coverage.xml')
         else:
             test_command.append('--coverage-xml=/tmp/coverage.xml')
     if options.no_color:
@@ -1460,7 +1487,7 @@ def build_default_test_command(options):
     if options.windows:
         test_command.append('--names-file=\\{0}\\tests\\whitelist.txt' \
                             ''.format(options.package_source_dir))
-        test_command.append('--xml=/%TEMP%/xml-unittests-output')
+        test_command.append('--xml=%TEMP%\\xml-unittests-output')
     else:
         test_command.append('--xml=/tmp/xml-unittests-output')
 
