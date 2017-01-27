@@ -1010,7 +1010,7 @@ def check_win_minion_connected(options):
         sys.exit(1)
 
     print_bulleted(options, 'Pinging bootstrapped minion ... ')
-    cmd = ['salt', '-t', '100', '--out=json', '-l', options.log_level]
+    cmd = ['salt', '--out=json', '-l', options.log_level]
     if options.no_color:
         cmd.append('--no-color')
     cmd.extend([options.vm_name, 'grains.items'])
