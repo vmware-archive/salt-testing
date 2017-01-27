@@ -1025,7 +1025,7 @@ def check_win_minion_connected(options):
         # If C:\salt is in the path, we don't need to reboot
         print_bulleted(options, 'Pinging bootstrapped minion ... ')
         cmd = ['salt', '--out=json', '-l', options.log_level]
-        cmd.extend([options.vm_name, 'grains.item', 'path'])
+        cmd.extend([options.vm_name, 'grains.get', 'path'])
 
         # Attempt to connect to the new minion, it can take a while with a new
         # install
@@ -1129,8 +1129,7 @@ def check_win_minion_connected(options):
                                 print_bulleted(
                                     options, 'Reboot failed... ', 'RED')
 
-                            # End the while loop
-                            attempts = 13
+                            break
 
                         except (ValueError, TypeError):
                             print_bulleted(
@@ -1149,6 +1148,7 @@ def check_win_minion_connected(options):
                             'salt_minion_rebooted',
                             True
                         )
+                        break
 
             except (ValueError, TypeError):
                 print_bulleted(
@@ -1199,7 +1199,7 @@ def check_win_minion_connected(options):
                 print_bulleted(
                     options, 'The minion did not return. ', 'YELLOW')
 
-                if attempts < 10:
+                if attempts <= 12:
                     print_bulleted(
                         options,
                         'Trying again in 5 seconds. Attempt {0}'
@@ -1231,7 +1231,8 @@ def check_win_minion_connected(options):
                     options,
                     'minion_ip_address',
                     grains[options.vm_name]['ipv4'][0])
-                attempts = 13
+
+                break
 
         except (ValueError, TypeError):
             print_bulleted(
