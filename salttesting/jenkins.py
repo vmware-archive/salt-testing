@@ -1004,40 +1004,196 @@ def delete_parallels_vm(options):
 
 
 def check_win_minion_connected(options):
+
     if 'salt_minion_bootstrapped' not in options:
         print_bulleted(
             options, 'Minion not bootstrapped. Not pinging minion.', 'RED')
         sys.exit(1)
 
+    # Check to see if the minion was rebooted after salt install
+    # This is needed for c:\salt to be found in the path
+    # salt-call will not work it it's not in the path
+    # Because the salt service is running as System, it gets a different
+    # environment. The only way to refresh the environment System uses is to
+    # reboot. We probably need to add a reboot option to the Salt installer
+
+    # Check this option in case this is run more than once, we don't want to
+    # reboot more than needed
+    if not getattr(options, 'salt_minion_rebooted', False):
+
+        # Get the Path to check for C:\salt
+        # If C:\salt is in the path, we don't need to reboot
+        print_bulleted(options, 'Pinging bootstrapped minion ... ')
+        cmd = ['salt', '--out=json', '-l', options.log_level]
+        cmd.extend([options.vm_name, 'grains.item', 'path'])
+
+        # Attempt to connect to the new minion, it can take a while with a new
+        # install
+        attempts = 0
+        while attempts <= 12:
+
+            attempts += 1
+            stdout, stderr, exitcode = run_command(
+                cmd, options, return_output=True, stream_stdout=False,
+                stream_stderr=False)
+            if exitcode:
+                print_bulleted(
+                    options,
+                    'Failed to return a ping from the minion. Exit code: {0}'
+                    ''.format(exitcode), 'RED'
+                )
+                if attempts >= 12:
+                    sys.exit(exitcode)
+
+            if not stdout.strip():
+                print_bulleted(
+                    options,
+                    'Failed to get minion version (no output).',
+                    'RED')
+                if attempts >= 12:
+                    sys.exit(1)
+
+            try:
+                # Load the return with JSON
+                grains = json.loads(stdout.strip())
+
+                # 'No response' means the minion isn't connected yet, try again
+                if 'No response' in grains[options.vm_name]:
+                    print_bulleted(
+                        options, '\n\nATTENTION!!!!\n', 'YELLOW')
+                    print_bulleted(
+                        options, 'The minion did not return. ', 'YELLOW')
+
+                    if attempts < 10:
+                        print_bulleted(
+                            options,
+                            'Trying again in 5 seconds. Attempt {0}'
+                            ''.format(attempts),
+                            'YELLOW')
+                        time.sleep(5)
+
+                    print_flush('\n')
+
+                else:
+
+                    # Looks like we got a return, check for the path
+                    if 'c:\salt' not in grains[options.vm_name].lower():
+
+                        cmd = ['salt', '--out=json', '-l', options.log_level]
+                        cmd.extend([options.vm_name, 'system.reboot', '0', True])
+
+                        stdout, stderr, exitcode = run_command(
+                            cmd, options, return_output=True,
+                            stream_stdout=False, stream_stderr=False)
+                        if exitcode:
+                            print_bulleted(
+                                options,
+                                'Failed to reboot the minion. Exit code: {0}'
+                                ''.format(exitcode), 'RED'
+                            )
+                            if attempts >= 12:
+                                sys.exit(1)
+
+                        if not stdout.strip():
+                            print_bulleted(
+                                options,
+                                'Failed to reboot the minion (no output).',
+                                'RED')
+                            if attempts >= 12:
+                                sys.exit(1)
+
+                        try:
+                            # Load the return
+                            result = json.loads(stdout.strip())
+                            # It should return True
+                            if result[options.vm_name] is True:
+
+                                print_bulleted(
+                                    options,
+                                    'Rebooting bootstrapped minion ... ')
+                                print_bulleted(
+                                    options, 'Waiting 1 min...')
+
+                                # Set this value to avoid multiple reboots
+                                setattr(
+                                    options,
+                                    'salt_minion_rebooted',
+                                    True
+                                )
+
+                                time.sleep(60)
+
+                            else:
+
+                                # The reboot did not return True
+                                print_bulleted(
+                                    options, 'Reboot failed... ', 'RED')
+
+                            # End the while loop
+                            attempts = 13
+
+                        except (ValueError, TypeError):
+                            print_bulleted(
+                                options,
+                                'Failed to load any JSON from {0!r}'
+                                ''.format(stdout.strip()),
+                                'RED')
+
+                    else:
+                        # Found C:\salt in the path, no reboot needed
+                        print_bulleted(
+                            options,
+                            'Minion does not need to be rebooted... ')
+                        setattr(
+                            options,
+                            'salt_minion_rebooted',
+                            True
+                        )
+
+            except (ValueError, TypeError):
+                print_bulleted(
+                    options,
+                    'Failed to load any JSON from {0!r}'.format(stdout.strip()),
+                    'RED')
+
+    # Now that we've rebooted, start trying to connect... again...
+    # This time we're loading all the grains because we want to get the
+    # Salt version and the IP
     print_bulleted(options, 'Pinging bootstrapped minion ... ')
     cmd = ['salt', '--out=json', '-l', options.log_level]
-    if options.no_color:
-        cmd.append('--no-color')
     cmd.extend([options.vm_name, 'grains.items'])
 
     attempts = 0
     while attempts <= 12:
         attempts += 1
-        stdout, stderr, exitcode = run_command(cmd,
-                                               options,
-                                               return_output=True,
-                                               stream_stdout=False,
-                                               stream_stderr=False)
+        stdout, stderr, exitcode = run_command(
+            cmd, options, return_output=True, stream_stdout=False,
+            stream_stderr=False)
         if exitcode:
             print_bulleted(
-                options, 'Failed to return a ping from the minion. Exit code: {0}'.format(exitcode), 'RED'
-            )
+                options,
+                'Failed to return a ping from the minion. Exit code: {0}'
+                ''.format(exitcode),
+                'RED')
             if attempts == 10:
                 sys.exit(exitcode)
 
         if not stdout.strip():
-            print_bulleted(options, 'Failed to get the bootstrapped minion version(no output).', 'RED')
+            print_bulleted(
+                options,
+                'Failed to get the bootstrapped minion version (no output).',
+                'RED')
             if attempts == 10:
                 sys.exit(1)
 
         try:
+
+            # Load the return
             grains = json.loads(stdout.strip())
+
+            # 'No response' means the minion did not return, try again...
             if 'No response' in grains[options.vm_name]:
+
                 print_bulleted(
                     options, '\n\nATTENTION!!!!\n', 'YELLOW')
                 print_bulleted(
@@ -1052,21 +1208,29 @@ def check_win_minion_connected(options):
                     time.sleep(5)
 
                 print_flush('\n')
+
             else:
+                # It returned something other than 'No response'
+                # Try loading the Salt version and the IP
                 print_bulleted(
                     options,
-                    'Found Version: {0}'.format(grains[options.vm_name]),
+                    'Found Version: {0}'
+                    ''.format(grains[options.vm_name]['saltversion']),
+                    'LIGHT_GREEN')
+                print_bulleted(
+                    options,
+                    'Found IP: {0}'.format(grains[options.vm_name]['ipv4'][0]),
                     'LIGHT_GREEN')
                 print_flush('\n')
                 setattr(
                     options,
                     'bootstrapped_salt_minion_version',
                     SaltStackVersion.parse(
-                        grains[options.vm_name]['salt_version']))
+                        grains[options.vm_name]['saltversion']))
                 setattr(
                     options,
                     'minion_ip_address',
-                    grains[options.vm_name]['ipv4'])
+                    grains[options.vm_name]['ipv4'][0])
                 attempts = 13
 
         except (ValueError, TypeError):
@@ -1327,7 +1491,8 @@ def run_winexe_command(options, remote_command):
     )
     if isinstance(remote_command, list):
         remote_command = ' '.join(remote_command)
-    cmd = 'winexe {0} "{1}"'.format(credentials, remote_command)
+    cmd = 'winexe {0} "cmd /c & {1}"' \
+          ''.format(credentials, remote_command)
     logging_cmd = 'winexe {0} \'{1}\''.format(logging_credentials, remote_command)
     print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
     return win_cmd(cmd, logging_command=logging_cmd)
