@@ -252,13 +252,13 @@ def build_pillar_data(options, convert_to_yaml=True):
         # But, it's being converted to YAML at the end, so I don't know what's
         # going to happen.
         if options.windows:
-            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.test_git_url)
+            q_url = '"\'"\'{0}\'"\'"'.format(options.test_git_url)
             pillar['test_git_url'] = pillar['repo_clone_url'] = q_url
         else:
             pillar['test_git_url'] = pillar['repo_clone_url'] = options.test_git_url
     if options.bootstrap_salt_url is not None:
         if options.windows:
-            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.bootstrap_salt_url)
+            q_url = '"\'"\'{0}\'"\'"'.format(options.bootstrap_salt_url)
             pillar['bootstrap_salt_url'] = q_url
         else:
             pillar['bootstrap_salt_url'] = options.bootstrap_salt_url
@@ -270,19 +270,19 @@ def build_pillar_data(options, convert_to_yaml=True):
     # Build package pillar data
     if options.package_source_dir:
         if options.windows:
-            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.package_source_dir)
+            q_url = '"\'"\'{0}\'"\'"'.format(options.package_source_dir)
             pillar['package_source_dir'] = q_url
         else:
             pillar['package_source_dir'] = options.package_source_dir
     if options.package_build_dir:
         if options.windows:
-            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.package_build_dir)
+            q_url = '"\'"\'{0}\'"\'"'.format(options.package_build_dir)
             pillar['package_build_dir'] = q_url
         else:
             pillar['package_build_dir'] = options.package_build_dir
     if options.package_artifact_dir:
         if options.windows:
-            q_url = '\'"\'"\'{0}\'"\'"\''.format(options.package_artifact_dir)
+            q_url = '"\'"\'{0}\'"\'"'.format(options.package_artifact_dir)
             pillar['package_artifact_dir'] = q_url
         else:
             pillar['package_artifact_dir'] = options.package_artifact_dir
@@ -1013,7 +1013,7 @@ def check_win_minion_connected(options):
     cmd = ['salt', '-t', '100', '--out=json', '-l', options.log_level]
     if options.no_color:
         cmd.append('--no-color')
-    cmd.extend([options.vm_name, 'test.version'])
+    cmd.extend([options.vm_name, 'grains.items'])
 
     attempts = 0
     while attempts <= 12:
@@ -1036,8 +1036,8 @@ def check_win_minion_connected(options):
                 sys.exit(1)
 
         try:
-            version_info = json.loads(stdout.strip())
-            if 'No response' in version_info[options.vm_name]:
+            grains = json.loads(stdout.strip())
+            if 'No response' in grains[options.vm_name]:
                 print_bulleted(
                     options, '\n\nATTENTION!!!!\n', 'YELLOW')
                 print_bulleted(
@@ -1055,13 +1055,18 @@ def check_win_minion_connected(options):
             else:
                 print_bulleted(
                     options,
-                    'Found Version: {0}'.format(version_info[options.vm_name]),
+                    'Found Version: {0}'.format(grains[options.vm_name]),
                     'LIGHT_GREEN')
                 print_flush('\n')
                 setattr(
                     options,
                     'bootstrapped_salt_minion_version',
-                    SaltStackVersion.parse(version_info[options.vm_name]))
+                    SaltStackVersion.parse(
+                        grains[options.vm_name]['salt_version']))
+                setattr(
+                    options,
+                    'minion_ip_address',
+                    grains[options.vm_name]['ipv4'])
                 attempts = 13
 
         except (ValueError, TypeError):
@@ -1171,6 +1176,11 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
+    if saltenv:
+        cmd.append('saltenv={0}'.format(saltenv))
+    if options.require_sudo and not options.windows:
+        cmd.insert(0, 'sudo')
+
     cmd.extend(['state.sls', state_name ])
     if options.windows:
         cmd.append(
@@ -1179,13 +1189,6 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
         )
     else:
         cmd.append('pillar="{0}"'.format(build_pillar_data(options)))
-
-    if saltenv:
-        cmd.extend(['saltenv={0}'.format(saltenv)])
-    if options.require_sudo and not options.windows:
-        cmd.insert(0, 'sudo')
-    if options.no_color:
-        cmd.append('--no-color')
 
     if options.windows:
         exitcode = run_winexe_command(options, cmd)
@@ -1532,8 +1535,8 @@ def get_args():
     parser.add_argument(
         '-w', '--workspace',
         default=os.path.abspath(os.environ.get('WORKSPACE', os.getcwd())),
-        help=('Path to the execution workspace. Defaults to the \'WORKSPACE\' environment '
-              'variable or the current directory.')
+        help=('Path to the execution workspace. Defaults to the \'WORKSPACE\' '
+              'environment variable or the current directory.')
     )
     parser.add_argument(
         '-l', '--log-level',
