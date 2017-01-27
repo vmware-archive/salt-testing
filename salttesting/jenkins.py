@@ -1171,11 +1171,15 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
-    cmd.extend([
-        'state.sls',
-        state_name,
-        'pillar="{0}"'.format(build_pillar_data(options))
-    ])
+    cmd.extend(['state.sls', state_name ])
+    if options.windows:
+        cmd.append(
+            # This needed to get the formatting correct '"'"'C:\temp'"'"'
+            'pillar="{0}"'.format(build_pillar_data(options).replace('\'\'', '\''))
+        )
+    else:
+        cmd.append('pillar="{0}"'.format(build_pillar_data(options)))
+
     if saltenv:
         cmd.extend(['saltenv={0}'.format(saltenv)])
     if options.require_sudo and not options.windows:
