@@ -787,6 +787,10 @@ def prepare_winexe_access(options):
     setattr(options, 'win_username', win_username)
     setattr(options, 'win_password', win_password)
 
+    # Update git repos
+    cmd = 'salt-run winrepo.update_git_repos'
+    run_command(cmd, options, stream_stdout=False, stream_stderr=False)
+
     return win_username, win_password
 
 
