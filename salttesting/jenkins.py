@@ -788,6 +788,7 @@ def prepare_winexe_access(options):
     setattr(options, 'win_password', win_password)
 
     # Update git repos
+    print_bulleted(options, 'Update winrepo.')
     cmd = 'salt-run winrepo.update_git_repos'
     run_command(cmd, options, stream_stdout=False, stream_stderr=False)
 
@@ -1657,15 +1658,16 @@ def build_default_test_command(options):
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
         if options.windows:
-            test_command.append('--coverage-xml=%TEMP%\\coverage.xml')
+            test_command.append('--coverage-xml="\'"\'%TEMP%\\coverage.xml\'"\'"')
         else:
             test_command.append('--coverage-xml=/tmp/coverage.xml')
     if options.no_color:
         test_command.append('--no-color')
     if options.windows:
-        test_command.append('--names-file=\\{0}\\tests\\whitelist.txt' \
-                            ''.format(options.package_source_dir))
-        test_command.append('--xml=%TEMP%\\xml-unittests-output')
+        test_command.append(
+            '--names-file="\'"\'\\{0}\\tests\\whitelist.txt\'"\'"'
+            ''.format(options.package_source_dir))
+        test_command.append('--xml="\'"\'%TEMP%\\xml-unittests-output\'"\'"')
     else:
         test_command.append('--xml=/tmp/xml-unittests-output')
 
