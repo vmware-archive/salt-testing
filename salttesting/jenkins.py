@@ -1641,9 +1641,15 @@ def build_default_test_command(options):
             '--parallel-mode',
         ])
 
+    # Append basic command
+    if options.windows:
+        test_command.append(
+            '{0}\\tests\\runtests.py'.format(options.package_source_dir))
+    else:
+        test_command.append(
+            '/{0}/tests/runtests.py'.format(options.package_source_dir))
     # Append basic command parameters
     test_command.extend([
-        '/{0}/tests/runtests.py'.format(options.package_source_dir),
         '-v',
         '--run-destructive',
         '--sysinfo',
