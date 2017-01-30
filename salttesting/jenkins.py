@@ -917,10 +917,11 @@ def get_minion_python_executable(options):
     ]
     if options.no_color:
         cmd.append('--no-color')
-    cmd.extend([
-        options.vm_name,
-        'grains.get', 'pythonexecutable'
-    ])
+    cmd.append(options.vm_name)
+    if options.windows:
+        cmd.extend(['cmd.which', 'python'])
+    else:
+        cmd.extend(['grains.get', 'pythonexecutable'])
     stdout, stderr, exitcode = run_command(cmd,
                                            options,
                                            return_output=True,
@@ -928,12 +929,17 @@ def get_minion_python_executable(options):
                                            stream_stderr=False)
     if exitcode != 0:
         print_bulleted(
-            options, 'Failed to get the minion python executable. Exit code: {0}'.format(exitcode), 'RED'
-        )
+            options,
+            'Failed to get the minion python executable. Exit code: {0}'
+            ''.format(exitcode),
+            'RED')
         sys.exit(exitcode)
 
     if not stdout.strip():
-        print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
+        print_bulleted(
+            options,
+            'Failed to get the minion python executable (no output)',
+            'RED')
         sys.exit(1)
 
     try:
@@ -945,7 +951,11 @@ def get_minion_python_executable(options):
         save_state(options)
         return python_executable
     except (ValueError, TypeError):
-        print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
+        print_bulleted(
+            options,
+            'Failed to load any JSON from {0!r}'
+            ''.format(stdout.strip()),
+            'RED')
 
 
 def delete_cloud_vm(options):
@@ -1671,7 +1681,7 @@ def build_default_test_command(options):
         test_command.append('--no-color')
     if options.windows:
         test_command.append(
-            '--names-file="\'"\'\\{0}\\tests\\whitelist.txt\'"\'"'
+            '--names-file="\'"\'{0}\\tests\\whitelist.txt\'"\'"'
             ''.format(options.package_source_dir))
         test_command.append('--xml="\'"\'%TEMP%\\xml-unittests-output\'"\'"')
     else:
