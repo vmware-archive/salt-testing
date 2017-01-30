@@ -903,7 +903,10 @@ def get_minion_python_executable(options):
     Get and store the remote minion python executable
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not bootstrapped. Not grabbing remote python executable.', 'RED')
+        print_bulleted(
+            options,
+            'Minion not bootstrapped. Not grabbing remote python executable.',
+            'RED')
         sys.exit(1)
     if 'minion_python_executable' in options:
         return options.minion_python_executable
@@ -1630,15 +1633,20 @@ def build_default_test_command(options):
     '''
     Construct the command that is sent to the minion to execute the test run
     '''
+    print(getattr(options, 'get_minion_python_executable', 'Not Found'))
     python_bin_path = get_minion_python_executable(options)
+    print(getattr(options, 'get_minion_python_executable', 'Not Found'))
     # This is a pretty naive approach to get the coverage binary path
     coverage_bin_path = python_bin_path.replace('python', 'coverage')
 
     # Select python executable
     if 'salt_minion_bootstrapped' in options:
-        test_command = [get_minion_python_executable(options)]
+        test_command = [python_bin_path]
     else:
-        print_bulleted(options, 'Minion not bootstrapped. Not grabbing remote python executable.', 'YELLOW')
+        print_bulleted(
+            options,
+            'Minion not bootstrapped. Not grabbing remote python executable.',
+            'YELLOW')
         test_command = ['python']
 
     # Append coverage parameters
@@ -1674,16 +1682,16 @@ def build_default_test_command(options):
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
         if options.windows:
-            test_command.append('--coverage-xml="\'"\'%TEMP%\\coverage.xml\'"\'"')
+            test_command.append('--coverage-xml="%TEMP%\\coverage.xml"')
         else:
             test_command.append('--coverage-xml=/tmp/coverage.xml')
     if options.no_color:
         test_command.append('--no-color')
     if options.windows:
         test_command.append(
-            '--names-file="\'"\'{0}\\tests\\whitelist.txt\'"\'"'
+            '--names-file="{0}\\tests\\whitelist.txt"'
             ''.format(options.package_source_dir))
-        test_command.append('--xml="\'"\'%TEMP%\\xml-unittests-output\'"\'"')
+        test_command.append('--xml="%TEMP%\\xml-unittests-output"')
     else:
         test_command.append('--xml=/tmp/xml-unittests-output')
 
