@@ -1615,27 +1615,36 @@ def download_artifacts_smb(options):
         # formatted as ``Path\To\file.txt``. Samba will connect to the ``C$``
         # hidden share. We're assuming ``C:`` is the only drive
 
+        # Get remote directory before the Windows manipulations, otherwise you
+        # won't be able to get it later
+        remote_path_dir = os.path.dirname(remote_path)
+        remote_path_file = os.path.basename(remote_path)
+
         # Convert unix slashes to Windows slashes if present.
-        if '/' in remote_path:
-            remote_path = remote_path.replace('/', "\\")
+        if '/' in remote_path_dir:
+            remote_path_dir = remote_path_dir.replace('/', "\\")
 
         # Remove drive letter if present. Can't use os.path.splitdrive in this
         # case because this code is not running on Windows
-        if ':' in remote_path:
-            remote_path = remote_path[2:]
+        if ':' in remote_path_dir:
+            remote_path_dir = remote_path_dir[2:]
 
         # Remove leading slashes
-        while remote_path[0:1] == '\\':
-            remote_path = remote_path[1:]
+        while remote_path_dir[0:1] == '\\':
+            remote_path_dir = remote_path_dir[1:]
+
+        remote_path = '{0}\\{1}'.format(remote_path_dir, remote_path_file)
 
         remote_files = smb_conn.listPath('C$', remote_path)
 
         for item in remote_files:
 
-            remote_file = '{0}\\{1}' \
-                          ''.format(os.path.dirname(remote_path),
-                                    item.get_longname())
+            remote_file = '{0}\\{1}'.format(remote_path_dir,
+                                            item.get_longname())
             local_file = '{0}/{1}'.format(local_path, item.get_longname())
+
+            if not os.path.exists(local_file):
+                os.mknod(local_file)
 
             # Download the file
             with fopen(local_file, 'wb') as _fh:
