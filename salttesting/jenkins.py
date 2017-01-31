@@ -1594,6 +1594,8 @@ def download_artifacts_smb(options):
     '''
     Download artifacts from a Windows test box using Samba.
     '''
+    from impacket.smbconnection import SessionError
+
     # Check if we're sudo'ing
     using_sudo = 'SUDO_USER' in os.environ
     sudo_uid = int(os.environ.get('SUDO_UID', os.getuid()))
@@ -1608,6 +1610,7 @@ def download_artifacts_smb(options):
     for remote_path, local_path in options.download_artifact:
 
         # Create the local directories
+        local_path = os.path.abspath(local_path)
         if not os.path.isdir(local_path):
             os.makedirs(local_path)
 
@@ -1635,7 +1638,21 @@ def download_artifacts_smb(options):
 
         remote_path = '{0}\\{1}'.format(remote_path_dir, remote_path_file)
 
-        remote_files = smb_conn.listPath('C$', remote_path)
+        try:
+            remote_files = smb_conn.listPath('C$', remote_path)
+        except SessionError as exc:
+            if 'STATUS_NO_SUCH_FILE' in exc:
+                print_bulleted(
+                    options,
+                    'File not found: {0}'.format(remote_path),
+                    'YELLOW')
+            else:
+                print_bulleted(
+                    options,
+                    'Unknown error: {0}\n'
+                    'File: {1}'.format(exc, remote_path),
+                    'YELLOW')
+            continue
 
         for item in remote_files:
 
@@ -1647,8 +1664,22 @@ def download_artifacts_smb(options):
                 os.mknod(local_file)
 
             # Download the file
-            with fopen(local_file, 'wb') as _fh:
-                smb_conn.getFile('C$', remote_file, _fh.write)
+            try:
+                with fopen(local_file, 'wb') as _fh:
+                    smb_conn.getFile('C$', remote_file, _fh.write)
+            except SessionError as exc:
+                if 'STATUS_SHARING_VIOLATION' in exc:
+                    print_bulleted(
+                        options,
+                        'File locked: {0}'.format(remote_path),
+                        'YELLOW')
+                else:
+                    print_bulleted(
+                        options,
+                        'Unknown error: {0}\n'
+                        'File: {1}'.format(exc, remote_path),
+                        'YELLOW')
+                continue
 
             # Set permissions if Using SUDO
             if using_sudo:
