@@ -1642,11 +1642,8 @@ def download_artifacts_smb(options):
             print_bulleted(options, 'Listing files: {0}'.format(remote_path))
             remote_files = smb_conn.listPath('C$', remote_path)
         except SessionError as exc:
-            print_bulleted(
-                options,
-                'Error: {0}\n'
-                'File: {1}'.format(exc, remote_path),
-                'YELLOW')
+            print_bulleted(options, 'Error: {0}'.format(exc), 'YELLOW')
+            print_bulleted(options, 'File: {0}'.format(remote_path), 'YELLOW')
             continue
 
         for item in remote_files:
@@ -1664,11 +1661,8 @@ def download_artifacts_smb(options):
                 with fopen(local_file, 'wb') as _fh:
                     smb_conn.getFile('C$', remote_file, _fh.write)
             except SessionError as exc:
-                print_bulleted(
-                    options,
-                    'Error: {0}\n'
-                    'File: {1}'.format(exc, remote_path),
-                    'YELLOW')
+                print_bulleted(options, 'Error: {0}'.format(exc), 'YELLOW')
+                print_bulleted(options, 'File: {0}'.format(remote_file), 'YELLOW')
                 continue
 
             # Set permissions if Using SUDO
