@@ -251,13 +251,13 @@ def build_pillar_data(options, convert_to_yaml=True):
         # it is necessary to wrap some parameters in some crazy quotes '"'"'
         # But, it's being converted to YAML at the end, so I don't know what's
         # going to happen.
-        if options.windows:
+        if getattr(options, 'windows', False):
             q_url = '"\'"\'{0}\'"\'"'.format(options.test_git_url)
             pillar['test_git_url'] = pillar['repo_clone_url'] = q_url
         else:
             pillar['test_git_url'] = pillar['repo_clone_url'] = options.test_git_url
     if options.bootstrap_salt_url is not None:
-        if options.windows:
+        if getattr(options, 'windows', False):
             q_url = '"\'"\'{0}\'"\'"'.format(options.bootstrap_salt_url)
             pillar['bootstrap_salt_url'] = q_url
         else:
@@ -269,19 +269,19 @@ def build_pillar_data(options, convert_to_yaml=True):
 
     # Build package pillar data
     if options.package_source_dir:
-        if options.windows:
+        if getattr(options, 'windows', False):
             q_url = '"\'"\'{0}\'"\'"'.format(options.package_source_dir)
             pillar['package_source_dir'] = q_url
         else:
             pillar['package_source_dir'] = options.package_source_dir
     if options.package_build_dir:
-        if options.windows:
+        if getattr(options, 'windows', False):
             q_url = '"\'"\'{0}\'"\'"'.format(options.package_build_dir)
             pillar['package_build_dir'] = q_url
         else:
             pillar['package_build_dir'] = options.package_build_dir
     if options.package_artifact_dir:
-        if options.windows:
+        if getattr(options, 'windows', False):
             q_url = '"\'"\'{0}\'"\'"'.format(options.package_artifact_dir)
             pillar['package_artifact_dir'] = q_url
         else:
@@ -440,7 +440,7 @@ def bootstrap_cloud_minion(options):
         '--no-color',
         options.vm_name
     ]
-    if options.windows:
+    if getattr(options, 'windows', False):
         # This switch is needed until we fix the problem with salt-cloud
         # deleting the installation file on CentOS 7
         cmd.append('-k')
@@ -857,7 +857,7 @@ def get_minion_ip_address(options, sync=True):
             cmd.append('--no-color')
 
         cmd.extend([options.vm_name, 'grains.get'])
-        if options.windows:
+        if getattr(options, 'windows', False):
             cmd.append('ipv4')
         else:
             cmd.append('ipv4' if options.ssh_private_address else 'external_ip')
@@ -936,7 +936,7 @@ def get_minion_python_executable(options):
     if options.no_color:
         cmd.append('--no-color')
     cmd.append(options.vm_name)
-    if options.windows:
+    if getattr(options, 'windows', False):
         cmd.extend(['cmd.which', 'python'])
     else:
         cmd.extend(['grains.get', 'pythonexecutable'])
@@ -1361,7 +1361,7 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     '''
     Run a state on the VM
     '''
-    if not options.windows:
+    if not getattr(options, 'windows', False):
         test_ssh_root_login(options)
 
     cmd = [
@@ -1376,11 +1376,12 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
         cmd.append('--no-color')
     if saltenv:
         cmd.append('saltenv={0}'.format(saltenv))
-    if options.require_sudo and not options.windows:
+    if getattr(options, 'require_sudo', False) and \
+            not getattr(options, 'windows', False):
         cmd.insert(0, 'sudo')
 
     cmd.extend(['state.sls', state_name ])
-    if options.windows:
+    if getattr(options, 'windows', False):
         cmd.append(
             # This needed to get the formatting correct '"'"'C:\temp'"'"'
             'pillar="{0}"'.format(build_pillar_data(options).replace('\'\'', '\''))
@@ -1388,7 +1389,7 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     else:
         cmd.append('pillar="{0}"'.format(build_pillar_data(options)))
 
-    if options.windows:
+    if getattr(options, 'windows', False):
         exitcode = run_winexe_command(options, cmd)
     else:
         exitcode = run_ssh_command(options, cmd)
@@ -1708,7 +1709,7 @@ def build_default_test_command(options):
         ])
 
     # Append basic command
-    if options.windows:
+    if getattr(options, 'windows', False):
         test_command.append(
             '{0}\\tests\\runtests.py'.format(options.package_source_dir))
     else:
@@ -1726,13 +1727,14 @@ def build_default_test_command(options):
     # Append extra and conditional parameters
     pillar = build_pillar_data(options, convert_to_yaml=False)
     git_branch = pillar.get('git_branch', 'develop')
-    if git_branch and git_branch not in('2014.1',) and not options.windows:
+    if git_branch and git_branch not in('2014.1',) and \
+            not getattr(options, 'windows', False):
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
         test_command.append('--coverage-xml=/tmp/coverage.xml')
     if options.no_color:
         test_command.append('--no-color')
-    if options.windows:
+    if getattr(options, 'windows', False):
         test_command.append(
             '--names-file="{0}\\tests\\whitelist.txt"'
             ''.format(options.package_source_dir))
@@ -1751,7 +1753,7 @@ def generate_xml_coverage_report(options, exit=True):
             get_minion_python_executable(options),
             coverage_bin_path
         )
-        if options.windows:
+        if getattr(options, 'windows', False):
             exitcode = run_winexe_command(options, cmd)
         else:
             exitcode = run_ssh_command(options, cmd)
@@ -2172,12 +2174,12 @@ def main():
         print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
         time.sleep(5)
         if not options.test_interactive:
-            if options.windows:
+            if getattr(options, 'windows', False):
                 check_win_minion_connected(options)
             else:
                 check_bootstrapped_minion_version(options)
         time.sleep(1)
-        if options.windows:
+        if getattr(options, 'windows', False):
             prepare_winexe_access(options)
         else:
             prepare_ssh_access(options)
@@ -2208,7 +2210,7 @@ def main():
     # Run the main command using SSH/winexe for realtime output
     if options.test_command:
 
-        if options.windows:
+        if getattr(options, 'windows', False):
             exitcode = run_winexe_command(options, options.test_command)
         else:
             exitcode = run_ssh_command(options, options.test_command)
@@ -2246,7 +2248,7 @@ def main():
             time.sleep(1)
 
     if options.download_artifact:
-        if options.windows:
+        if getattr(options, 'windows', False):
             download_artifacts_smb(options)
         else:
             download_artifacts_ssh(options)
