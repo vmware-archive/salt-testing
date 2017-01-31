@@ -788,9 +788,10 @@ def prepare_winexe_access(options):
     setattr(options, 'win_password', win_password)
 
     # Update git repos
-    print_bulleted(options, 'Update winrepo.')
-    cmd = 'salt-run winrepo.update_git_repos'
-    run_command(cmd, options, stream_stdout=False, stream_stderr=False)
+    if options.update_winrepo:
+        print_bulleted(options, 'Update winrepo.')
+        cmd = 'salt-run winrepo.update_git_repos'
+        run_command(cmd, options, stream_stdout=False, stream_stderr=False)
 
     return win_username, win_password
 
@@ -838,7 +839,8 @@ def get_minion_ip_address(options, sync=True):
         print_bulleted(options, 'Minion not bootstrapped. Not grabbing IP address.', 'RED')
         sys.exit(1)
     if getattr(options, 'minion_ip_address', None):
-        return options.minion_ip_address
+        if 'No response' not in getattr(options, 'minion_ip_address', None):
+            return options.minion_ip_address
     if sync:
         sync_minion(options)
 
@@ -868,14 +870,20 @@ def get_minion_ip_address(options, sync=True):
         if exitcode != 0:
             if attempts == 3:
                 print_bulleted(
-                    options, 'Failed to get the minion IP address. Exit code: {0}'.format(exitcode), 'RED')
+                    options,
+                    'Failed to get the minion IP address. Exit code: {0}'
+                    ''.format(exitcode),
+                    'RED')
                 sys.exit(exitcode)
             attempts += 1
             continue
 
         if not stdout.strip():
             if attempts == 3:
-                print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
+                print_bulleted(
+                    options,
+                    'Failed to get the minion IP address(no output)',
+                    'RED')
                 sys.exit(1)
             attempts += 1
             continue
@@ -888,13 +896,20 @@ def get_minion_ip_address(options, sync=True):
             else:
                 ip_address = ip_info[options.vm_name]
             if not ip_address:
-                print_bulleted(options, 'Failed to get the minion IP address(not found)', 'RED')
+                print_bulleted(
+                    options,
+                    'Failed to get the minion IP address(not found)',
+                    'RED')
                 sys.exit(1)
             setattr(options, 'minion_ip_address', ip_address)
             save_state(options)
             return ip_address
         except (ValueError, TypeError):
-            print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
+            print_bulleted(
+                options,
+                'Failed to load any JSON from {0!r}'
+                ''.format(stdout.strip()),
+                'RED')
             attempts += 1
 
 
@@ -1613,6 +1628,10 @@ def download_artifacts_smb(options):
         while remote_path[0:1] == '\\':
             remote_path = remote_path[1:]
 
+        path = os.path.dirname(remote_path)
+
+        files = smb_conn.listPath('C$', path)
+
         # Download the file
         with fopen(local_path, 'wb') as _fh:
             smb_conn.getFile('C$', remote_path, _fh.write)
@@ -1681,19 +1700,14 @@ def build_default_test_command(options):
     if git_branch and git_branch not in('2014.1',) and not options.windows:
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
-        if options.windows:
-            test_command.append('--coverage-xml="%TEMP%\\coverage.xml"')
-        else:
-            test_command.append('--coverage-xml=/tmp/coverage.xml')
+        test_command.append('--coverage-xml=/tmp/coverage.xml')
     if options.no_color:
         test_command.append('--no-color')
     if options.windows:
         test_command.append(
             '--names-file="{0}\\tests\\whitelist.txt"'
             ''.format(options.package_source_dir))
-        test_command.append('--xml="%TEMP%\\xml-unittests-output"')
-    else:
-        test_command.append('--xml=/tmp/xml-unittests-output')
+    test_command.append('--xml=/tmp/xml-unittests-output')
 
     return test_command
 
@@ -1998,6 +2012,13 @@ def get_args():
         '--show-default-command',
         action='store_true',
         help='Print out the default command that runs the test suite on the deployed VM'
+    )
+    testing_source_options.add_argument(
+        '--update-winrepo',
+        action='store_true',
+        default=False,
+        help='Update winrepo before you run the test suite. This is needed to '
+             'test the pkg module in Windows.'
     )
     testing_source_options_mutually_exclusive = testing_source_options.add_mutually_exclusive_group()
     testing_source_options_mutually_exclusive.add_argument(
