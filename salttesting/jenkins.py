@@ -1639,19 +1639,14 @@ def download_artifacts_smb(options):
         remote_path = '{0}\\{1}'.format(remote_path_dir, remote_path_file)
 
         try:
+            print_bulleted(options, 'Listing files: {0}'.format(remote_path))
             remote_files = smb_conn.listPath('C$', remote_path)
         except SessionError as exc:
-            if 'STATUS_NO_SUCH_FILE' in exc:
-                print_bulleted(
-                    options,
-                    'File not found: {0}'.format(remote_path),
-                    'YELLOW')
-            else:
-                print_bulleted(
-                    options,
-                    'Unknown error: {0}\n'
-                    'File: {1}'.format(exc, remote_path),
-                    'YELLOW')
+            print_bulleted(
+                options,
+                'Error: {0}\n'
+                'File: {1}'.format(exc, remote_path),
+                'YELLOW')
             continue
 
         for item in remote_files:
@@ -1665,20 +1660,15 @@ def download_artifacts_smb(options):
 
             # Download the file
             try:
+                print_bulleted(options, 'Copying file: {0}'.format(remote_file))
                 with fopen(local_file, 'wb') as _fh:
                     smb_conn.getFile('C$', remote_file, _fh.write)
             except SessionError as exc:
-                if 'STATUS_SHARING_VIOLATION' in exc:
-                    print_bulleted(
-                        options,
-                        'File locked: {0}'.format(remote_path),
-                        'YELLOW')
-                else:
-                    print_bulleted(
-                        options,
-                        'Unknown error: {0}\n'
-                        'File: {1}'.format(exc, remote_path),
-                        'YELLOW')
+                print_bulleted(
+                    options,
+                    'Error: {0}\n'
+                    'File: {1}'.format(exc, remote_path),
+                    'YELLOW')
                 continue
 
             # Set permissions if Using SUDO
