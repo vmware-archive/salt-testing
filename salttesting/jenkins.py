@@ -1632,8 +1632,10 @@ def download_artifacts_smb(options):
 
         for item in remote_files:
 
-            remote_file = '{0}\\{1}'.format(remote_path, item)
-            local_file = '{0}\\{1}'.format(local_path, item)
+            remote_file = '{0}\\{1}' \
+                          ''.format(os.path.dirname(remote_path),
+                                    item.get_longname())
+            local_file = '{0}/{1}'.format(local_path, item.get_longname())
 
             # Download the file
             with fopen(local_file, 'wb') as _fh:
