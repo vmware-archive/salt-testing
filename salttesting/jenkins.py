@@ -894,7 +894,7 @@ def get_minion_ip_address(options, sync=True):
             if options.ssh_private_address:
                 ip_address = find_private_addr(ip_info[options.vm_name])
             else:
-                ip_address = ip_info[options.vm_name]
+                ip_address = ip_info[options.vm_name][0]
             if not ip_address:
                 print_bulleted(
                     options,
@@ -1628,24 +1628,27 @@ def download_artifacts_smb(options):
         while remote_path[0:1] == '\\':
             remote_path = remote_path[1:]
 
-        path = os.path.dirname(remote_path)
+        remote_files = smb_conn.listPath('C$', remote_path)
 
-        files = smb_conn.listPath('C$', path)
+        for item in remote_files:
 
-        # Download the file
-        with fopen(local_path, 'wb') as _fh:
-            smb_conn.getFile('C$', remote_path, _fh.write)
+            remote_file = '{0}\\{1}'.format(remote_path, item)
+            local_file = '{0}\\{1}'.format(local_path, item)
 
-        # Set permissions if Using SUDO
-        if using_sudo:
-            if os.path.isdir(local_path):
-                for root, dirs, files in os.walk(local_path):
-                    for dname in dirs:
-                        os.chown(os.path.join(root, dname), sudo_uid, sudo_gid)
-                    for fname in files:
-                        os.chown(os.path.join(root, fname), sudo_uid, sudo_gid)
-            else:
-                os.chown(local_path, sudo_uid, sudo_gid)
+            # Download the file
+            with fopen(local_file, 'wb') as _fh:
+                smb_conn.getFile('C$', remote_file, _fh.write)
+
+            # Set permissions if Using SUDO
+            if using_sudo:
+                if os.path.isdir(local_path):
+                    for root, dirs, files in os.walk(local_path):
+                        for dname in dirs:
+                            os.chown(os.path.join(root, dname), sudo_uid, sudo_gid)
+                        for fname in files:
+                            os.chown(os.path.join(root, fname), sudo_uid, sudo_gid)
+                else:
+                    os.chown(local_path, sudo_uid, sudo_gid)
 
 
 def build_default_test_command(options):
