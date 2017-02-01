@@ -1109,79 +1109,64 @@ def check_win_minion_connected(options):
 
                 else:
 
-                    # Looks like we got a return, check for the path
-                    if 'c:\salt' not in grains[options.vm_name].lower():
+                    cmd = ['salt', '--out=json', '-l', options.log_level]
+                    cmd.extend([options.vm_name, 'system.reboot', '0', True])
 
-                        cmd = ['salt', '--out=json', '-l', options.log_level]
-                        cmd.extend([options.vm_name, 'system.reboot', '0', True])
-
-                        stdout, stderr, exitcode = run_command(
-                            cmd, options, return_output=True,
-                            stream_stdout=False, stream_stderr=False)
-                        if exitcode:
-                            print_bulleted(
-                                options,
-                                'Failed to reboot the minion. Exit code: {0}'
-                                ''.format(exitcode), 'RED'
-                            )
-                            if attempts >= 12:
-                                sys.exit(1)
-
-                        if not stdout.strip():
-                            print_bulleted(
-                                options,
-                                'Failed to reboot the minion (no output).',
-                                'RED')
-                            if attempts >= 12:
-                                sys.exit(1)
-
-                        try:
-                            # Load the return
-                            result = json.loads(stdout.strip())
-                            # It should return True
-                            if result[options.vm_name] is True:
-
-                                print_bulleted(
-                                    options,
-                                    'Rebooting bootstrapped minion ... ')
-                                print_bulleted(
-                                    options, 'Waiting 1 min...')
-
-                                # Set this value to avoid multiple reboots
-                                setattr(
-                                    options,
-                                    'salt_minion_rebooted',
-                                    True
-                                )
-
-                                time.sleep(60)
-
-                            else:
-
-                                # The reboot did not return True
-                                print_bulleted(
-                                    options, 'Reboot failed... ', 'RED')
-
-                            break
-
-                        except (ValueError, TypeError):
-                            print_bulleted(
-                                options,
-                                'Failed to load any JSON from {0!r}'
-                                ''.format(stdout.strip()),
-                                'RED')
-
-                    else:
-                        # Found C:\salt in the path, no reboot needed
+                    stdout, stderr, exitcode = run_command(
+                        cmd, options, return_output=True,
+                        stream_stdout=False, stream_stderr=False)
+                    if exitcode:
                         print_bulleted(
                             options,
-                            'Minion does not need to be rebooted... ')
-                        setattr(
-                            options,
-                            'salt_minion_rebooted',
-                            True
+                            'Failed to reboot the minion. Exit code: {0}'
+                            ''.format(exitcode), 'RED'
                         )
+                        if attempts >= 12:
+                            sys.exit(1)
+
+                    if not stdout.strip():
+                        print_bulleted(
+                            options,
+                            'Failed to reboot the minion (no output).',
+                            'RED')
+                        if attempts >= 12:
+                            sys.exit(1)
+
+                    try:
+                        # Load the return
+                        result = json.loads(stdout.strip())
+                        # It should return True
+                        if result[options.vm_name] is True:
+
+                            print_bulleted(
+                                options,
+                                'Rebooting bootstrapped minion ... ')
+                            print_bulleted(
+                                options, 'Waiting 1 min...')
+
+                            # Set this value to avoid multiple reboots
+                            setattr(
+                                options,
+                                'salt_minion_rebooted',
+                                True
+                            )
+
+                            time.sleep(60)
+
+                        else:
+
+                            # The reboot did not return True
+                            print_bulleted(
+                                options, 'Reboot failed... ', 'RED')
+
                         break
+
+                    except (ValueError, TypeError):
+                        print_bulleted(
+                            options,
+                            'Failed to load any JSON from {0!r}'
+                            ''.format(stdout.strip()),
+                            'RED')
 
             except (ValueError, TypeError):
                 print_bulleted(
