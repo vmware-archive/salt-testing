@@ -1512,9 +1512,9 @@ def run_winexe_command(options, remote_command):
     )
     if isinstance(remote_command, list):
         remote_command = ' '.join(remote_command)
-    cmd = 'winexe {0} --profile \'cmd /c {1}\'' \
+    cmd = 'winexe {0} \'cmd /c {1}\'' \
           ''.format(credentials, remote_command)
-    logging_cmd = 'winexe {0} --profile \'cmd /c {1}\'' \
+    logging_cmd = 'winexe {0} \'cmd /c {1}\'' \
                   ''.format(logging_credentials, remote_command)
     print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
     return win_cmd(cmd, logging_command=logging_cmd)
