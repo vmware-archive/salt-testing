@@ -1662,9 +1662,7 @@ def build_default_test_command(options):
     '''
     Construct the command that is sent to the minion to execute the test run
     '''
-    print(getattr(options, 'get_minion_python_executable', 'Not Found'))
     python_bin_path = get_minion_python_executable(options)
-    print(getattr(options, 'get_minion_python_executable', 'Not Found'))
     # This is a pretty naive approach to get the coverage binary path
     coverage_bin_path = python_bin_path.replace('python', 'coverage')
 
