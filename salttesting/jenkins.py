@@ -468,6 +468,7 @@ def bootstrap_cloud_minion(options):
             setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
         except Exception as exc:
             print('Exception encountered when processing bootstrap return for display: {0}'.format(exc))
+            print(clean_stdout)
     return exitcode
 
 
@@ -1063,8 +1064,8 @@ def check_win_minion_connected(options):
 
         # Make sure the minion is connected by returning a ping, then reboot
         print_bulleted(options, 'Pinging bootstrapped minion ... ')
-        cmd = ['salt', '--out=json', '-l', options.log_level]
-        cmd.extend([options.vm_name, 'test.ping'])
+        cmd = ['salt', '--out=json', '-l', options.log_level,
+               options.vm_name, 'test.ping']
 
         # Attempt to connect to the new minion, it can take a while with a new
         # install
@@ -1105,8 +1106,8 @@ def check_win_minion_connected(options):
             if ping[options.vm_name] is True:
 
                 # Returned ping, reboot
-                cmd = ['salt', '--out=json', '-l', options.log_level]
-                cmd.extend([options.vm_name, 'system.reboot', '0', True])
+                cmd = ['salt', '--out=json', '-l', options.log_level,
+                       options.vm_name, 'system.reboot', '0', 'True']
 
                 stdout, stderr, exitcode = run_command(
                     cmd, options, return_output=True,
@@ -1177,8 +1178,8 @@ def check_win_minion_connected(options):
     # This time we're loading all the grains because we want to get the
     # Salt version and the IP
     print_bulleted(options, 'Loading grains from bootstrapped minion... ')
-    cmd = ['salt', '--out=json', '-l', options.log_level]
-    cmd.extend([options.vm_name, 'grains.items'])
+    cmd = ['salt', '--out=json', '-l', options.log_level,
+           options.vm_name, 'grains.items']
 
     retries = 0
     while retries <= 12:
@@ -1222,22 +1223,18 @@ def check_win_minion_connected(options):
             print_bulleted(
                 options,
                 'Found Version: {0}'
-                ''.format(ping [options.vm_name]['saltversion']),
+                ''.format(grains[options.vm_name]['saltversion']),
                 'LIGHT_GREEN')
             print_bulleted(
                 options,
-                'Found IP: {0}'.format(ping [options.vm_name]['ipv4'][0]),
+                'Found IP: {0}'.format(grains[options.vm_name]['ipv4'][0]),
                 'LIGHT_GREEN')
             print_flush('\n')
             setattr(
                 options,
                 'bootstrapped_salt_minion_version',
-                SaltStackVersion.parse(
-                    ping [options.vm_name]['saltversion']))
-            setattr(
-                options,
-                'minion_ip_address',
-                ping [options.vm_name]['ipv4'][0])
+                SaltStackVersion.parse(grains[options.vm_name]['saltversion']))
+            setattr(options, 'minion_ip_address', grains[options.vm_name]['ipv4'][0])
 
             break
 
