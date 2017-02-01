@@ -426,9 +426,7 @@ def bootstrap_cloud_minion(options):
     if options.insecure:
         script_args.append('-I')
     if options.bootstrap_salt_url != SALT_GIT_URL:
-        script_args.extend([
-            '-g', options.bootstrap_salt_url
-        ])
+        script_args.extend(['-g', options.bootstrap_salt_url])
     if options.bootstrap_salt_commit:
         script_args.extend(['git', options.bootstrap_salt_commit])
 
@@ -453,8 +451,16 @@ def bootstrap_cloud_minion(options):
     cloud_stdout, _, exitcode = run_command(cmd, options, return_output=True)
     if exitcode == 0:
         setattr(options, 'salt_minion_bootstrapped', 'yes')
-        # Strip off the header
-        clean_stdout = '\n'.join(cloud_stdout.split('\n')[2:])
+
+        # Strip off the junk (winexe) and the first line
+        s_ret = cloud_stdout.split('\n')
+        start = 0
+        for line in s_ret:
+            start += 1
+            if options.vm_name in line:
+                break
+
+        clean_stdout = '\n'.join(s_ret[start:]).replace('  ', '')
         try:
             # Failing on OpenNebula because public_ips returns []
             print('IP', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
@@ -1054,8 +1060,7 @@ def check_win_minion_connected(options):
     # reboot more than needed
     if not getattr(options, 'salt_minion_rebooted', False):
 
-        # Get the Path to check for C:\salt
-        # If C:\salt is in the path, we don't need to reboot
+        # Make sure the minion is connected by returning a ping, then reboot
         print_bulleted(options, 'Pinging bootstrapped minion ... ')
         cmd = ['salt', '--out=json', '-l', options.log_level]
         cmd.extend([options.vm_name, 'test.ping'])
