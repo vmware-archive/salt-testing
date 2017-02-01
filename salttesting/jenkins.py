@@ -1096,85 +1096,82 @@ def check_win_minion_connected(options):
                 # Load the return with JSON
                 ping = json.loads(stdout.strip())
                 print_bulleted(options, 'Loaded JSON: {0}'.format(ping))
-
-                # 'No response' means the minion isn't connected yet, try again
-                if 'No response' in ping[options.vm_name]:
-                    print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
-                    print_bulleted(
-                        options, 'The minion did not return.', 'YELLOW')
-
-                    if retries < 12:
-                        print_bulleted(
-                            options,
-                            'Trying again in 5 seconds. Retry {0}'
-                            ''.format(retries),
-                            'YELLOW')
-                        time.sleep(5)
-
-                    print_flush('\n')
-
-                else:
-
-                    cmd = ['salt', '--out=json', '-l', options.log_level]
-                    cmd.extend([options.vm_name, 'system.reboot', '0', True])
-
-                    stdout, stderr, exitcode = run_command(
-                        cmd, options, return_output=True,
-                        stream_stdout=False, stream_stderr=False)
-                    if exitcode:
-                        print_bulleted(
-                            options,
-                            'Failed to reboot the minion. Exit code: {0}'
-                            ''.format(exitcode), 'RED'
-                        )
-                        if retries >= 12:
-                            sys.exit(1)
-
-                    if not stdout.strip():
-                        print_bulleted(
-                            options,
-                            'Failed to reboot the minion (no output).',
-                            'RED')
-                        if retries >= 12:
-                            sys.exit(1)
-
-                    try:
-                        # Load the return
-                        res = json.loads(stdout.strip())
-                        print_bulleted(options, 'Loaded JSON: {0}'.format(res))
-                        # It should return True
-                        if res[options.vm_name] is True:
-
-                            print_bulleted(
-                                options, 'Rebooting minion... ')
-                            print_bulleted(
-                                options, 'Waiting 1 min...')
-
-                            # Set this value to avoid multiple reboots
-                            setattr(options, 'salt_minion_rebooted', True)
-
-                            time.sleep(60)
-
-                        else:
-
-                            # The reboot did not return True
-                            print_bulleted(
-                                options, 'Reboot failed... ', 'RED')
-
-                        break
-
-                    except (ValueError, TypeError):
-                        print_bulleted(
-                            options,
-                            'Failed to load any JSON from {0!r}'
-                            ''.format(stdout.strip()),
-                            'RED')
-
             except (ValueError, TypeError):
                 print_bulleted(
                     options,
                     'Failed to load any JSON from {0!r}'.format(stdout.strip()),
                     'RED')
+
+            if ping[options.vm_name] is True:
+
+                # Returned ping, reboot
+                cmd = ['salt', '--out=json', '-l', options.log_level]
+                cmd.extend([options.vm_name, 'system.reboot', '0', True])
+
+                stdout, stderr, exitcode = run_command(
+                    cmd, options, return_output=True,
+                    stream_stdout=False, stream_stderr=False)
+                if exitcode:
+                    print_bulleted(
+                        options,
+                        'Failed to reboot the minion. Exit code: {0}'
+                        ''.format(exitcode), 'RED'
+                    )
+                    if retries >= 12:
+                        sys.exit(1)
+
+                if not stdout.strip():
+                    print_bulleted(
+                        options,
+                        'Failed to reboot the minion (no output).',
+                        'RED')
+                    if retries >= 12:
+                        sys.exit(1)
+
+                try:
+                    # Load the return
+                    res = json.loads(stdout.strip())
+                    print_bulleted(options, 'Loaded JSON: {0}'.format(res))
+                except (ValueError, TypeError):
+                    print_bulleted(
+                        options,
+                        'Failed to load any JSON from {0!r}'
+                        ''.format(stdout.strip()),
+                        'RED')
+
+                # It should return True
+                if res[options.vm_name] is True:
+
+                    print_bulleted(options, 'Rebooting minion... ')
+                    print_bulleted(options, 'Waiting 1 min...')
+
+                    # Set this value to avoid multiple reboots
+                    setattr(options, 'salt_minion_rebooted', True)
+
+                    time.sleep(60)
+
+                else:
+
+                    # The reboot did not return True
+                    print_bulleted(options, 'Reboot failed... ', 'RED')
+
+                break
+
+            else:
+
+                # Failed to return True, minion not connected. Try again
+                print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
+                print_bulleted(options, 'The minion did not return.', 'YELLOW')
+
+                if retries < 12:
+                    print_bulleted(
+                        options,
+                        'Trying again in 5 seconds. Retry {0}'
+                        ''.format(retries),
+                        'YELLOW')
+                    time.sleep(5)
+
+                print_flush('\n')
 
     # Now that we've rebooted, start trying to connect... again...
     # This time we're loading all the grains because we want to get the
@@ -1207,57 +1204,57 @@ def check_win_minion_connected(options):
                 sys.exit(1)
 
         try:
-
             # Load the return
             grains = json.loads(stdout.strip())
             print_bulleted(options, 'Loaded JSON: {0}'.format(grains))
-
-            # 'No response' means the minion did not return, try again...
-            if 'No response' in grains[options.vm_name]:
-
-                print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
-                print_bulleted(options, 'The minion did not return.', 'YELLOW')
-
-                if retries < 12:
-                    print_bulleted(
-                        options,
-                        'Trying again in 5 seconds. Retries {0}'
-                        ''.format(retries),
-                        'YELLOW')
-                    time.sleep(5)
-
-                print_flush('\n')
-
-            else:
-                # It returned something other than 'No response'
-                # Try loading the Salt version and the IP
-                print_bulleted(
-                    options,
-                    'Found Version: {0}'
-                    ''.format(ping [options.vm_name]['saltversion']),
-                    'LIGHT_GREEN')
-                print_bulleted(
-                    options,
-                    'Found IP: {0}'.format(ping [options.vm_name]['ipv4'][0]),
-                    'LIGHT_GREEN')
-                print_flush('\n')
-                setattr(
-                    options,
-                    'bootstrapped_salt_minion_version',
-                    SaltStackVersion.parse(
-                        ping [options.vm_name]['saltversion']))
-                setattr(
-                    options,
-                    'minion_ip_address',
-                    ping [options.vm_name]['ipv4'][0])
-
-                break
 
         except (ValueError, TypeError):
             print_bulleted(
                 options,
                 'Failed to load any JSON from {0!r}'.format(stdout.strip()),
                 'RED')
+
+        # If a dictionary is returned, then load the Version and IP
+        if isinstance(grains[options.vm_name], dict):
+
+            # It returned something other than 'No response'
+            # Try loading the Salt version and the IP
+            print_bulleted(
+                options,
+                'Found Version: {0}'
+                ''.format(ping [options.vm_name]['saltversion']),
+                'LIGHT_GREEN')
+            print_bulleted(
+                options,
+                'Found IP: {0}'.format(ping [options.vm_name]['ipv4'][0]),
+                'LIGHT_GREEN')
+            print_flush('\n')
+            setattr(
+                options,
+                'bootstrapped_salt_minion_version',
+                SaltStackVersion.parse(
+                    ping [options.vm_name]['saltversion']))
+            setattr(
+                options,
+                'minion_ip_address',
+                ping [options.vm_name]['ipv4'][0])
+
+            break
+
+        else:
+            # Otherwise it failed, probably No response, Try again
+            print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
+            print_bulleted(options, 'The minion did not return.', 'YELLOW')
+
+            if retries < 12:
+                print_bulleted(
+                    options,
+                    'Trying again in 5 seconds. Retries {0}'
+                    ''.format(retries),
+                    'YELLOW')
+                time.sleep(5)
+
+            print_flush('\n')
 
 
 def check_bootstrapped_minion_version(options):
