@@ -1058,7 +1058,7 @@ def check_win_minion_connected(options):
         # If C:\salt is in the path, we don't need to reboot
         print_bulleted(options, 'Pinging bootstrapped minion ... ')
         cmd = ['salt', '--out=json', '-l', options.log_level]
-        cmd.extend([options.vm_name, 'grains.get', 'path'])
+        cmd.extend([options.vm_name, 'test.ping'])
 
         # Attempt to connect to the new minion, it can take a while with a new
         # install
@@ -1081,21 +1081,20 @@ def check_win_minion_connected(options):
             if not stdout.strip():
                 print_bulleted(
                     options,
-                    'Failed to get minion version (no output).',
+                    'Failed to return a ping from the minion (no output).',
                     'RED')
                 if attempts >= 12:
                     sys.exit(1)
 
             try:
                 # Load the return with JSON
-                grains = json.loads(stdout.strip())
+                ping = json.loads(stdout.strip())
 
                 # 'No response' means the minion isn't connected yet, try again
-                if 'No response' in grains[options.vm_name]:
+                if 'No response' in ping[options.vm_name]:
+                    print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
                     print_bulleted(
-                        options, '\n\nATTENTION!!!!\n', 'YELLOW')
-                    print_bulleted(
-                        options, 'The minion did not return. ', 'YELLOW')
+                        options, 'The minion did not return.', 'YELLOW')
 
                     if attempts < 10:
                         print_bulleted(
@@ -1139,17 +1138,12 @@ def check_win_minion_connected(options):
                         if result[options.vm_name] is True:
 
                             print_bulleted(
-                                options,
-                                'Rebooting bootstrapped minion ... ')
+                                options, 'Rebooting bootstrapped minion... ')
                             print_bulleted(
                                 options, 'Waiting 1 min...')
 
                             # Set this value to avoid multiple reboots
-                            setattr(
-                                options,
-                                'salt_minion_rebooted',
-                                True
-                            )
+                            setattr(options, 'salt_minion_rebooted', True)
 
                             time.sleep(60)
 
@@ -1212,10 +1206,8 @@ def check_win_minion_connected(options):
             # 'No response' means the minion did not return, try again...
             if 'No response' in grains[options.vm_name]:
 
-                print_bulleted(
-                    options, '\n\nATTENTION!!!!\n', 'YELLOW')
-                print_bulleted(
-                    options, 'The minion did not return. ', 'YELLOW')
+                print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
+                print_bulleted(options, 'The minion did not return.', 'YELLOW')
 
                 if attempts <= 12:
                     print_bulleted(
@@ -1233,22 +1225,22 @@ def check_win_minion_connected(options):
                 print_bulleted(
                     options,
                     'Found Version: {0}'
-                    ''.format(grains[options.vm_name]['saltversion']),
+                    ''.format(ping [options.vm_name]['saltversion']),
                     'LIGHT_GREEN')
                 print_bulleted(
                     options,
-                    'Found IP: {0}'.format(grains[options.vm_name]['ipv4'][0]),
+                    'Found IP: {0}'.format(ping [options.vm_name]['ipv4'][0]),
                     'LIGHT_GREEN')
                 print_flush('\n')
                 setattr(
                     options,
                     'bootstrapped_salt_minion_version',
                     SaltStackVersion.parse(
-                        grains[options.vm_name]['saltversion']))
+                        ping [options.vm_name]['saltversion']))
                 setattr(
                     options,
                     'minion_ip_address',
-                    grains[options.vm_name]['ipv4'][0])
+                    ping [options.vm_name]['ipv4'][0])
 
                 break
 
