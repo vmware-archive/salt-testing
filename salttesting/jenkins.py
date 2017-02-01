@@ -453,6 +453,7 @@ def bootstrap_cloud_minion(options):
         setattr(options, 'salt_minion_bootstrapped', 'yes')
 
         # Strip off the junk (winexe) and the first line
+        # Find the first line that contains the VM Name and take the rest
         s_ret = cloud_stdout.split('\n')
         start = 0
         for line in s_ret:
@@ -1067,10 +1068,10 @@ def check_win_minion_connected(options):
 
         # Attempt to connect to the new minion, it can take a while with a new
         # install
-        attempts = 0
-        while attempts <= 12:
+        retries = 0
+        while retries <= 12:
 
-            attempts += 1
+            retries += 1
             stdout, stderr, exitcode = run_command(
                 cmd, options, return_output=True, stream_stdout=False,
                 stream_stderr=False)
@@ -1080,7 +1081,7 @@ def check_win_minion_connected(options):
                     'Failed to return a ping from the minion. Exit code: {0}'
                     ''.format(exitcode), 'RED'
                 )
-                if attempts >= 12:
+                if retries >= 12:
                     sys.exit(exitcode)
 
             if not stdout.strip():
@@ -1088,12 +1089,13 @@ def check_win_minion_connected(options):
                     options,
                     'Failed to return a ping from the minion (no output).',
                     'RED')
-                if attempts >= 12:
+                if retries >= 12:
                     sys.exit(1)
 
             try:
                 # Load the return with JSON
                 ping = json.loads(stdout.strip())
+                print_bulleted(options, 'Loaded JSON: {0}'.format(ping))
 
                 # 'No response' means the minion isn't connected yet, try again
                 if 'No response' in ping[options.vm_name]:
@@ -1101,11 +1103,11 @@ def check_win_minion_connected(options):
                     print_bulleted(
                         options, 'The minion did not return.', 'YELLOW')
 
-                    if attempts < 10:
+                    if retries < 12:
                         print_bulleted(
                             options,
-                            'Trying again in 5 seconds. Attempt {0}'
-                            ''.format(attempts),
+                            'Trying again in 5 seconds. Retry {0}'
+                            ''.format(retries),
                             'YELLOW')
                         time.sleep(5)
 
@@ -1125,7 +1127,7 @@ def check_win_minion_connected(options):
                             'Failed to reboot the minion. Exit code: {0}'
                             ''.format(exitcode), 'RED'
                         )
-                        if attempts >= 12:
+                        if retries >= 12:
                             sys.exit(1)
 
                     if not stdout.strip():
@@ -1133,17 +1135,18 @@ def check_win_minion_connected(options):
                             options,
                             'Failed to reboot the minion (no output).',
                             'RED')
-                        if attempts >= 12:
+                        if retries >= 12:
                             sys.exit(1)
 
                     try:
                         # Load the return
-                        result = json.loads(stdout.strip())
+                        res = json.loads(stdout.strip())
+                        print_bulleted(options, 'Loaded JSON: {0}'.format(res))
                         # It should return True
-                        if result[options.vm_name] is True:
+                        if res[options.vm_name] is True:
 
                             print_bulleted(
-                                options, 'Rebooting bootstrapped minion... ')
+                                options, 'Rebooting minion... ')
                             print_bulleted(
                                 options, 'Waiting 1 min...')
 
@@ -1176,37 +1179,38 @@ def check_win_minion_connected(options):
     # Now that we've rebooted, start trying to connect... again...
     # This time we're loading all the grains because we want to get the
     # Salt version and the IP
-    print_bulleted(options, 'Pinging bootstrapped minion ... ')
+    print_bulleted(options, 'Loading grains from bootstrapped minion... ')
     cmd = ['salt', '--out=json', '-l', options.log_level]
     cmd.extend([options.vm_name, 'grains.items'])
 
-    attempts = 0
-    while attempts <= 12:
-        attempts += 1
+    retries = 0
+    while retries <= 12:
+        retries += 1
         stdout, stderr, exitcode = run_command(
             cmd, options, return_output=True, stream_stdout=False,
             stream_stderr=False)
         if exitcode:
             print_bulleted(
                 options,
-                'Failed to return a ping from the minion. Exit code: {0}'
+                'Failed to load grains from the minion. Exit code: {0}'
                 ''.format(exitcode),
                 'RED')
-            if attempts == 10:
+            if retries >= 12:
                 sys.exit(exitcode)
 
         if not stdout.strip():
             print_bulleted(
                 options,
-                'Failed to get the bootstrapped minion version (no output).',
+                'Failed to load grains from the minion (no output).',
                 'RED')
-            if attempts == 10:
+            if retries >= 12:
                 sys.exit(1)
 
         try:
 
             # Load the return
             grains = json.loads(stdout.strip())
+            print_bulleted(options, 'Loaded JSON: {0}'.format(grains))
 
             # 'No response' means the minion did not return, try again...
             if 'No response' in grains[options.vm_name]:
@@ -1214,11 +1218,11 @@ def check_win_minion_connected(options):
                 print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
                 print_bulleted(options, 'The minion did not return.', 'YELLOW')
 
-                if attempts <= 12:
+                if retries < 12:
                     print_bulleted(
                         options,
-                        'Trying again in 5 seconds. Attempt {0}'
-                        ''.format(attempts),
+                        'Trying again in 5 seconds. Retries {0}'
+                        ''.format(retries),
                         'YELLOW')
                     time.sleep(5)
 
@@ -1508,9 +1512,9 @@ def run_winexe_command(options, remote_command):
     )
     if isinstance(remote_command, list):
         remote_command = ' '.join(remote_command)
-    cmd = 'winexe {0} \'cmd /c {1}\'' \
+    cmd = 'winexe {0} --profile \'cmd /c {1}\'' \
           ''.format(credentials, remote_command)
-    logging_cmd = 'winexe {0} \'cmd /c {1}\'' \
+    logging_cmd = 'winexe {0} --profile \'cmd /c {1}\'' \
                   ''.format(logging_credentials, remote_command)
     print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
     return win_cmd(cmd, logging_command=logging_cmd)
