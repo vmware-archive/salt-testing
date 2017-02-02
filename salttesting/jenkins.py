@@ -1069,7 +1069,7 @@ def check_win_minion_connected(options):
                     'Failed to return a ping from the minion. Exit code: {0}'
                     ''.format(exitcode), 'RED'
                 )
-                if retries >= 12:
+                if retries > 12:
                     sys.exit(exitcode)
 
             if not stdout.strip():
@@ -1077,7 +1077,7 @@ def check_win_minion_connected(options):
                     options,
                     'Failed to return a ping from the minion (no output).',
                     'RED')
-                if retries >= 12:
+                if retries > 12:
                     sys.exit(1)
 
             try:
@@ -1093,7 +1093,7 @@ def check_win_minion_connected(options):
                     'Failed to load any JSON from {0!r}'.format(stdout.strip()),
                     'RED')
 
-                if retries < 12:
+                if retries <= 12:
                     print_bulleted(
                         options,
                         'Trying again in 5 seconds. Retry {0}'.format(retries),
@@ -1118,7 +1118,7 @@ def check_win_minion_connected(options):
                         'Failed to reboot the minion. Exit code: {0}'
                         ''.format(exitcode), 'RED'
                     )
-                    if retries >= 12:
+                    if retries > 12:
                         sys.exit(1)
 
                 if not stdout.strip():
@@ -1126,7 +1126,7 @@ def check_win_minion_connected(options):
                         options,
                         'Failed to reboot the minion (no output).',
                         'RED')
-                    if retries >= 12:
+                    if retries > 12:
                         sys.exit(1)
 
                 try:
@@ -1170,7 +1170,7 @@ def check_win_minion_connected(options):
                 print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
                 print_bulleted(options, 'The minion did not return.', 'YELLOW')
 
-                if retries < 12:
+                if retries <= 12:
                     print_bulleted(
                         options,
                         'Trying again in 5 seconds. Retry {0}'
@@ -1199,7 +1199,7 @@ def check_win_minion_connected(options):
                 'Failed to load grains from the minion. Exit code: {0}'
                 ''.format(exitcode),
                 'RED')
-            if retries >= 12:
+            if retries > 12:
                 sys.exit(exitcode)
 
         if not stdout.strip():
@@ -1207,7 +1207,7 @@ def check_win_minion_connected(options):
                 options,
                 'Failed to load grains from the minion (no output).',
                 'RED')
-            if retries >= 12:
+            if retries > 12:
                 sys.exit(1)
 
         try:
@@ -1224,7 +1224,7 @@ def check_win_minion_connected(options):
                 'Failed to load any JSON from {0!r}'.format(stdout.strip()),
                 'RED')
 
-            if retries < 12:
+            if retries <= 12:
                 print_bulleted(
                     options,
                     'Trying again in 5 seconds. Retry {0}'.format(retries),
@@ -1261,7 +1261,7 @@ def check_win_minion_connected(options):
             print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
             print_bulleted(options, 'The minion did not return.', 'YELLOW')
 
-            if retries < 12:
+            if retries <= 12:
                 print_bulleted(
                     options,
                     'Trying again in 5 seconds. Retries {0}'
