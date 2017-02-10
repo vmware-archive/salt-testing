@@ -1149,12 +1149,9 @@ def check_win_minion_connected(options):
                 if res[options.vm_name] is True:
 
                     print_bulleted(options, 'Rebooting minion... ')
-                    print_bulleted(options, 'Waiting 1 min...')
 
                     # Set this value to avoid multiple reboots
                     setattr(options, 'salt_minion_rebooted', True)
-
-                    time.sleep(60)
 
                 else:
 
@@ -1179,6 +1176,75 @@ def check_win_minion_connected(options):
                     time.sleep(5)
 
                 print_flush('\n')
+
+        # Ping the minion until it stops returning pings.
+        # We'll try 12 times (6 min)
+        cmd = ['salt', '--out=json', '-l', options.log_level,
+               options.vm_name, 'test.ping']
+
+        retries = 0
+        while retries <= 12:
+
+            retries += 1
+            stdout, stderr, exitcode = run_command(
+                cmd, options, return_output=True, stream_stdout=False,
+                stream_stderr=False)
+            if exitcode:
+                print_bulleted(
+                    options,
+                    'Failed to return a ping from the minion. Exit code: {0}'
+                    ''.format(exitcode), 'RED'
+                )
+                if retries > 12:
+                    sys.exit(exitcode)
+
+            if not stdout.strip():
+                print_bulleted(
+                    options,
+                    'Failed to return a ping from the minion (no output).',
+                    'RED')
+                if retries > 12:
+                    sys.exit(1)
+
+            try:
+                # Load the return with JSON
+                ping = json.loads(stdout.strip())
+                print_bulleted(options, 'Loaded JSON: {0}'.format(ping))
+            except (ValueError, TypeError):
+                # The ping command failed to return valid JSON. Retry.
+                # You should never get here
+                print_bulleted(options, 'ATTENTION!!!!', 'RED')
+                print_bulleted(
+                    options,
+                    'Failed to load any JSON from {0!r}'.format(stdout.strip()),
+                    'RED')
+
+                if retries <= 12:
+                    print_bulleted(
+                        options,
+                        'Trying again in 30 seconds. Retry {0}'.format(retries),
+                        'RED')
+                    time.sleep(30)
+
+                print_flush('\n')
+                continue
+
+            if ping[options.vm_name] is True:
+                print_bulleted(
+                    options, 'Minion still shutting down.', 'YELLOW')
+                print_bulleted(
+                    options,
+                    'Trying again in 30 seconds. Retry {0}'.format(retries),
+                    'YELLOW')
+
+                time.sleep(30)
+                continue
+
+            else:
+                print_bulleted(
+                    options, 'Minion shutdown successfully.', 'YELLOW')
+
+                break
 
     # Now that we've rebooted, start trying to connect... again...
     # This time we're loading all the grains because we want to get the
