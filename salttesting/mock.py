@@ -14,20 +14,37 @@ from __future__ import absolute_import
 import sys
 
 try:
-    from mock import (
-        Mock,
-        MagicMock,
-        patch,
-        sentinel,
-        DEFAULT,
-        # ANY and call will be imported further down
-        create_autospec,
-        FILTER_DIR,
-        NonCallableMock,
-        NonCallableMagicMock,
-        PropertyMock,
-        __version__ as __mock_version
-    )
+    if sys.version_info >= (3,):
+        # Python 3
+        from unittest.mock import (
+            Mock,
+            MagicMock,
+            patch,
+            sentinel,
+            DEFAULT,
+            # ANY and call will be imported further down
+            create_autospec,
+            FILTER_DIR,
+            NonCallableMock,
+            NonCallableMagicMock,
+            PropertyMock,
+            __version__ as __mock_version
+        )
+    else:
+        from mock import (
+            Mock,
+            MagicMock,
+            patch,
+            sentinel,
+            DEFAULT,
+            # ANY and call will be imported further down
+            create_autospec,
+            FILTER_DIR,
+            NonCallableMock,
+            NonCallableMagicMock,
+            PropertyMock,
+            __version__ as __mock_version
+        )
     NO_MOCK = False
     NO_MOCK_REASON = ''
     mock_version = []
@@ -38,11 +55,10 @@ try:
             # Non-integer value (ex. '1a')
             mock_version.append(__part)
     mock_version = tuple(mock_version)
-except ImportError:
+except ImportError as exc:
     NO_MOCK = True
     NO_MOCK_REASON = 'mock python module is unavailable'
     mock_version = (0, 0, 0)
-
 
     # Let's not fail on imports by providing fake objects and classes
 
@@ -78,13 +94,17 @@ except ImportError:
 
 if NO_MOCK is False:
     try:
-        from mock import call, ANY
+        if sys.version_info >= (3,):
+            # Python 3
+            from unittest.mock import call, ANY
+        else:
+            from mock import call, ANY
     except ImportError:
         NO_MOCK = True
         NO_MOCK_REASON = 'you need to upgrade your mock version to >= 0.8.0'
 
 
-if sys.version_info[0] >= 3:
+if sys.version_info > (2,):
     from mock import mock_open
 else:
     # backport mock_open from the python 3 unittest.mock library so that we can

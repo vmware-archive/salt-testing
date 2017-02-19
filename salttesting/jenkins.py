@@ -24,7 +24,9 @@ import argparse
 
 # Import salt libs
 import salt.config
-from salt.utils import get_colors, vt
+from salt.utils import get_colors, vt, fopen
+from salt.utils.smb import get_conn
+from salt.utils.cloud import win_cmd
 from salt.version import SaltStackVersion
 from salt.log.setup import SORTED_LEVEL_NAMES
 
@@ -261,6 +263,16 @@ def build_pillar_data(options, convert_to_yaml=True):
     if options.package_artifact_dir:
         pillar['package_artifact_dir'] = options.package_artifact_dir
 
+    # Due to quoting issues in Linux shelling out to Windows using WinEXE it is
+    # necessary to wrap some parameters in some crazy quotes '"'"' But, it's
+    # being converted to YAML at the end, so weird stuff happens there that will
+    # be handled later. This is only needed for directories (_dir) and urls
+    # (_url)
+    if options.windows:
+        for item in pillar:
+            if '_dir' in item or '_url' in item:
+                pillar[item] = '"\'"\'{0}\'"\'"'.format(pillar[item])
+
     if options.test_pillar:
         pillar.update(dict(options.test_pillar))
 
@@ -400,32 +412,50 @@ def bootstrap_cloud_minion(options):
     if options.insecure:
         script_args.append('-I')
     if options.bootstrap_salt_url != SALT_GIT_URL:
-        script_args.extend([
-            '-g', options.bootstrap_salt_url
-        ])
-    script_args.extend(['git', options.bootstrap_salt_commit])
+        script_args.extend(['-g', options.bootstrap_salt_url])
+    if options.bootstrap_salt_commit:
+        script_args.extend(['git', options.bootstrap_salt_commit])
 
-    cmd = [
-        'salt-cloud',
-        '-l', options.log_level,
-        '--script-args="{0}"'.format(' '.join(script_args)),
-        '-p', options.vm_source,
-        '--out=yaml',
-        '--no-color',
-        options.vm_name
-    ]
+    cmd = ['salt-cloud',
+           '-l', options.log_level,
+           '-p', options.vm_source,
+           '--out=yaml']
+
+    if options.windows:
+        # This switch is needed until we fix the problem with salt-cloud
+        # deleting the installation file on CentOS 7
+        cmd.append('-k')
+    else:
+        # Windows does not use the bootstrap script
+        cmd.append('--script-args="{0}"'.format(' '.join(script_args)))
+
     if options.no_color:
         cmd.append('--no-color')
+
+    # Append vm_name last as per salt-cloud docs
+    cmd.append(options.vm_name)
+
     cloud_stdout, _, exitcode = run_command(cmd, options, return_output=True)
     if exitcode == 0:
         setattr(options, 'salt_minion_bootstrapped', 'yes')
-        # Strip off the header
-        clean_stdout = '\n'.join(cloud_stdout.split('\n')[2:])
+
+        # Strip off the junk (winexe) and the first line
+        # Find the first line that contains the VM Name and take the rest
+        s_ret = cloud_stdout.split('\n')
+        start = 0
+        for line in s_ret:
+            start += 1
+            if options.vm_name in line:
+                break
+
+        clean_stdout = '\n'.join(s_ret[start:]).replace('  ', '')
         try:
+            # Failing on OpenNebula because public_ips returns []
             print('IP', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
             setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
         except Exception as exc:
             print('Exception encountered when processing bootstrap return for display: {0}'.format(exc))
+            print(clean_stdout)
     return exitcode
 
 
@@ -731,9 +761,39 @@ def prepare_ssh_access(options):
         return run_command(cmd, options)
 
 
+def prepare_winexe_access(options):
+
+    # See if win_username and win_password are already set
+    if getattr(options, 'win_username', None) and \
+            getattr(options, 'win_password', None):
+        return options.win_username, options.win_password
+
+    # Get win_username and win_password from Cloud Config and put in options
+    # Load cloud config
+    cloud_config = salt.config.cloud_config('/etc/salt/cloud')
+
+    # Determine which provider we are using by looking it up in the profile
+    p_file, driver = cloud_config['profiles'][options.vm_source]['provider'].split(':')
+
+    # Finally, we can get the provider password
+    win_username = cloud_config['providers'][p_file][driver]['win_username']
+    win_password = cloud_config['providers'][p_file][driver]['win_password']
+
+    setattr(options, 'win_username', win_username)
+    setattr(options, 'win_password', win_password)
+
+    # Update git repos
+    if options.update_winrepo:
+        print_bulleted(options, 'Update winrepo.')
+        cmd = 'salt-run winrepo.update_git_repos'
+        run_command(cmd, options, stream_stdout=False, stream_stderr=False)
+
+    return win_username, win_password
+
+
 def sync_minion(options):
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not syncing minion.', 'RED')
+        print_bulleted(options, 'Minion not bootstrapped. Not syncing minion.', 'RED')
         sys.exit(1)
     if 'salt_minion_synced' in options:
         return
@@ -771,10 +831,11 @@ def get_minion_ip_address(options, sync=True):
     Get and store the remote minion IP address
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing IP address.', 'RED')
+        print_bulleted(options, 'Minion not bootstrapped. Not grabbing IP address.', 'RED')
         sys.exit(1)
     if getattr(options, 'minion_ip_address', None):
-        return options.minion_ip_address
+        if 'No response' not in getattr(options, 'minion_ip_address', None):
+            return options.minion_ip_address
     if sync:
         sync_minion(options)
 
@@ -789,10 +850,13 @@ def get_minion_ip_address(options, sync=True):
         ]
         if options.no_color:
             cmd.append('--no-color')
-        cmd.extend([
-            options.vm_name,
-            'grains.get', 'ipv4' if options.ssh_private_address else 'external_ip'
-        ])
+
+        cmd.extend([options.vm_name, 'grains.get'])
+        if options.windows:
+            cmd.append('ipv4')
+        else:
+            cmd.append('ipv4' if options.ssh_private_address else 'external_ip')
+
         stdout, stderr, exitcode = run_command(cmd,
                                                options,
                                                return_output=True,
@@ -801,14 +865,20 @@ def get_minion_ip_address(options, sync=True):
         if exitcode != 0:
             if attempts == 3:
                 print_bulleted(
-                    options, 'Failed to get the minion IP address. Exit code: {0}'.format(exitcode), 'RED')
+                    options,
+                    'Failed to get the minion IP address. Exit code: {0}'
+                    ''.format(exitcode),
+                    'RED')
                 sys.exit(exitcode)
             attempts += 1
             continue
 
         if not stdout.strip():
             if attempts == 3:
-                print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
+                print_bulleted(
+                    options,
+                    'Failed to get the minion IP address(no output)',
+                    'RED')
                 sys.exit(1)
             attempts += 1
             continue
@@ -819,15 +889,22 @@ def get_minion_ip_address(options, sync=True):
             if options.ssh_private_address:
                 ip_address = find_private_addr(ip_info[options.vm_name])
             else:
-                ip_address = ip_info[options.vm_name]
+                ip_address = ip_info[options.vm_name][0]
             if not ip_address:
-                print_bulleted(options, 'Failed to get the minion IP address(not found)', 'RED')
+                print_bulleted(
+                    options,
+                    'Failed to get the minion IP address(not found)',
+                    'RED')
                 sys.exit(1)
             setattr(options, 'minion_ip_address', ip_address)
             save_state(options)
             return ip_address
         except (ValueError, TypeError):
-            print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
+            print_bulleted(
+                options,
+                'Failed to load any JSON from {0!r}'
+                ''.format(stdout.strip()),
+                'RED')
             attempts += 1
 
 
@@ -836,7 +913,10 @@ def get_minion_python_executable(options):
     Get and store the remote minion python executable
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'RED')
+        print_bulleted(
+            options,
+            'Minion not bootstrapped. Not grabbing remote python executable.',
+            'RED')
         sys.exit(1)
     if 'minion_python_executable' in options:
         return options.minion_python_executable
@@ -850,10 +930,11 @@ def get_minion_python_executable(options):
     ]
     if options.no_color:
         cmd.append('--no-color')
-    cmd.extend([
-        options.vm_name,
-        'grains.get', 'pythonexecutable'
-    ])
+    cmd.append(options.vm_name)
+    if options.windows:
+        cmd.extend(['cmd.which', 'python'])
+    else:
+        cmd.extend(['grains.get', 'pythonexecutable'])
     stdout, stderr, exitcode = run_command(cmd,
                                            options,
                                            return_output=True,
@@ -861,12 +942,17 @@ def get_minion_python_executable(options):
                                            stream_stderr=False)
     if exitcode != 0:
         print_bulleted(
-            options, 'Failed to get the minion python executable. Exit code: {0}'.format(exitcode), 'RED'
-        )
+            options,
+            'Failed to get the minion python executable. Exit code: {0}'
+            ''.format(exitcode),
+            'RED')
         sys.exit(exitcode)
 
     if not stdout.strip():
-        print_bulleted(options, 'Failed to get the minion IP address(no output)', 'RED')
+        print_bulleted(
+            options,
+            'Failed to get the minion python executable (no output)',
+            'RED')
         sys.exit(1)
 
     try:
@@ -878,7 +964,11 @@ def get_minion_python_executable(options):
         save_state(options)
         return python_executable
     except (ValueError, TypeError):
-        print_bulleted(options, 'Failed to load any JSON from {0!r}'.format(stdout.strip()), 'RED')
+        print_bulleted(
+            options,
+            'Failed to load any JSON from {0!r}'
+            ''.format(stdout.strip()),
+            'RED')
 
 
 def delete_cloud_vm(options):
@@ -941,12 +1031,319 @@ def delete_parallels_vm(options):
         return 1
 
 
+def check_win_minion_connected(options):
+
+    if 'salt_minion_bootstrapped' not in options:
+        print_bulleted(
+            options, 'Minion not bootstrapped. Not pinging minion.', 'RED')
+        sys.exit(1)
+
+    # Check to see if the minion was rebooted after salt install
+    # This is needed for c:\salt to be found in the path
+    # salt-call will not work it it's not in the path
+    # Because the salt service is running as System, it gets a different
+    # environment. The only way to refresh the environment System uses is to
+    # reboot. We probably need to add a reboot option to the Salt installer
+
+    # Check this option in case this is run more than once, we don't want to
+    # reboot more than needed
+    if not getattr(options, 'salt_minion_rebooted', False):
+
+        # Make sure the minion is connected by returning a ping, then reboot
+        print_bulleted(options, 'Pinging bootstrapped minion ... ')
+        cmd = ['salt', '--out=json', '-l', options.log_level,
+               options.vm_name, 'test.ping']
+
+        # Attempt to connect to the new minion, it can take a while with a new
+        # install. We'll try 12 times (1 min)
+        retries = 0
+        while retries <= 12:
+
+            retries += 1
+            stdout, stderr, exitcode = run_command(
+                cmd, options, return_output=True, stream_stdout=False,
+                stream_stderr=False)
+            if exitcode:
+                print_bulleted(
+                    options,
+                    'Failed to return a ping from the minion. Exit code: {0}'
+                    ''.format(exitcode), 'RED'
+                )
+                if retries > 12:
+                    sys.exit(exitcode)
+
+            if not stdout.strip():
+                print_bulleted(
+                    options,
+                    'Failed to return a ping from the minion (no output).',
+                    'RED')
+                if retries > 12:
+                    sys.exit(1)
+
+            try:
+                # Load the return with JSON
+                ping = json.loads(stdout.strip())
+                print_bulleted(options, 'Loaded JSON: {0}'.format(ping))
+            except (ValueError, TypeError):
+                # The ping command failed to return valid JSON. Retry.
+                # You should never get here
+                print_bulleted(options, 'ATTENTION!!!!', 'RED')
+                print_bulleted(
+                    options,
+                    'Failed to load any JSON from {0!r}'.format(stdout.strip()),
+                    'RED')
+
+                if retries <= 12:
+                    print_bulleted(
+                        options,
+                        'Trying again in 5 seconds. Retry {0}'.format(retries),
+                        'RED')
+                    time.sleep(5)
+
+                print_flush('\n')
+                continue
+
+            if ping[options.vm_name] is True:
+
+                # Returned ping, reboot
+                cmd = ['salt', '--out=json', '-l', options.log_level,
+                       options.vm_name, 'system.reboot', '0', 'True']
+
+                stdout, stderr, exitcode = run_command(
+                    cmd, options, return_output=True,
+                    stream_stdout=False, stream_stderr=False)
+                if exitcode:
+                    print_bulleted(
+                        options,
+                        'Failed to reboot the minion. Exit code: {0}'
+                        ''.format(exitcode), 'RED'
+                    )
+                    if retries > 12:
+                        sys.exit(1)
+
+                if not stdout.strip():
+                    print_bulleted(
+                        options,
+                        'Failed to reboot the minion (no output).',
+                        'RED')
+                    if retries > 12:
+                        sys.exit(1)
+
+                try:
+                    # Load the return
+                    res = json.loads(stdout.strip())
+                    print_bulleted(options, 'Loaded JSON: {0}'.format(res))
+                except (ValueError, TypeError):
+                    # Reboot command failed to return valid JSON. Stop trying.
+                    # You should never get here.
+                    print_bulleted(
+                        options,
+                        'Failed to load any JSON from {0!r}'
+                        ''.format(stdout.strip()),
+                        'RED')
+                    # The reboot did not return True
+                    print_bulleted(options, 'Reboot failed... ', 'RED')
+                    break
+
+                # It should return True
+                if res[options.vm_name] is True:
+
+                    print_bulleted(options, 'Rebooting minion... ')
+
+                    # Set this value to avoid multiple reboots
+                    setattr(options, 'salt_minion_rebooted', True)
+
+                else:
+
+                    # The reboot did not return True
+                    print_bulleted(options, 'Reboot failed... ', 'RED')
+
+                break
+
+            else:
+
+                # The ping likely returned 'No response'. the minion is not
+                # connected yet. Try again...
+                print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
+                print_bulleted(options, 'The minion did not return.', 'YELLOW')
+
+                if retries <= 12:
+                    print_bulleted(
+                        options,
+                        'Trying again in 5 seconds. Retry {0}'
+                        ''.format(retries),
+                        'YELLOW')
+                    time.sleep(5)
+
+                print_flush('\n')
+
+        # Ping the minion until it stops returning pings.
+        # We'll try 12 times (6 min)
+        cmd = ['salt', '--out=json', '-l', options.log_level,
+               options.vm_name, 'test.ping']
+
+        retries = 0
+        while retries <= 12:
+
+            retries += 1
+            stdout, stderr, exitcode = run_command(
+                cmd, options, return_output=True, stream_stdout=False,
+                stream_stderr=False)
+            if exitcode:
+                print_bulleted(
+                    options,
+                    'Failed to return a ping from the minion. Exit code: {0}'
+                    ''.format(exitcode), 'RED'
+                )
+                if retries > 12:
+                    sys.exit(exitcode)
+
+            if not stdout.strip():
+                print_bulleted(
+                    options,
+                    'Failed to return a ping from the minion (no output).',
+                    'RED')
+                if retries > 12:
+                    sys.exit(1)
+
+            try:
+                # Load the return with JSON
+                ping = json.loads(stdout.strip())
+                print_bulleted(options, 'Loaded JSON: {0}'.format(ping))
+            except (ValueError, TypeError):
+                # The ping command failed to return valid JSON. Retry.
+                # You should never get here
+                print_bulleted(options, 'ATTENTION!!!!', 'RED')
+                print_bulleted(
+                    options,
+                    'Failed to load any JSON from {0!r}'.format(stdout.strip()),
+                    'RED')
+
+                if retries <= 12:
+                    print_bulleted(
+                        options,
+                        'Trying again in 30 seconds. Retry {0}'.format(retries),
+                        'RED')
+                    time.sleep(30)
+
+                print_flush('\n')
+                continue
+
+            if ping[options.vm_name] is True:
+                print_bulleted(
+                    options, 'Minion still shutting down.', 'YELLOW')
+                print_bulleted(
+                    options,
+                    'Trying again in 30 seconds. Retry {0}'.format(retries),
+                    'YELLOW')
+
+                time.sleep(30)
+                continue
+
+            else:
+                print_bulleted(
+                    options, 'Minion shutdown successfully.', 'YELLOW')
+
+                break
+
+    # Now that we've rebooted, start trying to connect... again...
+    # This time we're loading all the grains because we want to get the
+    # Salt version and the IP
+    print_bulleted(options, 'Loading grains from bootstrapped minion... ')
+    cmd = ['salt', '--out=json', '-l', options.log_level,
+           options.vm_name, 'grains.items']
+
+    retries = 0
+    while retries <= 12:
+        retries += 1
+        stdout, stderr, exitcode = run_command(
+            cmd, options, return_output=True, stream_stdout=False,
+            stream_stderr=False)
+        if exitcode:
+            print_bulleted(
+                options,
+                'Failed to load grains from the minion. Exit code: {0}'
+                ''.format(exitcode),
+                'RED')
+            if retries > 12:
+                sys.exit(exitcode)
+
+        if not stdout.strip():
+            print_bulleted(
+                options,
+                'Failed to load grains from the minion (no output).',
+                'RED')
+            if retries > 12:
+                sys.exit(1)
+
+        try:
+            # Load the return
+            grains = json.loads(stdout.strip())
+            print_bulleted(options, 'Loaded JSON: {0}'.format(grains))
+
+        except (ValueError, TypeError):
+            # The grains command failed to return valid JSON. Retry.
+            # You should never get here
+            print_bulleted(options, 'ATTENTION!!!!', 'RED')
+            print_bulleted(
+                options,
+                'Failed to load any JSON from {0!r}'.format(stdout.strip()),
+                'RED')
+
+            if retries <= 12:
+                print_bulleted(
+                    options,
+                    'Trying again in 5 seconds. Retry {0}'.format(retries),
+                    'RED')
+                time.sleep(5)
+
+            print_flush('\n')
+            continue
+
+        # If a dictionary is returned, then load the Version and IP
+        if isinstance(grains[options.vm_name], dict):
+
+            # Try loading the Salt version and the IP
+            print_bulleted(
+                options,
+                'Found Version: {0}'
+                ''.format(grains[options.vm_name]['saltversion']),
+                'LIGHT_GREEN')
+            print_bulleted(
+                options,
+                'Found IP: {0}'.format(grains[options.vm_name]['ipv4'][0]),
+                'LIGHT_GREEN')
+            print_flush('\n')
+            setattr(
+                options,
+                'bootstrapped_salt_minion_version',
+                SaltStackVersion.parse(grains[options.vm_name]['saltversion']))
+            setattr(options, 'minion_ip_address', grains[options.vm_name]['ipv4'][0])
+
+            break
+
+        else:
+            # Otherwise it failed, probably No response, Try again
+            print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
+            print_bulleted(options, 'The minion did not return.', 'YELLOW')
+
+            if retries <= 12:
+                print_bulleted(
+                    options,
+                    'Trying again in 5 seconds. Retries {0}'
+                    ''.format(retries),
+                    'YELLOW')
+                time.sleep(5)
+
+            print_flush('\n')
+
+
 def check_bootstrapped_minion_version(options):
     '''
     Confirm that the bootstrapped minion version matches the desired one
     '''
     if 'salt_minion_bootstrapped' not in options:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing minion version information.', 'RED')
+        print_bulleted(options, 'Minion not bootstrapped. Not grabbing minion version information.', 'RED')
         sys.exit(1)
 
     print_bulleted(options, 'Grabbing bootstrapped minion version information ... ')
@@ -990,7 +1387,7 @@ def check_bootstrapped_minion_version(options):
             print_bulleted(options, '\n\nATTENTION!!!!\n', 'YELLOW')
             print_bulleted(
                 options,
-                'The boostrapped minion version commit does not contain the desired commit:',
+                'The bootstrapped minion version commit does not contain the desired commit:',
                 'YELLOW'
             )
             print_bulleted(
@@ -1028,7 +1425,9 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     '''
     Run a state on the VM
     '''
-    test_ssh_root_login(options)
+    if not options.windows:
+        test_ssh_root_login(options)
+
     cmd = [
         'salt-call',
         '-l', options.log_level,
@@ -1039,20 +1438,26 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
         cmd.append('--timeout={0}'.format(timeout))
     if options.no_color:
         cmd.append('--no-color')
-    cmd.extend([
-        'state.sls',
-        state_name,
-        'pillar="{0}"'.format(build_pillar_data(options))
-
-    ])
     if saltenv:
-        cmd.extend(['saltenv={0}'.format(saltenv)])
-    if options.require_sudo:
+        cmd.append('saltenv={0}'.format(saltenv))
+    if getattr(options, 'require_sudo', False) and not options.windows:
         cmd.insert(0, 'sudo')
-    if options.no_color:
-        cmd.append('--no-color')
 
-    return run_ssh_command(options, cmd)
+    cmd.extend(['state.sls', state_name ])
+    if options.windows:
+        cmd.append(
+            # This needed to get the formatting correct '"'"'C:\temp'"'"'
+            'pillar="{0}"'.format(build_pillar_data(options).replace('\'\'', '\''))
+        )
+    else:
+        cmd.append('pillar="{0}"'.format(build_pillar_data(options)))
+
+    if options.windows:
+        exitcode = run_winexe_command(options, cmd)
+    else:
+        exitcode = run_ssh_command(options, cmd)
+
+    return exitcode
 
 
 def check_cloned_reposiory_commit(options):
@@ -1071,7 +1476,7 @@ def check_cloned_reposiory_commit(options):
     cmd.extend([
         options.vm_name,
         'git.revision',
-        '/testing'
+        '/{0}'.format(options.package_source_dir)
     ])
 
     stdout, stderr, exitcode = run_command(cmd,
@@ -1166,7 +1571,30 @@ def run_ssh_command(options, remote_command):
 
     # Assemble local and remote parts into final command and return result
     cmd.append(pipes.quote(remote_command))
+    print_bulleted(options, 'Running SSH command: {0}'.format(cmd))
     return run_command(cmd, options)
+
+
+def run_winexe_command(options, remote_command):
+    host = get_minion_ip_address(options)
+    win_username, win_password = prepare_winexe_access(options)
+    credentials = "-U '{0}%{1}' //{2}".format(
+        win_username,
+        win_password,
+        host
+    )
+    logging_credentials = "-U '{0}%XXX-REDACTED-XXX' //{1}".format(
+        win_username,
+        host
+    )
+    if isinstance(remote_command, list):
+        remote_command = ' '.join(remote_command)
+    cmd = 'winexe {0} \'cmd /c {1}\'' \
+          ''.format(credentials, remote_command)
+    logging_cmd = 'winexe {0} \'cmd /c {1}\'' \
+                  ''.format(logging_credentials, remote_command)
+    print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
+    return win_cmd(cmd, logging_command=logging_cmd)
 
 
 def test_ssh_root_login(options):
@@ -1186,7 +1614,7 @@ def test_ssh_root_login(options):
     save_state(options)
 
 
-def download_artifacts(options):
+def download_artifacts_ssh(options):
     test_ssh_root_login(options)
 
     # Check if we're sudo'ing
@@ -1226,19 +1654,109 @@ def download_artifacts(options):
                 os.chown(local_path, sudo_uid, sudo_gid)
 
 
+def download_artifacts_smb(options):
+    '''
+    Download artifacts from a Windows test box using Samba.
+    '''
+    from impacket.smbconnection import SessionError
+
+    # Check if we're sudo'ing
+    using_sudo = 'SUDO_USER' in os.environ
+    sudo_uid = int(os.environ.get('SUDO_UID', os.getuid()))
+    sudo_gid = int(os.environ.get('SUDO_GID', os.getgid()))
+
+    # Make sure minion IP is set
+    host = get_minion_ip_address(options)
+    win_username, win_password = prepare_winexe_access(options)
+
+    smb_conn = get_conn(host, win_username, win_password)
+
+    for remote_path, local_path in options.download_artifact:
+
+        # Create the local directories
+        local_path = os.path.abspath(local_path)
+        if not os.path.isdir(local_path):
+            os.makedirs(local_path)
+
+        # Create the correct path format. ``C:\Path\To\file.txt`` needs to be
+        # formatted as ``Path\To\file.txt``. Samba will connect to the ``C$``
+        # hidden share. We're assuming ``C:`` is the only drive
+
+        # Get remote directory before the Windows manipulations, otherwise you
+        # won't be able to get it later because we're doing this on Linux
+        remote_path_dir = os.path.dirname(remote_path)
+        remote_path_file = os.path.basename(remote_path)
+
+        # Convert unix slashes to Windows slashes if present.
+        if '/' in remote_path_dir:
+            remote_path_dir = remote_path_dir.replace('/', "\\")
+
+        # Remove drive letter if present. Can't use os.path.splitdrive in this
+        # case because this code is not running on Windows
+        if ':' in remote_path_dir:
+            remote_path_dir = remote_path_dir[2:]
+
+        # Remove leading slashes
+        while remote_path_dir[0:1] == '\\':
+            remote_path_dir = remote_path_dir[1:]
+
+        remote_path = '{0}\\{1}'.format(remote_path_dir, remote_path_file)
+
+        try:
+            print_bulleted(options, 'Listing files: {0}'.format(remote_path))
+            remote_files = smb_conn.listPath('C$', remote_path)
+        except SessionError as exc:
+            print_bulleted(options, 'Error: {0}'.format(exc), 'YELLOW')
+            print_bulleted(options, 'File: {0}'.format(remote_path), 'YELLOW')
+            continue
+
+        for item in remote_files:
+
+            remote_file = '{0}\\{1}'.format(remote_path_dir,
+                                            item.get_longname())
+            local_file = '{0}/{1}'.format(local_path, item.get_longname())
+
+            if not os.path.exists(local_file):
+                os.mknod(local_file)
+
+            # Download the file
+            try:
+                print_bulleted(options, 'Copying file: {0}'.format(remote_file))
+                with fopen(local_file, 'wb') as _fh:
+                    smb_conn.getFile('C$', remote_file, _fh.write)
+            except SessionError as exc:
+                print_bulleted(options, 'Error: {0}'.format(exc), 'YELLOW')
+                print_bulleted(options, 'File: {0}'.format(remote_file), 'YELLOW')
+                continue
+
+            # Set permissions if Using SUDO
+            if using_sudo:
+                if os.path.isdir(local_path):
+                    for root, dirs, files in os.walk(local_path):
+                        for dname in dirs:
+                            os.chown(os.path.join(root, dname), sudo_uid, sudo_gid)
+                        for fname in files:
+                            os.chown(os.path.join(root, fname), sudo_uid, sudo_gid)
+                else:
+                    os.chown(local_path, sudo_uid, sudo_gid)
+
+
 def build_default_test_command(options):
     '''
     Construct the command that is sent to the minion to execute the test run
     '''
     python_bin_path = get_minion_python_executable(options)
-    # This is a pretty naive aproach to get the coverage binary path
+    # This is a pretty naive approach to get the coverage binary path
     coverage_bin_path = python_bin_path.replace('python', 'coverage')
 
     # Select python executable
     if 'salt_minion_bootstrapped' in options:
-        test_command = [get_minion_python_executable(options)]
+        test_command = [python_bin_path]
     else:
-        print_bulleted(options, 'Minion not boostrapped. Not grabbing remote python executable.', 'YELLOW')
+        print_bulleted(
+            options,
+            'Minion not bootstrapped. Not grabbing remote python executable.',
+            'YELLOW')
         test_command = ['python']
 
     # Append coverage parameters
@@ -1251,13 +1769,18 @@ def build_default_test_command(options):
             '--parallel-mode',
         ])
 
+    # Append basic command
+    if options.windows:
+        test_command.append(
+            '{0}\\tests\\runtests.py'.format(options.package_source_dir))
+    else:
+        test_command.append(
+            '/{0}/tests/runtests.py'.format(options.package_source_dir))
     # Append basic command parameters
     test_command.extend([
-        '/testing/tests/runtests.py',
         '-v',
         '--run-destructive',
         '--sysinfo',
-        '--xml=/tmp/xml-unittests-output',
         '--transport={0}'.format(options.test_transport),
         '--output-columns={0}'.format(options.output_columns),
     ])
@@ -1265,12 +1788,17 @@ def build_default_test_command(options):
     # Append extra and conditional parameters
     pillar = build_pillar_data(options, convert_to_yaml=False)
     git_branch = pillar.get('git_branch', 'develop')
-    if git_branch and git_branch not in('2014.1',):
+    if git_branch and git_branch not in('2014.1',) and not options.windows:
         test_command.append('--ssh')
     if options.test_without_coverage is False and options.test_with_new_coverage is False:
         test_command.append('--coverage-xml=/tmp/coverage.xml')
     if options.no_color:
         test_command.append('--no-color')
+    if options.windows:
+        test_command.append(
+            '--names-file="{0}\\tests\\whitelist.txt"'
+            ''.format(options.package_source_dir))
+    test_command.append('--xml=/tmp/xml-unittests-output')
 
     return test_command
 
@@ -1285,7 +1813,10 @@ def generate_xml_coverage_report(options, exit=True):
             get_minion_python_executable(options),
             coverage_bin_path
         )
-        exitcode = run_ssh_command(options, cmd)
+        if options.windows:
+            exitcode = run_winexe_command(options, cmd)
+        else:
+            exitcode = run_ssh_command(options, cmd)
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(cmd), 'RED'
@@ -1306,8 +1837,8 @@ def get_args():
     parser.add_argument(
         '-w', '--workspace',
         default=os.path.abspath(os.environ.get('WORKSPACE', os.getcwd())),
-        help=('Path to the execution workspace. Defaults to the \'WORKSPACE\' environment '
-              'variable or the current directory.')
+        help=('Path to the execution workspace. Defaults to the \'WORKSPACE\' '
+              'environment variable or the current directory.')
     )
     parser.add_argument(
         '-l', '--log-level',
@@ -1397,6 +1928,13 @@ def get_args():
         action='store_true',
         default=False,
         help='Salt Parallels Desktop Deployment'
+    )
+    deployment_group.add_argument(
+        '--windows',
+        action='store_true',
+        default=False,
+        help='This is a windows host. salt-cloud will use the "-k" switch and '
+             'winexe will be used.'
     )
     deployment_group.add_argument(
         '--pip-based',
@@ -1566,6 +2104,13 @@ def get_args():
         action='store_true',
         help='Print out the default command that runs the test suite on the deployed VM'
     )
+    testing_source_options.add_argument(
+        '--update-winrepo',
+        action='store_true',
+        default=False,
+        help='Update winrepo before you run the test suite. This is needed to '
+             'test the pkg module in Windows.'
+    )
     testing_source_options_mutually_exclusive = testing_source_options.add_mutually_exclusive_group()
     testing_source_options_mutually_exclusive.add_argument(
         '--test-command',
@@ -1689,9 +2234,15 @@ def main():
         print_bulleted(options, 'Sleeping for 5 seconds to allow the minion to breathe a little', 'YELLOW')
         time.sleep(5)
         if not options.test_interactive:
-            check_bootstrapped_minion_version(options)
+            if options.windows:
+                check_win_minion_connected(options)
+            else:
+                check_bootstrapped_minion_version(options)
         time.sleep(1)
-        prepare_ssh_access(options)
+        if options.windows:
+            prepare_winexe_access(options)
+        else:
+            prepare_ssh_access(options)
         time.sleep(1)
 
     # Run preparation SLS
@@ -1716,9 +2267,14 @@ def main():
     if options.test_default_command:
         options.test_command = build_default_test_command(options)
 
-    # Run the main command using SSH for realtime output
+    # Run the main command using SSH/winexe for realtime output
     if options.test_command:
-        exitcode = run_ssh_command(options, options.test_command)
+
+        if options.windows:
+            exitcode = run_winexe_command(options, options.test_command)
+        else:
+            exitcode = run_ssh_command(options, options.test_command)
+
         if exitcode != 0:
             print_bulleted(
                 options, 'The execution of the test command {0!r} failed'.format(options.test_command), 'RED'
@@ -1752,7 +2308,10 @@ def main():
             time.sleep(1)
 
     if options.download_artifact:
-        download_artifacts(options)
+        if options.windows:
+            download_artifacts_smb(options)
+        else:
+            download_artifacts_ssh(options)
 # <---- Parser Code --------------------------------------------------------------------------------------------------
 
 if __name__ == '__main__':
