@@ -126,23 +126,18 @@ class TestCase(_TestCase):
             from salttesting.mock import NO_MOCK, NO_MOCK_REASON
             if NO_MOCK:
                 self.skipTest(NO_MOCK_REASON)
-            if not hasattr(loader_module, '__opts__'):
-                loader_module.__opts__ = {}
-            if not hasattr(loader_module, '__salt__'):
-                loader_module.__salt__ = {}
-            if not hasattr(loader_module, '__utils__'):
-                loader_module.__utils__ = {}
-            if not hasattr(loader_module, '__context__'):
-                loader_module.__context__ = {}
 
             loader_module_name = loader_module.__name__
             loader_module_globals = copy.deepcopy(getattr(self, 'loader_module_globals', {}))
+            loader_module_blacklisted_dunders = copy.deepcopy(getattr(self, 'loader_module_blacklisted_dunders', ()))
             for key in loader_module_globals:
                 if not hasattr(loader_module, key):
                     setattr(loader_module, key, None)
             for dunder_name in ('__opts__', '__salt__', '__proxy__', '__runner__', '__context__', '__utils__',
                                 '__ext_pillar__', '__thorium__', '__states__', '__serializers__', '__ret__',
                                 '__grains__', '__pillar__', '__sdb__'):
+                if dunder_name in loader_module_blacklisted_dunders:
+                    continue
                 if not hasattr(loader_module, dunder_name):
                     setattr(loader_module, dunder_name, {})
                 dunder_dict = getattr(self, dunder_name, None)
