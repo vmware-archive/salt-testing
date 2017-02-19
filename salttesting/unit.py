@@ -128,7 +128,13 @@ class TestCase(_TestCase):
                 self.skipTest(NO_MOCK_REASON)
 
             loader_module_name = loader_module.__name__
-            loader_module_globals = copy.deepcopy(getattr(self, 'loader_module_globals', {}))
+            loader_module_globals = getattr(self, 'loader_module_globals', None)
+            if loader_module_globals is None:
+                loader_module_globals = {}
+            elif callable(loader_module_globals):
+                loader_module_globals = loader_module_globals()
+            else:
+                loader_module_globals = copy.deepcopy(loader_module_globals)
             loader_module_blacklisted_dunders = copy.deepcopy(getattr(self, 'loader_module_blacklisted_dunders', ()))
             for key in loader_module_globals:
                 if not hasattr(loader_module, key):
