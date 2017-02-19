@@ -142,6 +142,8 @@ class TestCase(_TestCase):
                     setattr(loader_module, dunder_name, {})
                 dunder_dict = getattr(self, dunder_name, None)
                 if dunder_dict is not None:
+                    if callable(dunder_dict):
+                        dunder_dict = dunder_dict()
                     loader_module_globals[dunder_name] = copy.deepcopy(dunder_dict)
             if loader_module_globals:
                 from salttesting.mock import patch
