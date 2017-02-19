@@ -121,21 +121,21 @@ class TestCase(_TestCase):
 #            cls._chdir_counter += 1
 
     def setUp(self):
-        loader_module_mock = getattr(self, 'loader_module_mock', None)
-        if loader_module_mock is not None:
+        loader_module = getattr(self, 'loader_module', None)
+        if loader_module is not None:
             from salttesting.mock import NO_MOCK, NO_MOCK_REASON
             if NO_MOCK:
                 self.skipTest(NO_MOCK_REASON)
-            if not hasattr(loader_module_mock, '__salt__'):
-                loader_module_mock.__salt__ = {}
-            if not hasattr(loader_module_mock, '__utils__'):
-                loader_module_mock.__utils__ = {}
+            if not hasattr(loader_module, '__salt__'):
+                loader_module.__salt__ = {}
+            if not hasattr(loader_module, '__utils__'):
+                loader_module.__utils__ = {}
 
-            loader_module_mock_name = loader_module_mock.__name__
+            loader_module_name = loader_module.__name__
             from salttesting.mock import patch
             loader_module_salt_dunder_dict = getattr(self, 'loader_module_salt_dunder_dict', {})
             loader_module_utils_dunder_dict = getattr(self, 'loader_module_utils_dunder_dict', {})
-            patcher = patch.multiple(loader_module_mock_name,
+            patcher = patch.multiple(loader_module_name,
                                      __salt__=loader_module_salt_dunder_dict,
                                      __utils__=loader_module_utils_dunder_dict)
             patcher.start()
