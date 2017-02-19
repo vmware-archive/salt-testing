@@ -120,6 +120,22 @@ class TestCase(_TestCase):
 #                    'on tearDown() to {0}\n'.format(cls._cwd))
 #            cls._chdir_counter += 1
 
+    def setUp(self):
+        loader_module_mock = getattr(self, 'loader_module_mock', None)
+        if loader_module_mock is not None:
+            try:
+                loader_module_mock = loader_module_mock.__name__
+            except AttributeError:
+                pass
+            from salttesting.mock import patch
+            loader_module_salt_dunder_dict = getattr(self, 'loader_module_salt_dunder_dict', {})
+            loader_module_utils_dunder_dict = getattr(self, 'loader_module_utils_dunder_dict', {})
+            patcher = patch.multiple(self.loader_module_mock,
+                                     __salt__=loader_module_salt_dunder_dict,
+                                     __utils__=loader_module_utils_dunder_dict)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def shortDescription(self):
         desc = _TestCase.shortDescription(self)
         if HAS_PSUTIL and SHOW_PROC:
@@ -130,9 +146,9 @@ class TestCase(_TestCase):
                     if proc.status == psutil.STATUS_ZOMBIE:
                         found_zombies += 1
                 proc_info = '[CPU:{0}%|MEM:{1}%|Z:{2}] {short_desc}'.format(psutil.cpu_percent(),
-                                                                   psutil.virtual_memory().percent,
-                                                                   found_zombies,
-                                                                   short_desc=desc if desc else '')
+                                                                            psutil.virtual_memory().percent,
+                                                                            found_zombies,
+                                                                            short_desc=desc if desc else '')
             except Exception:
                 pass
             return proc_info
