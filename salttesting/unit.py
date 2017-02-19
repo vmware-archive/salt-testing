@@ -139,6 +139,12 @@ class TestCase(_TestCase):
             for key in loader_module_globals:
                 if not hasattr(loader_module, key):
                     setattr(loader_module, key, None)
+
+            get_dunders = getattr(self, '__get_dunders__', None)
+            if get_dunders:
+                dunders = get_dunders()
+            else:
+                dunders = {}
             for dunder_name in ('__opts__', '__salt__', '__proxy__', '__runner__', '__context__', '__utils__',
                                 '__ext_pillar__', '__thorium__', '__states__', '__serializers__', '__ret__',
                                 '__grains__', '__pillar__', '__sdb__'):
@@ -146,7 +152,8 @@ class TestCase(_TestCase):
                     continue
                 if not hasattr(loader_module, dunder_name):
                     setattr(loader_module, dunder_name, {})
-                dunder_dict = getattr(self, dunder_name, None)
+
+                dunder_dict = dunders.get(dunder_name) or getattr(self, dunder_name, None)
                 if dunder_dict is not None:
                     if callable(dunder_dict):
                         dunder_dict = dunder_dict()
