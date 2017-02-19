@@ -123,14 +123,19 @@ class TestCase(_TestCase):
     def setUp(self):
         loader_module_mock = getattr(self, 'loader_module_mock', None)
         if loader_module_mock is not None:
-            try:
-                loader_module_mock = loader_module_mock.__name__
-            except AttributeError:
-                pass
+            from salttesting.mock import NO_MOCK, NO_MOCK_REASON
+            if NO_MOCK:
+                self.skipTest(NO_MOCK_REASON)
+            if not hasattr(loader_module_mock, '__salt__'):
+                loader_module_mock.__salt__ = {}
+            if not hasattr(loader_module_mock, '__utils__'):
+                loader_module_mock.__utils__ = {}
+
+            loader_module_mock_name = loader_module_mock.__name__
             from salttesting.mock import patch
             loader_module_salt_dunder_dict = getattr(self, 'loader_module_salt_dunder_dict', {})
             loader_module_utils_dunder_dict = getattr(self, 'loader_module_utils_dunder_dict', {})
-            patcher = patch.multiple(self.loader_module_mock,
+            patcher = patch.multiple(loader_module_mock_name,
                                      __salt__=loader_module_salt_dunder_dict,
                                      __utils__=loader_module_utils_dunder_dict)
             patcher.start()
