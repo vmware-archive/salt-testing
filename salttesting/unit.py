@@ -136,23 +136,23 @@ class TestCase(_TestCase):
                 loader_module.__context__ = {}
 
             loader_module_name = loader_module.__name__
-            from salttesting.mock import patch
-            loader_module_opts_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_opts_dunder_dict', {}))
-            loader_module_salt_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_salt_dunder_dict', {}))
-            loader_module_utils_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_utils_dunder_dict', {}))
-            loader_module_context_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_context_dunder_dict', {}))
-            loader_module_global_attributes = copy.deepcopy(getattr(self, 'loader_module_global_attributes', {}))
-            for key in loader_module_salt_dunder_dict:
+            loader_module_globals = copy.deepcopy(getattr(self, 'loader_module_globals', {}))
+            for key in loader_module_globals:
                 if not hasattr(loader_module, key):
                     setattr(loader_module, key, None)
-            loader_module_global_attributes['__opts__'] = loader_module_opts_dunder_dict
-            loader_module_global_attributes['__salt__'] = loader_module_salt_dunder_dict
-            loader_module_global_attributes['__utils__'] = loader_module_utils_dunder_dict
-            loader_module_global_attributes['__context__'] = loader_module_context_dunder_dict
-            patcher = patch.multiple(loader_module_name,
-                                     **loader_module_global_attributes)
-            patcher.start()
-            self.addCleanup(patcher.stop)
+            for dunder_name in ('__opts__', '__salt__', '__proxy__', '__runner__', '__context__', '__utils__',
+                                '__ext_pillar__', '__thorium__', '__states__', '__serializers__', '__ret__',
+                                '__grains__', '__pillar__', '__sdb__'):
+                if not hasattr(loader_module, dunder_name):
+                    setattr(loader_module, dunder_name, {})
+                dunder_dict = getattr(self, dunder_name, None)
+                if dunder_dict is not None:
+                    loader_module_globals[dunder_name] = copy.deepcopy(dunder_dict)
+            if loader_module_globals:
+                from salttesting.mock import patch
+                patcher = patch.multiple(loader_module_name, **loader_module_globals)
+                patcher.start()
+                self.addCleanup(patcher.stop)
 
     def shortDescription(self):
         desc = _TestCase.shortDescription(self)
