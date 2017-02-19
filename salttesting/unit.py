@@ -126,21 +126,29 @@ class TestCase(_TestCase):
             from salttesting.mock import NO_MOCK, NO_MOCK_REASON
             if NO_MOCK:
                 self.skipTest(NO_MOCK_REASON)
+            if not hasattr(loader_module, '__opts__'):
+                loader_module.__opts__ = {}
             if not hasattr(loader_module, '__salt__'):
                 loader_module.__salt__ = {}
             if not hasattr(loader_module, '__utils__'):
                 loader_module.__utils__ = {}
+            if not hasattr(loader_module, '__context__'):
+                loader_module.__context__ = {}
 
             loader_module_name = loader_module.__name__
             from salttesting.mock import patch
+            loader_module_opts_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_opts_dunder_dict', {}))
             loader_module_salt_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_salt_dunder_dict', {}))
             loader_module_utils_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_utils_dunder_dict', {}))
+            loader_module_context_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_context_dunder_dict', {}))
             loader_module_global_attributes = copy.deepcopy(getattr(self, 'loader_module_global_attributes', {}))
             for key in loader_module_salt_dunder_dict:
                 if not hasattr(loader_module, key):
                     setattr(loader_module, key, None)
+            loader_module_global_attributes['__opts__'] = loader_module_opts_dunder_dict
             loader_module_global_attributes['__salt__'] = loader_module_salt_dunder_dict
             loader_module_global_attributes['__utils__'] = loader_module_utils_dunder_dict
+            loader_module_global_attributes['__context__'] = loader_module_context_dunder_dict
             patcher = patch.multiple(loader_module_name,
                                      **loader_module_global_attributes)
             patcher.start()
