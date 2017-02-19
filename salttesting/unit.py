@@ -23,7 +23,7 @@
 # Import python libs
 from __future__ import absolute_import
 import sys
-import os
+import copy
 import logging
 try:
     import psutil
@@ -133,11 +133,16 @@ class TestCase(_TestCase):
 
             loader_module_name = loader_module.__name__
             from salttesting.mock import patch
-            loader_module_salt_dunder_dict = getattr(self, 'loader_module_salt_dunder_dict', {})
-            loader_module_utils_dunder_dict = getattr(self, 'loader_module_utils_dunder_dict', {})
+            loader_module_salt_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_salt_dunder_dict', {}))
+            loader_module_utils_dunder_dict = copy.deepcopy(getattr(self, 'loader_module_utils_dunder_dict', {}))
+            loader_module_global_attributes = copy.deepcopy(getattr(self, 'loader_module_global_attributes', {}))
+            for key in loader_module_salt_dunder_dict:
+                if not hasattr(loader_module, key):
+                    setattr(loader_module, key, None)
+            loader_module_global_attributes['__salt__'] = loader_module_salt_dunder_dict
+            loader_module_global_attributes['__utils__'] = loader_module_utils_dunder_dict
             patcher = patch.multiple(loader_module_name,
-                                     __salt__=loader_module_salt_dunder_dict,
-                                     __utils__=loader_module_utils_dunder_dict)
+                                     **loader_module_global_attributes)
             patcher.start()
             self.addCleanup(patcher.stop)
 
