@@ -160,8 +160,8 @@ class TestCase(_TestCase):
         else:
             return _TestCase.shortDescription(self)
 
-    def runTest(self):
-        pass
+    #def runTest(self):
+    #    pass
 
     def assertEquals(self, *args, **kwargs):
         raise DeprecationWarning(
