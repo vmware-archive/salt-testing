@@ -129,40 +129,41 @@ class TestCase(_TestCase):
 
             loader_module_name = loader_module.__name__
             loader_module_globals = getattr(self, 'loader_module_globals', None)
+            loader_module_blacklisted_dunders = getattr(self, 'loader_module_blacklisted_dunders', ())
             if loader_module_globals is None:
                 loader_module_globals = {}
             elif callable(loader_module_globals):
                 loader_module_globals = loader_module_globals()
             else:
                 loader_module_globals = copy.deepcopy(loader_module_globals)
-            loader_module_blacklisted_dunders = copy.deepcopy(getattr(self, 'loader_module_blacklisted_dunders', ()))
+
+            salt_dunders = (
+                '__opts__', '__salt__', '__runner__', '__context__', '__utils__',
+                '__ext_pillar__', '__thorium__', '__states__', '__serializers__', '__ret__',
+                '__grains__', '__pillar__', '__sdb__',
+                # Proxy is commented out on purpose since some code in salt expects a NameError
+                # and is most of the time not a required dunder
+                # '__proxy__'
+            )
+            for dunder_name in salt_dunders:
+                if dunder_name not in loader_module_globals:
+                    if dunder_name in loader_module_blacklisted_dunders:
+                        continue
+                    loader_module_globals[dunder_name] = {}
+
             for key in loader_module_globals:
                 if not hasattr(loader_module, key):
-                    setattr(loader_module, key, None)
+                    if key in salt_dunders:
+                        setattr(loader_module, key, {})
+                    else:
+                        setattr(loader_module, key, None)
 
-            get_dunders = getattr(self, '__get_dunders__', None)
-            if get_dunders:
-                dunders = get_dunders()
-            else:
-                dunders = {}
-            for dunder_name in ('__opts__', '__salt__', '__proxy__', '__runner__', '__context__', '__utils__',
-                                '__ext_pillar__', '__thorium__', '__states__', '__serializers__', '__ret__',
-                                '__grains__', '__pillar__', '__sdb__'):
-                if dunder_name in loader_module_blacklisted_dunders:
-                    continue
-                if not hasattr(loader_module, dunder_name):
-                    setattr(loader_module, dunder_name, {})
-
-                dunder_dict = dunders.get(dunder_name) or getattr(self, dunder_name, None)
-                if dunder_dict is not None:
-                    if callable(dunder_dict):
-                        dunder_dict = dunder_dict()
-                    loader_module_globals[dunder_name] = copy.deepcopy(dunder_dict)
             if loader_module_globals:
                 from salttesting.mock import patch
                 patcher = patch.multiple(loader_module_name, **loader_module_globals)
                 patcher.start()
                 self.addCleanup(patcher.stop)
+        super(TestCase, self).setUp()
 
     def shortDescription(self):
         desc = _TestCase.shortDescription(self)
