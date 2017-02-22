@@ -1100,7 +1100,7 @@ def collect_child_processes(pid):
     # Let's get the child processes of the started subprocess
     try:
         parent = psutil.Process(pid)
-        if hasattr(process, 'children'):
+        if hasattr(parent, 'children'):
             children = parent.children(recursive=True)
         else:
             children = []
@@ -1229,7 +1229,7 @@ def terminate_process(pid=None, process=None, children=None, kill_children=False
             log.info('Terminating process list: %s', process_list)
         terminate_process_list(process_list, kill=slow_stop is False, slow_stop=slow_stop)
         if psutil.pid_exists(pid):
-            log.warning('Process left behind which we were unable to kill: %s', cmdline)
+            log.warning('Process left behind which we were unable to kill: %s', process)
 
 
 def terminate_process_pid(pid, only_children=False):
@@ -1239,11 +1239,10 @@ def terminate_process_pid(pid, only_children=False):
     # Let's begin the shutdown routines
     try:
         process = psutil.Process(pid)
-        if hasattr(process, 'children'):
-            children = process.children(recursive=True)
+        children = collect_child_processes(pid)
     except psutil.NoSuchProcess:
         log.info('No process with the PID %s was found running', pid)
 
     if only_children:
-        return terminate_process_list(children, kill=False, slow_stop=True)
+        return terminate_process(children=children, kill_children=True, slow_stop=True)
     return terminate_process(pid=pid, process=process, children=children, kill_children=True, slow_stop=True)
