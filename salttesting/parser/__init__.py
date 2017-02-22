@@ -674,7 +674,7 @@ class SaltTestingParser(optparse.OptionParser):
 
             # Let's check if, in fact, the container is stopped
             scode_call = subprocess.Popen(
-                ['docker', 'inspect', '-format={{.State.Running}}', cid],
+                [self.options.docker_binary, 'inspect', '--format={{.State.Running}}', cid],
                 env=os.environ.copy(),
                 close_fds=True,
                 stdout=subprocess.PIPE
@@ -688,7 +688,7 @@ class SaltTestingParser(optparse.OptionParser):
                 sys.stdout.flush()
 
                 stop_call = subprocess.Popen(
-                    ['docker', 'stop', '--time=15', cid],
+                    [self.options.docker_binary, 'stop', '--time=15', cid],
                     env=os.environ.copy(),
                     close_fds=True,
                     stdout=subprocess.PIPE
@@ -704,7 +704,7 @@ class SaltTestingParser(optparse.OptionParser):
             print(' * Container exit code:'),
             sys.stdout.flush()
             rcode_call = subprocess.Popen(
-                ['docker', 'inspect', '-format={{.State.ExitCode}}', cid],
+                [self.options.docker_binary, 'inspect', '--format={{.State.ExitCode}}', cid],
                 env=os.environ.copy(),
                 close_fds=True,
                 stdout=subprocess.PIPE
@@ -725,7 +725,7 @@ class SaltTestingParser(optparse.OptionParser):
                 print(' * Cleaning Up Temporary Docker Container. CID:'),
                 sys.stdout.flush()
                 cleanup_call = subprocess.Popen(
-                    ['docker', 'rm', cid],
+                    [self.options.docker_binary, 'rm', cid],
                     env=os.environ.copy(),
                     close_fds=True,
                     stdout=subprocess.PIPE
@@ -820,7 +820,7 @@ class SaltTestingParser(optparse.OptionParser):
              'COLUMNS={0}'.format(WIDTH),
              '-e',
              'LINES={0}'.format(HEIGHT),
-             '-cidfile={0}'.format(cidfile),
+             '--cidfile={0}'.format(cidfile),
              container,
              # We need to pass the runtests.py arguments as a single string so
              # that the start-me-up.sh script can handle them properly
