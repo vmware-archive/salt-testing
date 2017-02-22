@@ -14,7 +14,6 @@
 # Import python libs
 from __future__ import absolute_import
 import sys
-import locale
 import logging
 
 # Import 3rd-party libs
