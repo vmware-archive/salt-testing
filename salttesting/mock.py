@@ -104,7 +104,7 @@ if NO_MOCK is False:
         NO_MOCK_REASON = 'you need to upgrade your mock version to >= 0.8.0'
 
 
-if sys.version_info > (2,):
+if sys.version_info >= (3,):
     from mock import mock_open
 else:
     # backport mock_open from the python 3 unittest.mock library so that we can
