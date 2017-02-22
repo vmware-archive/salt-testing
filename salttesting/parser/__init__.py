@@ -108,7 +108,8 @@ class SaltTestingParser(optparse.OptionParser):
         'salttest/ubuntu-12.04': 'python2.7',
         'salttest/ubuntu-12.10': 'python2.7',
         'salttest/ubuntu-13.04': 'python2.7',
-        'salttest/ubuntu-13.10': 'python2.7'
+        'salttest/ubuntu-13.10': 'python2.7',
+        'salttest/py3': 'python3'
     }
 
     def __init__(self, testsuite_directory, *args, **kwargs):
@@ -665,6 +666,7 @@ class SaltTestingParser(optparse.OptionParser):
         '''
         Run the tests suite in a Docker container
         '''
+        import salt.ext.six as six
         def stop_running_docked_container(cid, signum=None, frame=None):
             # Allow some time for the container to stop if it's going to be
             # stopped by docker or any signals docker might have received
@@ -681,6 +683,8 @@ class SaltTestingParser(optparse.OptionParser):
             )
             scode_call.wait()
             parsed_scode = scode_call.stdout.read().strip()
+            if six.PY3:
+                parsed_scode = parsed_scode.decode(__salt_system_encoding__)
             if parsed_scode != 'false':
                 # If the container is still running, let's make sure it
                 # properly stops
@@ -694,7 +698,10 @@ class SaltTestingParser(optparse.OptionParser):
                     stdout=subprocess.PIPE
                 )
                 stop_call.wait()
-                print(stop_call.stdout.read().strip())
+                output = stop_call.stdout.read().strip()
+                if six.PY3:
+                    output = output.decode(__salt_system_encoding__)
+                print(output)
                 sys.stdout.flush()
                 time.sleep(0.5)
 
@@ -711,6 +718,8 @@ class SaltTestingParser(optparse.OptionParser):
             )
             rcode_call.wait()
             parsed_rcode = rcode_call.stdout.read().strip()
+            if six.PY3:
+                parsed_rcode = parsed_rcode.decode(__salt_system_encoding__)
             try:
                 returncode = int(parsed_rcode)
             except ValueError:
@@ -731,7 +740,10 @@ class SaltTestingParser(optparse.OptionParser):
                     stdout=subprocess.PIPE
                 )
                 cleanup_call.wait()
-                print(cleanup_call.stdout.read().strip())
+                output = cleanup_call.stdout.read().strip()
+                if six.PY3:
+                    output = output.decode(__salt_system_encoding__)
+                print(output)
 
             if 'DOCKER_CIDFILE' not in os.environ:
                 # The CID file was not created "from the outside", so delete it
@@ -794,9 +806,9 @@ class SaltTestingParser(optparse.OptionParser):
                 '-{0}'.format('v' * (self.options.verbosity - 1))
             )
 
-        print(' * Docker command: {0}'.format(' '.join(calling_args)))
-        print(' * Running the tests suite under the {0!r} docker '
-              'container. CID:'.format(container)),
+        sys.stdout.write(' * Docker command: {0}\n'.format(' '.join(calling_args)))
+        sys.stdout.write(' * Running the tests suite under the {0!r} docker '
+                         'container. CID: '.format(container))
         sys.stdout.flush()
 
         cidfile = os.environ.get(
