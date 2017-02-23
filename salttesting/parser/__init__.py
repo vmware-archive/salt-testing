@@ -26,6 +26,7 @@ import warnings
 from functools import partial
 from contextlib import closing
 
+import six
 from salttesting import TestLoader, TextTestRunner
 from salttesting import helpers
 from salttesting.version import __version_info__
@@ -541,8 +542,6 @@ class SaltTestingParser(optparse.OptionParser):
         '''
         Print a nicely formatted report about the test suite results
         '''
-        # Brute force approach to terminate this process and it's children
-        helpers.terminate_process_pid(os.getpid(), only_children=True)
         print()
         print_header(
             u'  Overall Tests Report  ', sep=u'=', centered=True, inline=True,
@@ -582,7 +581,7 @@ class SaltTestingParser(optparse.OptionParser):
                 for testcase, reason in results.skipped:
                     print(fmt.format(testcase.id(), reason, maxlen=maxlen))
                 print_header(u' ', sep='-', inline=True,
-                            width=self.options.output_columns)
+                             width=self.options.output_columns)
 
             if results.errors:
                 print_header(
@@ -598,7 +597,7 @@ class SaltTestingParser(optparse.OptionParser):
                     for line in reason.rstrip().splitlines():
                         print('       {0}'.format(line.rstrip()))
                     print_header(u'   ', sep=u'.', inline=True,
-                                width=self.options.output_columns)
+                                 width=self.options.output_columns)
                 print_header(u' ', sep='-', inline=True,
                              width=self.options.output_columns)
 
@@ -616,7 +615,7 @@ class SaltTestingParser(optparse.OptionParser):
                     for line in reason.rstrip().splitlines():
                         print('       {0}'.format(line.rstrip()))
                     print_header(u'   ', sep=u'.', inline=True,
-                                width=self.options.output_columns)
+                                 width=self.options.output_columns)
                 print_header(u' ', sep='-', inline=True,
                              width=self.options.output_columns)
 
@@ -655,6 +654,11 @@ class SaltTestingParser(optparse.OptionParser):
         if self.options.no_report is False:
             self.print_overall_testsuite_report()
         self.post_execution_cleanup()
+        # Brute force approach to terminate this process and it's children
+        logging.getLogger(__name__).info('Terminating test suite child processes.')
+        helpers.terminate_process_pid(os.getpid(), only_children=True)
+        logging.getLogger(__name__).info('Terminating test suite child processes if any are still found running.')
+        helpers.terminate_process_pid(os.getpid(), only_children=True)
         logging.getLogger(__name__).info(
             'Test suite execution finalized with exit code: {0}'.format(
                 exit_code
@@ -666,7 +670,6 @@ class SaltTestingParser(optparse.OptionParser):
         '''
         Run the tests suite in a Docker container
         '''
-        import salt.ext.six as six
         def stop_running_docked_container(cid, signum=None, frame=None):
             # Allow some time for the container to stop if it's going to be
             # stopped by docker or any signals docker might have received
@@ -688,7 +691,7 @@ class SaltTestingParser(optparse.OptionParser):
             if parsed_scode != 'false':
                 # If the container is still running, let's make sure it
                 # properly stops
-                print(' * Making sure the container is stopped. CID:'),
+                sys.stdout.write(' * Making sure the container is stopped. CID: ')
                 sys.stdout.flush()
 
                 stop_call = subprocess.Popen(
@@ -708,7 +711,7 @@ class SaltTestingParser(optparse.OptionParser):
             # Let's get the container's exit code. We can't trust on Popen's
             # returncode because it's not reporting the proper one? Still
             # haven't narrowed it down why.
-            print(' * Container exit code:'),
+            sys.stdout.write(' * Container exit code: ')
             sys.stdout.flush()
             rcode_call = subprocess.Popen(
                 [self.options.docker_binary, 'inspect', '--format={{.State.ExitCode}}', cid],
@@ -729,9 +732,9 @@ class SaltTestingParser(optparse.OptionParser):
 
             if self.options.docked_skip_delete is False and \
                     (self.options.docked_skip_delete_on_errors is False or
-                    (self.options.docked_skip_delete_on_error and
-                     returncode == 0)):
-                print(' * Cleaning Up Temporary Docker Container. CID:'),
+                            (self.options.docked_skip_delete_on_error and
+                                returncode == 0)):
+                sys.stdout.write(' * Cleaning Up Temporary Docker Container. CID: ')
                 sys.stdout.flush()
                 cleanup_call = subprocess.Popen(
                     [self.options.docker_binary, 'rm', cid],
@@ -785,13 +788,9 @@ class SaltTestingParser(optparse.OptionParser):
 
             elif option.action == 'append':
                 for val in (value is not None and value or default):
-                    calling_args.extend(
-                       [option.get_opt_string(), str(val)]
-                )
+                    calling_args.extend([option.get_opt_string(), str(val)])
             elif option.action == 'count':
-                calling_args.extend(
-                    [option.get_opt_string()] * value
-                )
+                calling_args.extend([option.get_opt_string()] * value)
             else:
                 calling_args.extend(
                     [option.get_opt_string(),
