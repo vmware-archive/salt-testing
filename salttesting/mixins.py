@@ -388,7 +388,23 @@ class ShellCaseCommonTestsMixIn(CheckShellBinaryNameAndVersionMixIn):
         self.assertIn(parsed_version.string, out)
 
 
-class LoaderModuleMockMixin(object):
+class _FixLoaderModuleMockMixinMroOrder(type):
+    '''
+    This metaclass will make sure that LoaderModuleMockMixin will always come as the first
+    base class in order for LoaderModuleMockMixin.setUp to actually run
+    '''
+    def __new__(mcs, cls_name, cls_bases, cls_dict):
+        if cls_name == 'LoaderModuleMockMixin':
+            return super(_FixLoaderModuleMockMixinMroOrder, mcs).__new__(mcs, cls_name, cls_bases, cls_dict)
+        bases = list(cls_bases)
+        for idx, base in enumerate(bases):
+            if base.__name__ == 'LoaderModuleMockMixin':
+                bases.insert(0, bases.pop(idx))
+                break
+        return super(_FixLoaderModuleMockMixinMroOrder, mcs).__new__(mcs, cls_name, tuple(bases), cls_dict)
+
+
+class LoaderModuleMockMixin(six.with_metaclass(_FixLoaderModuleMockMixinMroOrder, object)):
     def setUp(self):
         loader_module = getattr(self, 'loader_module', None)
         if loader_module is not None:
