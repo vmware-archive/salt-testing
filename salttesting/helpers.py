@@ -16,6 +16,7 @@ from __future__ import absolute_import
 import os
 import sys
 import time
+import errno
 import types
 import signal
 import socket
@@ -30,8 +31,8 @@ from salttesting.unit import skip, _id
 # Import 3rd-party libs
 import six
 import psutil
-if sys.version_info < (3,):
-    import __builtin__  # pylint: disable=incompatible-py3-code
+if six.PY2:
+    import __builtin__  # pylint: disable=incompatible-py3-code,import-error
 else:
     import builtins as __builtin__  # pylint: disable=import-error
 
@@ -166,7 +167,7 @@ def requires_sshd_server(caller):
     @wraps(caller)
     def wrap(cls):
         if os.environ.get('SSH_DAEMON_RUNNING', 'False').lower() == 'false':
-            self.skipTest('SSH tests are disabled')
+            cls.skipTest('SSH tests are disabled')
         return caller(cls)
     return wrap
 
@@ -1093,6 +1094,151 @@ def skip_if_not_root(func):
     return func
 
 
+if sys.platform.startswith('win'):
+    SIGTERM = signal.CTRL_BREAK_EVENT  # pylint: disable=no-member
+else:
+    SIGTERM = signal.SIGTERM
+
+
+def collect_child_processes(pid):
+    '''
+    Try to collect any started child processes of the provided pid
+    '''
+    # Let's get the child processes of the started subprocess
+    try:
+        parent = psutil.Process(pid)
+        if hasattr(parent, 'children'):
+            children = parent.children(recursive=True)
+        else:
+            children = []
+    except psutil.NoSuchProcess:
+        children = []
+    return children[::-1]  # return a reversed list of the children
+
+
+def _terminate_process_list(process_list, kill=False, slow_stop=False):
+    for process in process_list[:][::-1]:  # Iterate over a reversed copy of the list
+        if not psutil.pid_exists(process.pid):
+            process_list.remove(process)
+            continue
+        try:
+            if not kill and process.status() == psutil.STATUS_ZOMBIE:
+                # Zombie processes will exit once child processes also exit
+                continue
+            try:
+                cmdline = process.cmdline()
+            except psutil.AccessDenied:
+                # OSX is more restrictive about the above information
+                cmdline = None
+            if not cmdline:
+                try:
+                    cmdline = process.as_dict()
+                except Exception:
+                    cmdline = 'UNKNOWN PROCESS'
+            if kill:
+                log.info('Killing process(%s): %s', process.pid, cmdline)
+                process.kill()
+            else:
+                log.info('Terminating process(%s): %s', process.pid, cmdline)
+                try:
+                    if slow_stop:
+                        # Allow coverage data to be written down to disk
+                        process.send_signal(SIGTERM)
+                        try:
+                            process.wait(2)
+                        except psutil.TimeoutExpired:
+                            if psutil.pid_exists(process.pid):
+                                continue
+                    else:
+                        process.terminate()
+                except OSError as exc:
+                    if exc.errno not in (errno.ESRCH, errno.EACCES):
+                        raise
+            if not psutil.pid_exists(process.pid):
+                process_list.remove(process)
+        except psutil.NoSuchProcess:
+            process_list.remove(process)
+
+
+def terminate_process_list(process_list, kill=False, slow_stop=False):
+
+    def on_process_terminated(proc):
+        log.info('Process %s terminated with exit code: %s', getattr(proc, '_cmdline', proc), proc.returncode)
+
+    # Try to terminate processes with the provided kill and slow_stop parameters
+    log.info('Terminating process list. 1st step. kill: %s, slow stop: %s', kill, slow_stop)
+
+    # Cache the cmdline since that will be inaccessible once the process is terminated
+    for proc in process_list:
+        try:
+            cmdline = proc.cmdline()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            # OSX is more restrictive about the above information
+            cmdline = None
+        if not cmdline:
+            try:
+                cmdline = proc
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                cmdline = '<could not be retrived; dead process: {0}>'.format(proc)
+        proc._cmdline = cmdline
+    _terminate_process_list(process_list, kill=kill, slow_stop=slow_stop)
+    psutil.wait_procs(process_list, timeout=15, callback=on_process_terminated)
+
+    if process_list:
+        # If there's still processes to be terminated, retry and kill them if slow_stop is False
+        log.info('Terminating process list. 2nd step. kill: %s, slow stop: %s', slow_stop is False, slow_stop)
+        _terminate_process_list(process_list, kill=slow_stop is False, slow_stop=slow_stop)
+        psutil.wait_procs(process_list, timeout=10, callback=on_process_terminated)
+
+    if process_list:
+        # If there's still processes to be terminated, just kill them, no slow stopping now
+        log.info('Terminating process list. 3rd step. kill: True, slow stop: False')
+        _terminate_process_list(process_list, kill=True, slow_stop=False)
+        psutil.wait_procs(process_list, timeout=5, callback=on_process_terminated)
+
+    if process_list:
+        # In there's still processes to be terminated, log a warning about it
+        log.warning('Some processes failed to properly terminate: %s', process_list)
+
+
+def terminate_process(pid=None, process=None, children=None, kill_children=False, slow_stop=False):
+    '''
+    Try to terminate/kill the started processe
+    '''
+    children = children or []
+    process_list = []
+
+    def on_process_terminated(proc):
+        log.info('Process %s terminated with exit code: %s', getattr(proc, '_cmdline', proc), proc.returncode)
+
+    if pid and not process:
+        try:
+            process = psutil.Process(pid)
+            process_list.append(process)
+        except psutil.NoSuchProcess:
+            # Process is already gone
+            process = None
+
+    if kill_children:
+        if process:
+            if not children:
+                children = collect_child_processes(process.pid)
+            else:
+                # Let's collect children again since there might be new ones
+                children.extend(collect_child_processes(pid))
+        if children:
+            process_list.extend(children)
+
+    if process_list:
+        if process:
+            log.info('Stopping process %s and respective children: %s', process, children)
+        else:
+            log.info('Terminating process list: %s', process_list)
+        terminate_process_list(process_list, kill=slow_stop is False, slow_stop=slow_stop)
+        if psutil.pid_exists(pid):
+            log.warning('Process left behind which we were unable to kill: %s', process)
+
+
 def terminate_process_pid(pid, only_children=False):
     children = []
     process = None
@@ -1100,77 +1246,10 @@ def terminate_process_pid(pid, only_children=False):
     # Let's begin the shutdown routines
     try:
         process = psutil.Process(pid)
-        if hasattr(process, 'children'):
-            children = process.children(recursive=True)
+        children = collect_child_processes(pid)
     except psutil.NoSuchProcess:
         log.info('No process with the PID %s was found running', pid)
 
-    if process and only_children is False:
-        try:
-            cmdline = process.cmdline()
-        except psutil.AccessDenied:
-            # OSX denies us access to the above information
-            cmdline = None
-        except TypeError:
-            # Very old versions of psutil put this in a list
-            cmdline = process.cmdline
-        if not cmdline:
-            try:
-                cmdline = process.as_dict()
-            except Exception:
-                cmdline = 'UNKNOWN PROCESS'
-
-        if psutil.pid_exists(pid):
-            log.info('Terminating process: %s', cmdline)
-            process.terminate()
-            try:
-                process.wait(timeout=10)
-            except psutil.TimeoutExpired:
-                pass
-
-        if psutil.pid_exists(pid):
-            log.warning('Killing process: %s', cmdline)
-            process.kill()
-
-        if psutil.pid_exists(pid):
-            log.warning('Process left behind which we were unable to kill: %s', cmdline)
-
-    if children:
-        # Lets log and kill any child processes which salt left behind
-        def kill_children(_children, kill=False):
-            for child in _children[:][::-1]:  # Iterate over a reversed copy of the list
-                try:
-                    if not kill and child.status() == psutil.STATUS_ZOMBIE:
-                        # Zombie processes will exit once child processes also exit
-                        continue
-                    if child.pid == os.getpid():
-                        continue
-                    try:
-                        cmdline = child.cmdline()
-                    except psutil.AccessDenied:
-                        # OSX denies us access to the above information
-                        cmdline = None
-                    if not cmdline:
-                        cmdline = child.as_dict()
-                    if kill:
-                        log.warning('Killing child process left behind: %s', cmdline)
-                        child.kill()
-                    else:
-                        log.warning('Terminating child process left behind: %s', cmdline)
-                        child.terminate()
-                    if not psutil.pid_exists(child.pid):
-                        _children.remove(child)
-                except psutil.NoSuchProcess:
-                    _children.remove(child)
-        try:
-            kill_children([child for child in children if child.is_running()
-                           and not any(sys.argv[0] in cmd for cmd in child.cmdline())])
-        except psutil.AccessDenied:
-            # OSX denies us access to the above information
-            kill_children(children)
-
-        if children:
-            psutil.wait_procs(children, timeout=3, callback=lambda proc: kill_children(children, kill=True))
-
-        if children:
-            psutil.wait_procs(children, timeout=1, callback=lambda proc: kill_children(children, kill=True))
+    if only_children:
+        return terminate_process(children=children, kill_children=True, slow_stop=True)
+    return terminate_process(pid=pid, process=process, children=children, kill_children=True, slow_stop=True)
