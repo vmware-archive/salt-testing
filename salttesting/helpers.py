@@ -16,6 +16,7 @@ from __future__ import absolute_import
 import os
 import sys
 import time
+import errno
 import types
 import signal
 import socket
@@ -30,8 +31,8 @@ from salttesting.unit import skip, _id
 # Import 3rd-party libs
 import six
 import psutil
-if sys.version_info < (3,):
-    import __builtin__  # pylint: disable=incompatible-py3-code
+if six.PY2:
+    import __builtin__  # pylint: disable=incompatible-py3-code,import-error
 else:
     import builtins as __builtin__  # pylint: disable=import-error
 
@@ -166,7 +167,7 @@ def requires_sshd_server(caller):
     @wraps(caller)
     def wrap(cls):
         if os.environ.get('SSH_DAEMON_RUNNING', 'False').lower() == 'false':
-            self.skipTest('SSH tests are disabled')
+            cls.skipTest('SSH tests are disabled')
         return caller(cls)
     return wrap
 
@@ -1091,6 +1092,12 @@ def skip_if_not_root(func):
         func.__unittest_skip__ = True
         func.__unittest_skip_why__ = 'You must be logged in as root to run this test'
     return func
+
+
+if sys.platform.startswith('win'):
+    SIGTERM = signal.CTRL_BREAK_EVENT  # pylint: disable=no-member
+else:
+    SIGTERM = signal.SIGTERM
 
 
 def collect_child_processes(pid):
