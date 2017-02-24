@@ -1235,7 +1235,7 @@ def terminate_process(pid=None, process=None, children=None, kill_children=False
         else:
             log.info('Terminating process list: %s', process_list)
         terminate_process_list(process_list, kill=slow_stop is False, slow_stop=slow_stop)
-        if psutil.pid_exists(pid):
+        if process and psutil.pid_exists(process.pid):
             log.warning('Process left behind which we were unable to kill: %s', process)
 
 
