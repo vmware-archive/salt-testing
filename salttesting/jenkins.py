@@ -181,13 +181,13 @@ def generate_ssh_keypair(options):
 
     exitcode = run_command(
         'ssh-keygen -b 2048 -C "$(whoami)@$(hostname)-$(date \"+%Y-%m-%dT%H:%M:%S%z\")" '
-        '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
+        '-f {0} -N \'\' -V -10m:+8h'.format(ssh_key_path),
         options
     )
     if exitcode != 0:
         exitcode = run_command(
             'ssh-keygen -t rsa -b 2048 -C "$(whoami)@$(hostname)-$(date \"+%Y-%m-%dT%H:%M:%S%z\")" '
-            '-f {0} -N \'\' -V -10m:+2h'.format(ssh_key_path),
+            '-f {0} -N \'\' -V -10m:+8h'.format(ssh_key_path),
             options
         )
         if exitcode != 0:
