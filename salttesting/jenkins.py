@@ -8,6 +8,7 @@
 
     Jenkins execution helper script
 '''
+# pylint: disable=repr-flag-used-in-string,wrong-import-order
 
 # Import python libs
 from __future__ import absolute_import, print_function
@@ -16,7 +17,6 @@ import sys
 import json
 import time
 import pipes
-import time
 import random
 import hashlib
 import socket
@@ -555,8 +555,8 @@ def bootstrap_parallels_minion(options):
         run_command(_prl_cmd('revert_snapshot', options.vm_source, options.vm_snapshot), options)
         # Get source VM state
         source_state = run_command(_prl_cmd('status', options.vm_source),
-                                            options,
-                                            return_output=True)[0]
+                                   options,
+                                   return_output=True)[0]
 
         # Ensure source VM is stopped since running VMs cannot be cloned
         if 'running' in source_state:
@@ -707,10 +707,9 @@ def prepare_ssh_access(options):
         provider_password = cloud_config['providers']['linode']['linode']['password']
 
         # Using the password, we can construct a data structure for a salt-ssh roster
-        roster_data = {options.vm_name:
-                            {'host': get_minion_ip_address(options, sync=False),
-                            'passwd': provider_password}
-                        }
+        roster_data = {options.vm_name: {
+                        'host': get_minion_ip_address(options, sync=False),
+                        'passwd': provider_password}}
         # FIXME Perms!
         if not os.path.exists('/tmp/.jenkins_ssh'):
             os.mkdir('/tmp/.jenkins_ssh')
@@ -889,7 +888,9 @@ def get_minion_ip_address(options, sync=True):
             if options.ssh_private_address:
                 ip_address = find_private_addr(ip_info[options.vm_name])
             else:
-                ip_address = ip_info[options.vm_name][0]
+                ip_address = ip_info[options.vm_name]
+                if isinstance(ip_address, (list, tuple)):
+                    ip_address = ip_address[0]
             if not ip_address:
                 print_bulleted(
                     options,
@@ -1443,7 +1444,7 @@ def run_state_on_vm(options, state_name, saltenv=None, timeout=100):
     if getattr(options, 'require_sudo', False) and not options.windows:
         cmd.insert(0, 'sudo')
 
-    cmd.extend(['state.sls', state_name ])
+    cmd.extend(['state.sls', state_name])
     if options.windows:
         cmd.append(
             # This needed to get the formatting correct '"'"'C:\temp'"'"'
