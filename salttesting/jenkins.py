@@ -1477,7 +1477,7 @@ def check_cloned_reposiory_commit(options):
     cmd.extend([
         options.vm_name,
         'git.revision',
-        '/{0}'.format(options.package_source_dir)
+        '{0}'.format(options.package_source_dir)
     ])
 
     stdout, stderr, exitcode = run_command(cmd,
@@ -1776,7 +1776,7 @@ def build_default_test_command(options):
             '{0}\\tests\\runtests.py'.format(options.package_source_dir))
     else:
         test_command.append(
-            '/{0}/tests/runtests.py'.format(options.package_source_dir))
+            '{0}/tests/runtests.py'.format(options.package_source_dir))
     # Append basic command parameters
     test_command.extend([
         '-v',
