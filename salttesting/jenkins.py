@@ -932,10 +932,9 @@ def get_minion_python_executable(options):
     if options.no_color:
         cmd.append('--no-color')
     cmd.append(options.vm_name)
-    if options.windows:
-        cmd.extend(['cmd.which', 'python'])
-    else:
-        cmd.extend(['grains.get', 'pythonexecutable'])
+
+    cmd.extend(['grains.get', 'pythonexecutable'])
+
     stdout, stderr, exitcode = run_command(cmd,
                                            options,
                                            return_output=True,
@@ -960,7 +959,12 @@ def get_minion_python_executable(options):
         python_executable = json.loads(stdout.strip())
         python_executable = python_executable[options.vm_name]
         if options.test_with_python3:
-            python_executable = '/usr/bin/python3'
+            if options.windows:
+                python_executable = 'C:\\Program Files\\Python35\\python.exe'
+            else:
+                python_executable = '/usr/bin/python3'
+        if options.windows:
+            python_executable = '"{0}"'.format(python_executable)
         setattr(options, 'minion_python_executable', python_executable)
         save_state(options)
         return python_executable
@@ -1056,9 +1060,9 @@ def check_win_minion_connected(options):
                options.vm_name, 'test.ping']
 
         # Attempt to connect to the new minion, it can take a while with a new
-        # install. We'll try 12 times (1 min)
+        # install. We'll try 24 times (6 min)
         retries = 0
-        while retries <= 12:
+        while retries <= 24:
 
             retries += 1
             stdout, stderr, exitcode = run_command(
@@ -1070,7 +1074,7 @@ def check_win_minion_connected(options):
                     'Failed to return a ping from the minion. Exit code: {0}'
                     ''.format(exitcode), 'RED'
                 )
-                if retries > 12:
+                if retries > 24:
                     sys.exit(exitcode)
 
             if not stdout.strip():
@@ -1078,7 +1082,7 @@ def check_win_minion_connected(options):
                     options,
                     'Failed to return a ping from the minion (no output).',
                     'RED')
-                if retries > 12:
+                if retries > 24:
                     sys.exit(1)
 
             try:
@@ -1094,12 +1098,12 @@ def check_win_minion_connected(options):
                     'Failed to load any JSON from {0!r}'.format(stdout.strip()),
                     'RED')
 
-                if retries <= 12:
+                if retries <= 24:
                     print_bulleted(
                         options,
-                        'Trying again in 5 seconds. Retry {0}'.format(retries),
+                        'Trying again in 30 seconds. Retry {0}'.format(retries),
                         'RED')
-                    time.sleep(5)
+                    time.sleep(30)
 
                 print_flush('\n')
                 continue
@@ -1119,7 +1123,7 @@ def check_win_minion_connected(options):
                         'Failed to reboot the minion. Exit code: {0}'
                         ''.format(exitcode), 'RED'
                     )
-                    if retries > 12:
+                    if retries > 24:
                         sys.exit(1)
 
                 if not stdout.strip():
@@ -1127,7 +1131,7 @@ def check_win_minion_connected(options):
                         options,
                         'Failed to reboot the minion (no output).',
                         'RED')
-                    if retries > 12:
+                    if retries > 24:
                         sys.exit(1)
 
                 try:
@@ -1168,13 +1172,13 @@ def check_win_minion_connected(options):
                 print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
                 print_bulleted(options, 'The minion did not return.', 'YELLOW')
 
-                if retries <= 12:
+                if retries <= 24:
                     print_bulleted(
                         options,
-                        'Trying again in 5 seconds. Retry {0}'
+                        'Trying again in 30 seconds. Retry {0}'
                         ''.format(retries),
                         'YELLOW')
-                    time.sleep(5)
+                    time.sleep(30)
 
                 print_flush('\n')
 
@@ -1184,7 +1188,7 @@ def check_win_minion_connected(options):
                options.vm_name, 'test.ping']
 
         retries = 0
-        while retries <= 12:
+        while retries <= 24:
 
             retries += 1
             stdout, stderr, exitcode = run_command(
@@ -1196,7 +1200,7 @@ def check_win_minion_connected(options):
                     'Failed to return a ping from the minion. Exit code: {0}'
                     ''.format(exitcode), 'RED'
                 )
-                if retries > 12:
+                if retries > 24:
                     sys.exit(exitcode)
 
             if not stdout.strip():
@@ -1204,7 +1208,7 @@ def check_win_minion_connected(options):
                     options,
                     'Failed to return a ping from the minion (no output).',
                     'RED')
-                if retries > 12:
+                if retries > 24:
                     sys.exit(1)
 
             try:
@@ -1220,7 +1224,7 @@ def check_win_minion_connected(options):
                     'Failed to load any JSON from {0!r}'.format(stdout.strip()),
                     'RED')
 
-                if retries <= 12:
+                if retries <= 24:
                     print_bulleted(
                         options,
                         'Trying again in 30 seconds. Retry {0}'.format(retries),
@@ -1255,7 +1259,7 @@ def check_win_minion_connected(options):
            options.vm_name, 'grains.items']
 
     retries = 0
-    while retries <= 12:
+    while retries <= 24:
         retries += 1
         stdout, stderr, exitcode = run_command(
             cmd, options, return_output=True, stream_stdout=False,
@@ -1266,7 +1270,7 @@ def check_win_minion_connected(options):
                 'Failed to load grains from the minion. Exit code: {0}'
                 ''.format(exitcode),
                 'RED')
-            if retries > 12:
+            if retries > 24:
                 sys.exit(exitcode)
 
         if not stdout.strip():
@@ -1274,7 +1278,7 @@ def check_win_minion_connected(options):
                 options,
                 'Failed to load grains from the minion (no output).',
                 'RED')
-            if retries > 12:
+            if retries > 24:
                 sys.exit(1)
 
         try:
@@ -1291,7 +1295,7 @@ def check_win_minion_connected(options):
                 'Failed to load any JSON from {0!r}'.format(stdout.strip()),
                 'RED')
 
-            if retries <= 12:
+            if retries <= 24:
                 print_bulleted(
                     options,
                     'Trying again in 5 seconds. Retry {0}'.format(retries),
@@ -1328,7 +1332,7 @@ def check_win_minion_connected(options):
             print_bulleted(options, 'ATTENTION!!!!', 'YELLOW')
             print_bulleted(options, 'The minion did not return.', 'YELLOW')
 
-            if retries <= 12:
+            if retries <= 24:
                 print_bulleted(
                     options,
                     'Trying again in 5 seconds. Retries {0}'
@@ -1590,9 +1594,9 @@ def run_winexe_command(options, remote_command):
     )
     if isinstance(remote_command, list):
         remote_command = ' '.join(remote_command)
-    cmd = 'winexe {0} \'cmd /c {1}\'' \
+    cmd = 'winexe {0} \'cmd /c "{1}"\'' \
           ''.format(credentials, remote_command)
-    logging_cmd = 'winexe {0} \'cmd /c {1}\'' \
+    logging_cmd = 'winexe {0} \'cmd /c "{1}"\'' \
                   ''.format(logging_credentials, remote_command)
     print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
     return win_cmd(cmd, logging_command=logging_cmd)
