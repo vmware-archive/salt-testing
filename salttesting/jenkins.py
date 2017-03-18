@@ -1060,7 +1060,7 @@ def check_win_minion_connected(options):
                options.vm_name, 'test.ping']
 
         # Attempt to connect to the new minion, it can take a while with a new
-        # install. We'll try 24 times (6 min)
+        # install. We'll try 24 times (12 min)
         retries = 0
         while retries <= 24:
 
@@ -1183,7 +1183,7 @@ def check_win_minion_connected(options):
                 print_flush('\n')
 
         # Ping the minion until it stops returning pings.
-        # We'll try 12 times (6 min)
+        # We'll try 24 times (12 min)
         cmd = ['salt', '--out=json', '-l', options.log_level,
                options.vm_name, 'test.ping']
 
