@@ -932,10 +932,9 @@ def get_minion_python_executable(options):
     if options.no_color:
         cmd.append('--no-color')
     cmd.append(options.vm_name)
-    if options.windows:
-        cmd.extend(['cmd.which', 'python'])
-    else:
-        cmd.extend(['grains.get', 'pythonexecutable'])
+
+    cmd.extend(['grains.get', 'pythonexecutable'])
+
     stdout, stderr, exitcode = run_command(cmd,
                                            options,
                                            return_output=True,
@@ -960,7 +959,12 @@ def get_minion_python_executable(options):
         python_executable = json.loads(stdout.strip())
         python_executable = python_executable[options.vm_name]
         if options.test_with_python3:
-            python_executable = '/usr/bin/python3'
+            if options.windows:
+                python_executable = 'C:\\Program Files\\Python35\\python.exe'
+            else:
+                python_executable = '/usr/bin/python3'
+        if options.windows:
+            python_executable = '"{0}"'.format(python_executable)
         setattr(options, 'minion_python_executable', python_executable)
         save_state(options)
         return python_executable
@@ -1590,9 +1594,9 @@ def run_winexe_command(options, remote_command):
     )
     if isinstance(remote_command, list):
         remote_command = ' '.join(remote_command)
-    cmd = 'winexe {0} \'cmd /c {1}\'' \
+    cmd = 'winexe {0} \'cmd /c "{1}"\'' \
           ''.format(credentials, remote_command)
-    logging_cmd = 'winexe {0} \'cmd /c {1}\'' \
+    logging_cmd = 'winexe {0} \'cmd /c "{1}"\'' \
                   ''.format(logging_credentials, remote_command)
     print_bulleted(options, 'Running WinEXE command: {0}'.format(logging_cmd))
     return win_cmd(cmd, logging_command=logging_cmd)
