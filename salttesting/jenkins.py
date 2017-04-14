@@ -960,7 +960,7 @@ def get_minion_python_executable(options):
         python_executable = python_executable[options.vm_name]
         if options.test_with_python3:
             if options.windows:
-                python_executable = 'C:\\Program Files\\Python35\\python.exe'
+                python_executable = 'C:\\PROGRA~1\\Python35\\python.exe'
             else:
                 python_executable = '/usr/bin/python3'
         if options.windows:
