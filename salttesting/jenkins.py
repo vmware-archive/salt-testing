@@ -924,56 +924,53 @@ def get_minion_python_executable(options):
 
     sync_minion(options)
 
-    cmd = [
-        'salt',
-        '--out=json',
-        '-l', options.log_level
-    ]
-    if options.no_color:
-        cmd.append('--no-color')
-    cmd.append(options.vm_name)
-
-    cmd.extend(['grains.get', 'pythonexecutable'])
-
-    stdout, stderr, exitcode = run_command(cmd,
-                                           options,
-                                           return_output=True,
-                                           stream_stdout=False,
-                                           stream_stderr=False)
-    if exitcode != 0:
-        print_bulleted(
-            options,
-            'Failed to get the minion python executable. Exit code: {0}'
-            ''.format(exitcode),
-            'RED')
-        sys.exit(exitcode)
-
-    if not stdout.strip():
-        print_bulleted(
-            options,
-            'Failed to get the minion python executable (no output)',
-            'RED')
-        sys.exit(1)
-
-    try:
-        python_executable = json.loads(stdout.strip())
-        python_executable = python_executable[options.vm_name]
+    if options.windows:
         if options.test_with_python3:
-            if options.windows:
-                python_executable = 'C:\\PROGRA~1\\Python35\\python.exe'
-            else:
-                python_executable = '/usr/bin/python3'
-        if options.windows:
-            python_executable = '"{0}"'.format(python_executable)
-        setattr(options, 'minion_python_executable', python_executable)
-        save_state(options)
-        return python_executable
-    except (ValueError, TypeError):
-        print_bulleted(
-            options,
-            'Failed to load any JSON from {0!r}'
-            ''.format(stdout.strip()),
-            'RED')
+            python_executable = 'C:\\PROGRA~1\\Python35\\python.exe'
+        else:
+            python_executable = 'C:\\Python27\\python.exe'
+    else:
+        if options.test_with_python3:
+            python_executable = '/usr/bin/python3'
+        else:
+            cmd = ['salt', '--out=json', '-l', options.log_level]
+            if options.no_color:
+                cmd.append('--no-color')
+            cmd.extend([options.vm_name, 'grains.get', 'pythonexecutable'])
+
+            stdout, stderr, exitcode = run_command(cmd,
+                                                   options,
+                                                   return_output=True,
+                                                   stream_stdout=False,
+                                                   stream_stderr=False)
+            if exitcode != 0:
+                print_bulleted(
+                    options,
+                    'Failed to get the minion python executable. Exit code: {0}'
+                    ''.format(exitcode),
+                    'RED')
+                sys.exit(exitcode)
+
+            if not stdout.strip():
+                print_bulleted(
+                    options,
+                    'Failed to get the minion python executable (no output)',
+                    'RED')
+                sys.exit(1)
+
+            try:
+                python_executable = json.loads(stdout.strip())
+                python_executable = python_executable[options.vm_name]
+            except (ValueError, TypeError):
+                print_bulleted(
+                    options,
+                    'Failed to load any JSON from {0!r}'
+                    ''.format(stdout.strip()),
+                    'RED')
+
+    setattr(options, 'minion_python_executable', python_executable)
+    save_state(options)
+    return python_executable
 
 
 def delete_cloud_vm(options):
