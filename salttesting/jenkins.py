@@ -413,7 +413,9 @@ def bootstrap_cloud_minion(options):
         script_args.append('-I')
     if options.bootstrap_salt_url != SALT_GIT_URL:
         script_args.extend(['-g', options.bootstrap_salt_url])
-    if options.bootstrap_salt_commit:
+    if options.bootstrap_stable_install:
+        script_args.extend(['stable', options.bootstrap_stable_install])
+    if options.bootstrap_salt_commit and not options.bootstrap_stable_install:
         script_args.extend(['git', options.bootstrap_salt_commit])
 
     cmd = ['salt-cloud',
@@ -1977,6 +1979,11 @@ def get_args():
         action='store_true',
         default=False,
         help='Run the `setup.py install` step of bootstrap with `-q`'
+    )
+    bootstrap_script_options.add_argument(
+        '--bootstrap-stable-install',
+        default=None,
+        help='The salt stable install to bootstrap a minion'
     )
 
     # VM related options
