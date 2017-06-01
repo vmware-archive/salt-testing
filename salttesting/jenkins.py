@@ -1802,6 +1802,9 @@ def build_default_test_command(options):
             ''.format(options.package_source_dir))
     test_command.append('--xml=/tmp/xml-unittests-output')
 
+    if options.test_with_bash is True:
+        test_command = ['/bin/bash', '-li', '-c', '"{0}"'.format(' '.join(test_command))]
+
     return test_command
 
 
@@ -2089,6 +2092,12 @@ def get_args():
         default=False,
         action='store_true',
         help='Use python3 instead of python2 to run the test suite'
+    )
+    testing_source_options.add_argument(
+        '--test-with-bash',
+        default=False,
+        action='store_true',
+        help='Use bash instead of execing python across ssh'
     )
     testing_source_options.add_argument(
         '--test-prep-sls',
