@@ -1800,6 +1800,7 @@ def build_default_test_command(options):
         test_command.append(
             '--names-file="{0}\\tests\\whitelist.txt"'
             ''.format(options.package_source_dir))
+        test_command.append('--unit-tests')
     test_command.append('--xml=/tmp/xml-unittests-output')
 
     if options.test_with_bash is True:
