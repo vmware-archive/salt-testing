@@ -1797,9 +1797,10 @@ def build_default_test_command(options):
     if options.no_color:
         test_command.append('--no-color')
     if options.windows:
-        test_command.append(
+        test_command.extend([
             '--names-file="{0}\\tests\\whitelist.txt"'
-            ''.format(options.package_source_dir))
+            ''.format(options.package_source_dir),
+            '--unit-tests'])
     test_command.append('--xml=/tmp/xml-unittests-output')
 
     if options.test_with_bash is True:
