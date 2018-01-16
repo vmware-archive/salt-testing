@@ -445,14 +445,19 @@ def bootstrap_cloud_minion(options):
         start = 0
         for line in s_ret:
             start += 1
-            if options.vm_name in line:
+            if line.startswith(options.vm_name):
                 break
 
         clean_stdout = '\n'.join(s_ret[start:]).replace('  ', '')
         try:
             # Failing on OpenNebula because public_ips returns []
-            print('IP', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
-            setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
+            tmpip = yaml.load(clean_stdout)['public_ips']
+            if isinstance(tmpip, list):
+                setattr(options, 'minion_ip_address', yaml.load(clean_stdout)['public_ips'][0].split()[0].encode())
+            else:
+                setattr(options, 'minion_ip_address', tmpip.encode())
+
+            print('IP', options.minion_ip_address)
         except Exception as exc:
             print('Exception encountered when processing bootstrap return for display: {0}'.format(exc))
             print(clean_stdout)
