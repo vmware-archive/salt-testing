@@ -929,6 +929,9 @@ def get_minion_python_executable(options):
             python_executable = 'C:\\PROGRA~1\\Python35\\python.exe'
         else:
             python_executable = 'C:\\Python27\\python.exe'
+    elif options.parallels_deploy:
+        if options.test_with_python3:
+            python_executable = '/usr/local/bin/python3'
     else:
         if options.test_with_python3:
             python_executable = '/usr/bin/python3'
