@@ -601,8 +601,12 @@ def bootstrap_parallels_minion(options):
         '''
         # TODO: This function needs to be refactored into bootstrap for MacOS
 
-        pkg_name = 'salt-{0}-x86_64.pkg'.format(options.bootstrap_salt_commit.lstrip('v'))
-
+        # Fixing MAC Packages to have py2 and py3 in the package names.
+        mac_py = 'py2'
+        if options.test_with_python3:
+            mac_py = 'py3'
+        pkg_name = 'salt-{0}-{1}-x86_64.pkg'.format(options.bootstrap_salt_commit.lstrip('v'), mac_py)
+        print_bulleted(options, 'Package Name is: ' + pkg_name, 'LIGHT_GREEN')
         # Wait for network to finish configuring (and VM to finish starting)
         ping_cmd = 'ping -c 3 repo.saltstack.com'
         ping_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(ping_cmd))
@@ -621,7 +625,10 @@ def bootstrap_parallels_minion(options):
         downl_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(downl_cmd))
         run_command(downl_wrap, options)
         # Wait for package to finish downloading by first downloading the hash
-        hash_cmd = 'cat /tmp/{0}.md5'.format(pkg_name)
+
+        # Stripped out the package name from the .md5 file for the comparison
+        hash_cut_cmd = '; echo $1 | perl -ne \\"print lc\\"'
+        hash_cmd = 'set `cat /tmp/{0}.md5` {1}'.format(pkg_name, hash_cut_cmd)
         hash_wrap = _prl_cmd('exec', options.vm_name, command=pipes.quote(hash_cmd))
         hash_code = run_command(hash_wrap, options, return_output=True)[0]
         # And then comparing it to the actual hash
