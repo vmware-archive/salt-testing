@@ -732,7 +732,12 @@ def prepare_ssh_access(options):
         roster_fh.close()
 
         # We also need a master config file. Ours will point to the salt-jenkins repo and mount it with GitFS
-        ssh_master_conf_data = {'fileserver_backend': ['git'], 'gitfs_remotes': ['https://github.com/saltstack/salt-jenkins.git']}
+        ssh_master_conf_data = {
+            'fileserver_backend': ['git'],
+            'gitfs_remotes': [
+                '{} {}'.format(options.salt_jenkins_repo, options.salt_jenkins_branch),
+            ],
+        }
 
         with open('/tmp/.jenkins_ssh/master', 'w') as master_fh:
             yaml.dump(ssh_master_conf_data, stream=master_fh)
@@ -2136,6 +2141,16 @@ def get_args():
         '--show-default-command',
         action='store_true',
         help='Print out the default command that runs the test suite on the deployed VM'
+    )
+    testing_source_options.add_argument(
+        '--salt-jenkins-repo',
+        default=os.environ.get('SALT_JENKINS_REPO', 'https://github.com/saltstack/salt-jenkins.git'),
+        help='The repository that contains the environment prep states, usually salt-jenkins.'
+    )
+    testing_source_options.add_argument(
+        '--salt-jenkins-branch',
+        default=os.environ.get('SALT_JENKINS_BRANCH', 'develop'),
+        help='The branch of the `salt-jenkins-repo` to use..'
     )
     testing_source_options.add_argument(
         '--update-winrepo',
